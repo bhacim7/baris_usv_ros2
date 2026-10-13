@@ -1,0 +1,6 @@
+ws/build/
+ws/install/
+ws/log/
+ws/bags/
+__pycache__/
+*.pyc

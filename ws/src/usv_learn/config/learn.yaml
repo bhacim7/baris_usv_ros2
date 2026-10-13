@@ -1,0 +1,5 @@
+distance_monitor:
+  ros__parameters:
+    target_lat: 40.8090735
+    target_lon: 29.2622975
+    arrival_radius_m: 15.0
