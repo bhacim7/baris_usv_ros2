@@ -1,0 +1,294 @@
+# USV ROS 2 Architecture
+
+Status: **approved** (2026-10-22). Message field lists in section 7 are drafts and are
+finalised when the `usv_interfaces` package is written.
+
+## 1. Purpose and scope
+
+Port the field-proven multiprocess autonomy stack of the USV (TEKNOFEST 2026) to
+ROS 2 Jazzy, test it in Gazebo Harmonic / VRX, run it on the boat's Jetson AGX Thor,
+and then adapt it to RoboBoat.
+
+- Legacy reference: `github.com/bhacim7/mutliprocess`, commit `5df3f5b` (local copy in
+  `~/usv_legacy`, read-only).
+- The legacy system stays deployable as a fallback until the ROS 2 version has completed
+  the same course at sea.
+
+## 2. Principles
+
+1. **Port, do not rewrite.** Algorithms move into a ROS-free Python library and are wrapped
+   by nodes. Behaviour that was tuned on the water must survive the port.
+2. **Same nodes in simulation and on the boat.** Only the hardware bridges differ
+   (`fc_bridge` / `perception` on the boat, `sim_bridge` / `fake_perception` in simulation).
+3. **Every algorithm is testable without ROS.** `usv_core` has unit tests that compare its
+   output with the legacy code on the same inputs.
+4. **Naming.** Everything in code and in the ROS graph is English. Prefix `usv`.
+5. **Measure before tuning.** Simulation validates logic; gains are tuned from field data
+   (rosbag), not guessed.
+
+### Invariants carried over from the legacy code
+
+These are not cleaned up during the port, because the gains were tuned against them:
+
+| Invariant | Legacy location | Why it must stay |
+|---|---|---|
+| `NOMINAL_DT = 0.02` while the loop runs at 25 Hz | `utils/planner.py` | PID and Pure Pursuit D/I gains are scaled by `dt / NOMINAL_DT` |
+| Task 3 pixel error `cx - 640` with `Kp_PIXEL = 0.3` | `core/nav_process.py` | Visual-servo gain is tuned in pixels |
+| Mixer slew limit uses the previous commanded PWM per channel | `apply_motor_mixer()` | `MAX_PWM_CHANGE = 60` per cycle; state moves into the mixer itself |
+| Servo write thinning (`SERVO_MIN_PWM_DELTA`, `SERVO_REFRESH_S`) | `hardware/MainSystem2.py` | Prevents the MAVLink load that once stalled GPS for ~1.5 s |
+
+## 3. Packages
+
+| Package | Build type | Content |
+|---|---|---|
+| `usv_interfaces` | ament_cmake | Custom messages and services |
+| `usv_core` | ament_python | ROS-free library: `navigation`, `planner`, `object_memory`, `mixer`, `mission`, `controller`. Unit tests |
+| `usv_nodes` | ament_python | `navigator`, `fc_bridge`, `perception`, `heading_source`, `telemetry_bridge`, `recorder` |
+| `usv_sim` | ament_python | `sim_bridge`, `fake_perception`, boat model, worlds |
+| `usv_bringup` | ament_python | Launch files and per-node YAML parameters (replaces `config.py`) |
+| `usv_learn` | ament_python | Tutorial package, not part of the system |
+
+## 4. Node graph
+
+```
+        BOAT                                   SIMULATION
+ fc_bridge    perception              sim_bridge    fake_perception
+    │  ▲          │                       │  ▲            │
+    ▼  │          ▼   same topics, same messages          ▼
+ ┌─────────────────────────────────────────────────────────────┐
+ │ /usv/fix  /usv/speed  /usv/heading  /usv/buoys              │
+ │                        navigator                            │
+ │ /usv/thrusters/pwm   /usv/nav_status   /usv/plan            │
+ └─────────────────────────────────────────────────────────────┘
+       ▲ services                          │
+ telemetry_bridge (RFD900x <-> GCS)     recorder (CSV, costmap)
+```
+
+| Node | Legacy origin | Responsibility |
+|---|---|---|
+| `fc_bridge` | `USVController` | Wraps the existing pymavlink class. Publishes position, speed, FC heading and relay state. Applies `ThrusterPwm` with the legacy write thinning. Neutralises thrusters if no command arrives for 0.5 s. Handles relay and emergency stop |
+| `perception` | `camera_process` | ZED (pyzed) + YOLO + object memory in one process. Publishes buoys, ZED heading, attitude and FPS. Writes the HUD video (frames never leave the process) |
+| `heading_source` | heading selection in `nav_process` | Selects ZED, FC or fused heading (`HEADING_SOURCE`) and publishes `/usv/heading` |
+| `navigator` | `nav_process` | 25 Hz timer: mission state machine, local costmap, A*, Task 2 corridor, LOS/PID and Pure Pursuit, mixer. Publishes `ThrusterPwm` and `NavStatus` |
+| `telemetry_bridge` | `telem_process`, `utils/telem.py` | RFD900x JSON protocol unchanged. Turns GCS commands into service calls and echoes `aq` after a successful call |
+| `recorder` | CSV + `CostmapRecorder` | Competition deliverables: vehicle CSV (2 Hz, legacy header) and costmap record |
+| `sim_bridge` | new | Maps `/usv/*` to and from Gazebo (see section 10) |
+| `fake_perception` | new | Publishes `/usv/buoys` from ground-truth buoy positions limited by camera FOV and range |
+
+`navigator` is deliberately one node. Its internals are split into classes (section 8);
+splitting it into several nodes would add message latency inside a 25 Hz control loop for
+no benefit, and becomes trivial later once the classes exist.
+
+## 5. Topics
+
+All topics use the default reliable QoS (depth 10) unless marked *latched*
+(transient local, depth 1). Camera images are not published.
+
+| Topic | Type | Publisher | Main subscribers |
+|---|---|---|---|
+| `/usv/fix` | `sensor_msgs/NavSatFix` | `fc_bridge` / `sim_bridge` | navigator, perception, telemetry_bridge, recorder |
+| `/usv/speed` | `std_msgs/Float32` (m/s, ground speed) | `fc_bridge` / `sim_bridge` | navigator, telemetry_bridge, recorder |
+| `/usv/heading/fc` | `std_msgs/Float32` (deg) | `fc_bridge` | heading_source |
+| `/usv/heading/zed` | `std_msgs/Float32` (deg) | `perception` | heading_source |
+| `/usv/heading` | `std_msgs/Float32` (deg, 0-360, clockwise from north, declination applied) | `heading_source` / `sim_bridge` | navigator, perception, telemetry_bridge, recorder |
+| `/usv/attitude` | `geometry_msgs/Vector3Stamped` (x = roll deg, y = pitch deg) | `perception` / `sim_bridge` | recorder |
+| `/usv/relay_state` | `std_msgs/Int8` (-1 unknown, 0 off, 1 on) | `fc_bridge` / `sim_bridge` | telemetry_bridge |
+| `/usv/buoys` | `usv_interfaces/BuoyArray` | `perception` / `fake_perception` | navigator, recorder |
+| `/usv/perception/fps` | `std_msgs/Float32` | `perception` | telemetry_bridge |
+| `/usv/thrusters/pwm` | `usv_interfaces/ThrusterPwm` | `navigator` | fc_bridge / sim_bridge, telemetry_bridge, perception (HUD) |
+| `/usv/nav_status` | `usv_interfaces/NavStatus` (10 Hz) | `navigator` | telemetry_bridge, recorder, perception (HUD) |
+| `/usv/mission/waypoints` | `usv_interfaces/WaypointArray` *latched* | `navigator` | telemetry_bridge |
+| `/usv/plan` | `nav_msgs/Path` | `navigator` | RViz, recorder |
+
+## 6. Services
+
+One service per GCS command. The GCS protocol itself does not change.
+
+| Service | Type | Server | GCS command |
+|---|---|---|---|
+| `/usv/set_waypoint` | `usv_interfaces/SetWaypoint` | navigator | `set_gps` |
+| `/usv/set_task` | `usv_interfaces/SetTask` | navigator | `set_task` |
+| `/usv/set_manual` | `std_srvs/SetBool` | navigator | `set_manual` |
+| `/usv/set_target_color` | `usv_interfaces/SetTargetColor` | navigator | `set_target_color` |
+| `/usv/set_relay` | `std_srvs/SetBool` | fc_bridge | `set_relay` |
+| `/usv/emergency_stop` | `std_srvs/Trigger` | fc_bridge and navigator | `emergency_stop` |
+
+`report_status` is not mapped: telemetry is broadcast on the boat's own clock.
+
+## 7. Custom interfaces (draft)
+
+```
+# Buoy.msg
+uint32 id
+uint8 class_id                      # 0 red, 1 yellow, 2 black, 3 orange, 4 green
+float64 latitude
+float64 longitude
+bool position_ok                    # false = only seen beyond MAP_MAX_RANGE_M
+uint32 seen_count
+builtin_interfaces/Time last_seen
+float32 distance_m
+int32 cx                            # last pixel column
+int32 cy
+int32 area_px
+
+# BuoyArray.msg
+std_msgs/Header header
+uint32 image_width
+Buoy[] buoys
+
+# ThrusterPwm.msg                   # PWM in microseconds; FC channels are fc_bridge parameters
+std_msgs/Header header
+uint16 rear_left
+uint16 rear_right
+uint16 front_left
+uint16 front_right
+uint16 steer
+bool bypass_slew                    # emergency / neutralise paths
+
+# NavStatus.msg
+std_msgs/Header header
+string task_state                   # legacy state names, e.g. TASK1_STATE_ENTER
+bool manual
+bool mission_active
+bool emergency
+float64 target_latitude
+float64 target_longitude
+float32 target_distance_m
+float32 advised_course_deg
+float32 angle_error_deg
+float32 control_error_deg
+string target_color
+string target_color_source          # "cfg" or "drone"
+
+# Waypoint.msg
+uint8 index                         # GPS1..GPS8
+float64 latitude
+float64 longitude
+
+# WaypointArray.msg
+Waypoint[] waypoints
+
+# SetWaypoint.srv
+uint8 index
+float64 latitude
+float64 longitude
+---
+bool success
+string message
+
+# SetTask.srv
+string task
+---
+bool success
+string message
+
+# SetTargetColor.srv
+string color
+---
+bool success
+string message
+```
+
+## 8. Navigator internals
+
+The legacy loop mixes mission logic and motor commands (more than 20 direct
+`apply_motor_mixer` calls, many inside the Task 3 search). The port separates them:
+
+```
+inputs ──> MissionStateMachine ──Setpoint──> Controller ──effort──> Mixer ──> ThrusterPwm
+                  │                              │
+             costmap + A*                  LOS / PID / Pure Pursuit
+```
+
+- **MissionStateMachine** owns task states, waypoints and the Task 3 search. It outputs a
+  `Setpoint` and never touches motors. Setpoint modes:
+  `IDLE`, `GOTO(lat, lon)`, `TURN_TO_HEADING(deg, max_pwm)`, `VISUAL_SERVO(pixel_error)`,
+  `HOLD_COURSE`, `STOP`.
+- **Controller** turns a setpoint into forward and yaw effort, using the legacy LOS guidance,
+  Direct-Drive PID, A* + Pure Pursuit, spot-turn and taper logic unchanged.
+- **Mixer** is the legacy `apply_motor_mixer` with its slew state held internally.
+
+All three live in `usv_core` and are unit-tested without ROS. The node only wires topics,
+services and the 25 Hz timer.
+
+## 9. Safety
+
+| Situation | Behaviour |
+|---|---|
+| `emergency_stop` | `fc_bridge`: thrusters to 1500 immediately (no slew) and relay off. `navigator`: latched `emergency` state, publishes neutral. Software keeps running; telemetry keeps flowing. The FC is **not** disarmed |
+| Leaving emergency | Operator turns the relay on (`set_relay`), then re-selects the task (`set_task`). Relay on alone never makes the boat move |
+| Relay | Independent command; can be switched at any time without affecting the software |
+| `navigator` stalls or dies | `fc_bridge` neutralises after 0.5 s without `ThrusterPwm`; launch `respawn` restarts a dead node |
+| Node receives SIGTERM | Catches `ExternalShutdownException`; `navigator` publishes neutral before exiting |
+| Manual mode / mission not started | Mission state does not advance; motors neutral (legacy behaviour) |
+
+Open: detecting a node that is alive but stuck (legacy heartbeat watchdog). Not covered by
+`respawn`; to be designed.
+
+## 10. Simulation
+
+- **World:** VRX `nbpark` (Nathan Benderson Park, the RoboBoat venue); course elements added.
+  `sydney_regatta` remains available.
+- **Boat:** custom model derived from VRX `roboboat01` (1.15 m catamaran) to match the real
+  boat (about 1.3 m, about 45 kg): four thrusters, the front two rotating. Rotation uses the
+  same mechanism as the WAM-V: a vertical revolute joint plus
+  `gz::sim::systems::JointPositionController` (in `roboboat01` this joint exists but is
+  locked). First step of the model work is a test of this rotation.
+  Fallback: WAM-V with a custom four-thruster YAML layout.
+- **`sim_bridge`:** each PWM channel drives its own thruster; the steering PWM sets the angle
+  of both front thrusters. Publishes `/usv/fix`, `/usv/speed`, `/usv/heading`,
+  `/usv/attitude` and `/usv/relay_state` from Gazebo sensors.
+- **`fake_perception`:** publishes buoys from known world positions within camera FOV and range,
+  because the real YOLO model does not recognise simulated buoys. Simulation therefore
+  validates mission, planning and control, not detection.
+- **Hydrodynamics:** start from scaled `roboboat01` coefficients; identify real values from
+  field rosbags (coast-down for surge drag, turning test for yaw drag).
+
+Data needed from the real boat: hull type and dimensions (length, beam, draft, hull spacing),
+mass, thruster positions, propeller diameter and approximate maximum thrust, steering servo
+PWM-to-angle mapping.
+
+## 11. Recording
+
+| Output | Producer |
+|---|---|
+| Processed camera video with HUD | `perception` |
+| Vehicle telemetry CSV (2 Hz, legacy header) | `recorder` |
+| Costmap record | `recorder` |
+| Full run for replay and analysis | `ros2 bag record` |
+
+## 12. Parameters
+
+`config.py` becomes one YAML file per node in `usv_bringup/config/`. Values are copied
+unchanged from commit `5df3f5b`, including their comments. Waypoints change at runtime
+only through `/usv/set_waypoint`; the live set is published on `/usv/mission/waypoints`,
+so every node sees the same values (the legacy `spawn` copy problem disappears).
+
+## 13. Communication
+
+- RFD900x link and JSON protocol unchanged (short keys, sequence `q`, ack `aq`, waypoint
+  mini packets, 0.3 s broadcast).
+- Wi-Fi is allowed at RoboBoat. A network GCS or remote ROS 2 tools are possible later;
+  heavy topics stay on the boat.
+
+## 14. Deferred decisions
+
+| Item | When |
+|---|---|
+| MAVROS instead of the wrapped `USVController` | Separate experiment after phase 7 |
+| Heading sampled at image time for buoy positions (heading dominates the measured ~0.5 m error) | After parity with legacy |
+| Task 3 waypoints and search inputs | Updated in the field |
+| RoboBoat-specific tasks and reporting | Adaptation phase, from the RoboBoat rules |
+| Stuck-node detection | Before sea trials |
+| ZED SDK and YOLO/TensorRT on Jetson AGX Thor | Phase 6 |
+
+## 15. Roadmap
+
+| Phase | Work | Done when |
+|---|---|---|
+| 3 | This document | Approved |
+| 4 | `usv_interfaces`; `usv_core` (`navigation`, `planner`) with tests; boat model; `sim_bridge`; `fake_perception` | Boat driven manually in simulation; buoys on `/usv/buoys` |
+| 5 | `navigator` (mixer, controller, mission) | Tasks 1, 2, 3 completed in simulation |
+| 6 | Boat image (arm64), `fc_bridge`, `perception`, `heading_source`, `telemetry_bridge`, `recorder` | Sensors flowing on land and at the pier; GCS connects unchanged |
+| 7 | Sea trials | ROS 2 version completes the same course as the legacy system |
+| 8 | RoboBoat adaptation | Defined from the RoboBoat rules |
