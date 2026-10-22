@@ -4,3 +4,4 @@ ws/log/
 ws/bags/
 __pycache__/
 *.pyc
+.vscode/

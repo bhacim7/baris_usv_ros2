@@ -126,9 +126,9 @@ float64 longitude
 bool position_ok                    # false = only seen beyond MAP_MAX_RANGE_M
 uint32 seen_count
 builtin_interfaces/Time last_seen
-float32 distance_m
-int32 cx                            # last pixel column
-int32 cy
+float32 distance_m                  # NaN = unknown
+int32 cx                            # last pixel column, -1 = unknown
+int32 cy                            # -1 = unknown
 int32 area_px
 
 # BuoyArray.msg
@@ -143,7 +143,7 @@ uint16 rear_right
 uint16 front_left
 uint16 front_right
 uint16 steer
-bool bypass_slew                    # emergency / neutralise paths
+bool force                          # emergency / neutralise: bypass slew limit and write thinning
 
 # NavStatus.msg
 std_msgs/Header header

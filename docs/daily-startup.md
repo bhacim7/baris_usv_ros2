@@ -192,7 +192,49 @@ Container içinde `apt install` ile kurduğun paketler kalıcı **değildir**; c
 
 ---
 
-## 6. Günün sonunda
+### Image kayıt noktası
+
+Çalışan bir image'e tarihli ikinci bir ad ver (ek disk kaplamaz):
+
+```bash
+docker tag usv-ros2:dev usv-ros2:YYYY-MM-DD-aciklama
+```
+
+```bash
+docker images usv-ros2
+```
+
+Yeni bir derleme ortamı bozarsa eskisine dön:
+
+```bash
+cd ~/usv_ros2 && docker tag usv-ros2:YYYY-MM-DD-aciklama usv-ros2:dev && docker compose up -d
+```
+
+Kayıtlı noktalar:
+
+| Etiket | Ne var |
+|---|---|
+| `usv-ros2:2026-10-22-phase3` | ROS 2 Jazzy, Gazebo Harmonic, VRX. Faz 3 sonu |
+
+Kodun kayıt noktası image değil, git commit'idir (4. bölüm).
+
+---
+
+## 6. Kodu düzenleme (VS Code)
+
+```bash
+code ~/usv_ros2
+```
+
+- Dosyaları VS Code'da düzenle ve `Ctrl + S` ile kaydet. Container aynı dosyaları `/ws` altında anında görür.
+- Komutları (derleme, çalıştırma) yine container terminalinde çalıştır. VS Code'un kendi terminali (`Ctrl + J`) ana makinede açılır; oradan da `docker compose exec usv bash` ile container'a girebilirsin.
+- VS Code `rclpy` gibi container'daki kütüphaneleri tanımadığı için bazı satırları sarı çizebilir; kod yine çalışır.
+- VS Code'da yapıştırma `Ctrl + V`'dir (terminaldeki `Ctrl + Shift + V` değil).
+- Klasörüyle birlikte yeni dosya: Explorer'da klasöre sağ tık → **New File...** → `msg/Buoy.msg` gibi yolu yaz; klasör kendiliğinden oluşur.
+
+---
+
+## 7. Günün sonunda
 
 1. Çalışan node'ları ve simülasyonu `Ctrl + C` ile durdur.
 2. Container terminallerinde `exit` yaz.
@@ -207,7 +249,7 @@ Bunu yapmadan bilgisayarı kapatsan da bir şey bozulmaz; bir sonraki açılış
 
 ---
 
-## 7. Sorun giderme
+## 8. Sorun giderme
 
 | Belirti | Sebep | Çözüm |
 |---|---|---|
@@ -241,7 +283,7 @@ Beklenen: `PSR mode: disabled`
 
 ---
 
-## 8. Ara sıra kontrol
+## 9. Ara sıra kontrol
 
 Pil şarj sınırı (%80):
 
