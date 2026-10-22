@@ -9,7 +9,7 @@ import pytest
 from usv_core import navigation as nav
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'legacy'))
-import navigasyon as legacy  # noqa: E402
+from utils import navigasyon as legacy  # noqa: E402
 
 # Course waypoints from legacy config.py, plus far-away and Southern Hemisphere points
 POINTS = [
@@ -88,4 +88,4 @@ def test_cross_track_sign():
 def test_radius_mismatch_is_documented():
     lat, lon = nav.calculate_obj_gps(40.0, 29.0, 10.0, 0.0)
     measured = nav.haversine(40.0, 29.0, lat, lon)
-    assert measured == pytest.approx(10.0 * 6371000.0 / 6378137.0, abs=1e-6)   # 9.989 m
+    assert measured == pytest.approx(10.0 * 6371000.0 / 6378137.0, abs=1e-6)   # 9.989 mS
