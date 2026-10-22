@@ -1,0 +1,75 @@
+import math
+
+def calculate_obj_gps(lat1, lon1, dist_m, bearing_deg):
+    """
+    Calculates target GPS coordinates given current GPS, distance(m), and bearing(deg).
+    """
+    R = 6378137.0  # Earth radius
+    lat1_rad = math.radians(lat1)
+    lon1_rad = math.radians(lon1)
+    bearing_rad = math.radians(bearing_deg)
+
+    lat2_rad = math.asin(math.sin(lat1_rad) * math.cos(dist_m / R) +
+                         math.cos(lat1_rad) * math.sin(dist_m / R) * math.cos(bearing_rad))
+
+    lon2_rad = lon1_rad + math.atan2(math.sin(bearing_rad) * math.sin(dist_m / R) * math.cos(lat1_rad),
+                                     math.cos(dist_m / R) - math.sin(lat1_rad) * math.sin(lat2_rad))
+
+    return math.degrees(lat2_rad), math.degrees(lon2_rad)
+
+def get_hybrid_point(robot_x, robot_y, robot_yaw, aci_farki, step_dist=2.0):
+    target_angle = robot_yaw - math.radians(aci_farki)
+    tx = robot_x + (step_dist * math.cos(target_angle))
+    ty = robot_y + (step_dist * math.sin(target_angle))
+    return tx, ty
+
+def haversine(lat1, lon1, lat2, lon2):
+    """Calculate the great circle distance between two points on the earth."""
+    # Stub for future nav process, just implemented here for completeness
+    R = 6371000  # radius of Earth in meters
+    phi_1 = math.radians(lat1)
+    phi_2 = math.radians(lat2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
+    a = math.sin(delta_phi / 2.0) ** 2 + math.cos(phi_1) * math.cos(phi_2) * math.sin(delta_lambda / 2.0) ** 2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
+
+def calculate_cross_track_error(start_lat, start_lon, current_lat, current_lon, target_lat, target_lon):
+    """
+    Calculates the Cross-Track Error (XTE) in meters.
+    This is the perpendicular distance from the current position to the
+    great-circle line connecting the start point and target point.
+    Positive value means the boat is to the right of the line, negative means to the left.
+    """
+    R = 6371000  # radius of Earth in meters
+
+    # Calculate bearing from start to target
+    theta_13 = math.radians(calculate_bearing(start_lat, start_lon, target_lat, target_lon))
+
+    # Calculate bearing from start to current position
+    theta_12 = math.radians(calculate_bearing(start_lat, start_lon, current_lat, current_lon))
+
+    # Calculate distance from start to current position
+    dist_13 = haversine(start_lat, start_lon, current_lat, current_lon) / R
+
+    # Calculate Cross-Track Error
+    xte_rad = math.asin(math.sin(dist_13) * math.sin(theta_12 - theta_13))
+
+    return xte_rad * R
+
+def calculate_bearing(lat1, lon1, lat2, lon2):
+    """Calculates bearing between two GPS points"""
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    lam1 = math.radians(lon1)
+    lam2 = math.radians(lon2)
+    y = math.sin(lam2 - lam1) * math.cos(phi2)
+    x = math.cos(phi1) * math.sin(phi2) - math.sin(phi1) * math.cos(phi2) * math.cos(lam2 - lam1)
+    theta = math.atan2(y, x)
+    return (math.degrees(theta) + 360) % 360
+
+def signed_angle_difference(angle1, angle2):
+    """Calculates signed angle difference between two angles in degrees"""
+    diff = (angle2 - angle1 + 180) % 360 - 180
+    return diff
