@@ -1,585 +1,384 @@
 <?xml version="1.0"?>
 <!--
-  usv_boat: derived from the VRX roboboat01 model (github.com/osrf/vrx, Apache-2.0).
+  usv_boat: simulation model of the team's catamaran USV.
 
-  Changes from roboboat01, step 1 (thruster rotation test):
-    * model renamed; mesh and texture URIs point at this copy
-    * chassis-engine joints placed at the thruster position (in roboboat01 they had no pose,
-      so the axis went through the boat centre) and unlocked to +/-45 deg (placeholder until
-      the real steering servo range is measured)
-    * JointPositionController per thruster, the same mechanism VRX uses on the WAM-V
-    * explicit Gazebo topics for thrust and angle
+  Started from the VRX roboboat01 model (github.com/osrf/vrx, Apache-2.0); geometry,
+  thrusters and physics are now our own. Simple shapes are used for visuals.
 
-  Gazebo topics:
-    /usv_boat/thrusters/left/thrust    /usv_boat/thrusters/right/thrust   (gz.msgs.Double, N)
-    /usv_boat/thrusters/left/pos       /usv_boat/thrusters/right/pos      (gz.msgs.Double, rad)
+  Frame: x forward (bow), y left, z up. Origin on the centre line, at the design waterline,
+  half way along the hull.
+
+  Sources of the numbers (2026-10-22):
+    from the technical drawing (Sekil 6): length 1.182 m, beam 0.78 m, hull centre lines
+      +/-0.26 m, hull width ~0.20 m, hull depth ~0.30 m, thruster positions
+    from the ANSYS VOF images: draft ~0.11-0.13 m
+    from the team: total mass 45 kg; steering 1100 PWM = 45 deg left, 1900 PWM = 45 deg right
+    ASSUMED, to be identified in the field: thrust limits (+50 / -40 N), propeller
+      diameter (0.09 m), centre of gravity height, inertia, surge drag
+
+  Buoyancy: VRX (Surface.cc) models each hull as a cylinder whose submerged depth is
+  measured from the keel point and CLAMPED to hull_radius, i.e. at most half the cylinder
+  counts. Radius 0.11 m gave exactly 45 kg at that clamp - no reserve - and the boat sank
+  (measured centre at z = -0.375). Radius 0.13 m: equilibrium at 0.10 m depth (half-hull
+  area needed 45 / (1000 * 2 * 1.18) = 0.0191 m^2), maximum ~63 kg, i.e. ~40 % reserve.
+  Keel points at z = -0.10 so the origin sits at the waterline in equilibrium.
+
+  Drag (SimpleHydrodynamics), revised 2026-10-22 after the first drive test, where the
+  boat slid sideways and turned at ~4 deg/s:
+    yaw  nR = 15, nRR = 19: back-calculated from the legacy field measurement in
+         config.py (spot turn 35-57 deg/s at SPOT_TURN_PWM 200, 22-38 deg/s at 140),
+         assuming 50 N at 1900 PWM and thrust linear in PWM. Check: 140 PWM -> 36 deg/s.
+    surge xU = 30, xUU = 20: ASSUMED ~1.5 m/s at CRUISE_PWM (1680). To be fitted from the
+         legacy vehicle CSV (yer_hizi_mps vs hiz_set_pwm).
+    sway yV, yVV = 6 x surge: a catamaran's side area is ~6x its frontal area.
+    heave/roll/pitch: unchanged first guesses.
+
+  Gazebo topics (gz.msgs.Double):
+    /usv_boat/thrusters/{rear_left,rear_right,front_left,front_right}/thrust   N
+    /usv_boat/thrusters/{front_left,front_right}/pos                             rad, + = CCW seen from above
 -->
 <sdf version="1.6">
   <model name="usv_boat">
+
+    <!-- ================= Hull, deck box, mast ================= -->
     <link name="base_link">
       <inertial>
-        <pose>0 0 -0.2 0 0 0</pose>
-        <mass>10</mass>
+        <!-- 45 kg total minus 4 x (0.5 kg housing + 0.05 kg propeller) -->
+        <pose>0 0 0.05 0 0 0</pose>
+        <mass>42.8</mass>
         <inertia>
-          <ixx>0.5666666666666668</ixx>
+          <!-- Solid box 1.18 x 0.78 x 0.5 m: a rough first estimate -->
+          <ixx>3.06</ixx>
           <ixy>0</ixy>
           <ixz>0</ixz>
-          <iyy>1.0416666666666667</iyy>
+          <iyy>5.86</iyy>
           <iyz>0</iyz>
-          <izz>1.5416666666666667</izz>
+          <izz>7.14</izz>
         </inertia>
+      </inertial>
+
+      <!-- Hulls: bottom at z = -0.11 (the draft), 0.30 m deep -->
+      <visual name="left_hull_visual">
+        <pose>0 0.26 0.04 0 0 0</pose>
+        <geometry><box><size>1.182 0.20 0.30</size></box></geometry>
+        <material><ambient>0.55 0.55 0.55 1</ambient><diffuse>0.65 0.65 0.65 1</diffuse></material>
+      </visual>
+      <collision name="left_hull_collision">
+        <pose>0 0.26 0.04 0 0 0</pose>
+        <geometry><box><size>1.182 0.20 0.30</size></box></geometry>
+      </collision>
+
+      <visual name="right_hull_visual">
+        <pose>0 -0.26 0.04 0 0 0</pose>
+        <geometry><box><size>1.182 0.20 0.30</size></box></geometry>
+        <material><ambient>0.55 0.55 0.55 1</ambient><diffuse>0.65 0.65 0.65 1</diffuse></material>
+      </visual>
+      <collision name="right_hull_collision">
+        <pose>0 -0.26 0.04 0 0 0</pose>
+        <geometry><box><size>1.182 0.20 0.30</size></box></geometry>
+      </collision>
+
+      <!-- Electronics box on top of the hulls, slightly aft -->
+      <visual name="box_visual">
+        <pose>-0.10 0 0.335 0 0 0</pose>
+        <geometry><box><size>0.70 0.55 0.29</size></box></geometry>
+        <material><ambient>0.55 0.58 0.75 1</ambient><diffuse>0.65 0.68 0.85 1</diffuse></material>
+      </visual>
+      <collision name="box_collision">
+        <pose>-0.10 0 0.335 0 0 0</pose>
+        <geometry><box><size>0.70 0.55 0.29</size></box></geometry>
+      </collision>
+
+      <!-- GNSS mast (visual only) -->
+      <visual name="mast_visual">
+        <pose>-0.09 0 0.675 0 0 0</pose>
+        <geometry><cylinder><radius>0.015</radius><length>0.39</length></cylinder></geometry>
+        <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.7 0.7 0.7 1</diffuse></material>
+      </visual>
+      <visual name="gnss_visual">
+        <pose>-0.09 0 0.88 0 0 0</pose>
+        <geometry><cylinder><radius>0.04</radius><length>0.02</length></cylinder></geometry>
+        <material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.15 0.15 0.15 1</diffuse></material>
+      </visual>
+    </link>
+
+    <!-- ================= Thrusters =================
+         Positions: front x = +0.363 (0.228 m behind the bow), rear x = -0.493
+         (0.098 m ahead of the transom), y = +/-0.245, z = -0.178 (7 cm below the hull bottom).
+         Each thruster: housing link + propeller link. Front housings rotate about z. -->
+
+    <!-- Front left -->
+    <link name="front_left_housing_link">
+      <inertial>
+        <pose>0.363 0.245 -0.178 0 0 0</pose>
+        <mass>0.5</mass>
+        <inertia><ixx>0.0004</ixx><ixy>0</ixy><ixz>0</ixz><iyy>0.0008</iyy><iyz>0</iyz><izz>0.0008</izz></inertia>
       </inertial>
       <visual name="visual">
-        <geometry>
-           <mesh>
-            <uri>file://usv_boat/meshes/roboboat01.dae</uri>
-          </mesh>
-        </geometry>
-        <material>
-          <diffuse>1.0 1.0 1.0</diffuse>
-          <specular>1.0 1.0 1.0</specular>
-          <pbr>
-            <metal>
-              <albedo_map>file://usv_boat/materials/textures/Boat01_Albedo.png</albedo_map>
-              <normal_map>file://usv_boat/materials/textures/Boat01_Normal.png</normal_map>
-              <roughness_map>file://usv_boat/materials/textures/Boat01_Roughness.png</roughness_map>
-              <metalness_map>file://usv_boat/materials/textures/Boat01_Metallic.png</metalness_map>
-            </metal>
-          </pbr>
-          <!-- fallback to script if no PBR support-->
-          <script>
-            <uri>file://usv_boat/materials/scripts/</uri>
-            <uri>file://usv_boat/materials/textures/</uri>
-            <name>Fallback/Boat01_Diffuse</name>
-          </script>
-        </material>
+        <pose>0.363 0.245 -0.178 0 1.5708 0</pose>
+        <geometry><cylinder><radius>0.04</radius><length>0.12</length></cylinder></geometry>
+        <material><ambient>0.08 0.08 0.08 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
       </visual>
-
-      <collision name="Box011">
-        <pose>0.110046 0.314338 0.0352701 0.0 0.0 0.0</pose>
-        <geometry>
-          <box>
-            <size>1.14985 0.223203 0.202172</size>
-          </box>
-        </geometry>
-      </collision>
-      <collision name="Box012">
-        <pose>0.110046 -0.31434 0.0352701 0.0 0.0 0.0</pose>
-        <geometry>
-          <box>
-            <size>1.14985 0.223203 0.202172</size>
-          </box>
-        </geometry>
-      </collision>
-      <collision name="Box013">
-        <pose>0.0549115 0.0 0.240029 0.0 0.0 0.0</pose>
-        <geometry>
-          <box>
-            <size>0.598409 0.459244 0.0260934</size>
-          </box>
-        </geometry>
-      </collision>
-      <collision name="Cylinder262">
-        <pose>-0.158378 0.290814 0.162712 1.0472 0.0 0.0</pose>
-        <geometry>
-          <cylinder>
-            <length>0.222664</length>
-            <radius>0.0222591</radius>
-          </cylinder>
-        </geometry>
-      </collision>
-      <collision name="Cylinder263">
-        <pose>-0.158378 -0.290814 0.162712 -1.0472 0.0 0.0</pose>
-        <geometry>
-          <cylinder>
-            <length>0.222664</length>
-            <radius>0.0222591</radius>
-          </cylinder>
-        </geometry>
-      </collision>
-      <collision name="Cylinder264">
-        <pose>0.12101 0.290814 0.162712 1.0472 0.0 0.0</pose>
-        <geometry>
-          <cylinder>
-            <length>0.222664</length>
-            <radius>0.0222591</radius>
-          </cylinder>
-        </geometry>
-      </collision>
-      <collision name="Cylinder265">
-        <pose>0.12101 -0.290814 0.162712 -1.0472 0.0 0.0</pose>
-        <geometry>
-          <cylinder>
-            <length>0.222664</length>
-            <radius>0.0222591</radius>
-          </cylinder>
-        </geometry>
-      </collision>
-      <collision name="Cylinder266">
-        <pose>0.12101 -0.000654578 0.21655 1.5708 0.0 0.0</pose>
-        <geometry>
-          <cylinder>
-            <length>0.409041</length>
-            <radius>0.0155011</radius>
-          </cylinder>
-        </geometry>
-      </collision>
-      <collision name="Cylinder267">
-        <pose>-0.15838 -0.000654578 0.21655 1.5708 0.0 0.0</pose>
-        <geometry>
-          <cylinder>
-            <length>0.409041</length>
-            <radius>0.0155011</radius>
-          </cylinder>
-        </geometry>
-      </collision>
-
-      <!-- CPU case (mesh shared with VRX's roboboat_cpubox model) -->
-      <visual name="visual_cpubox">
-        <pose>0.0 0.0 0.25 0 0 0</pose>
-        <geometry>
-           <mesh>
-            <uri>file://roboboat_cpubox/meshes/drybox.dae</uri>
-          </mesh>
-        </geometry>
-        <material>
-          <diffuse>1.0 1.0 1.0</diffuse>
-          <specular>1.0 1.0 1.0</specular>
-          <pbr>
-            <metal>
-              <albedo_map>file://roboboat_cpubox/materials/textures/DryBox_Albedo.png</albedo_map>
-              <roughness_map>file://roboboat_cpubox/materials/textures/DryBox_Roughness.png</roughness_map>
-            </metal>
-          </pbr>
-        </material>
-      </visual>
-      <collision name="cpu_box">
-        <pose>0 0 0.25 0 0 0</pose>
-        <geometry>
-          <box>
-            <size>0.2 0.3 0.3</size>
-          </box>
-        </geometry>
-      </collision>
     </link>
-
-    <!-- Left thruster housing -->
-    <link name="left_housing_link">
+    <link name="front_left_prop_link">
       <inertial>
-        <pose>-0.3 0.33 -0.15 0 0 0</pose>
-        <mass>1</mass>
-        <inertia>
-          <ixx>0.0020290833333333333</ixx>
-          <ixy>0</ixy>
-          <ixz>0</ixz>
-          <iyy>0.002408333333333333</iyy>
-          <iyz>0</iyz>
-          <izz>0.0006874166666666666</izz>
-        </inertia>
+        <pose>0.30 0.245 -0.178 0 0 0</pose>
+        <mass>0.05</mass>
+        <inertia><ixx>0.000051</ixx><ixy>0</ixy><ixz>0</ixz><iyy>0.000027</iyy><iyz>0</iyz><izz>0.000027</izz></inertia>
       </inertial>
-
-      <visual name="left_housing_visual">
-        <pose>-0.3 0.33 -0.15 0 0 0</pose>
-        <geometry>
-           <mesh>
-            <uri>file://usv_boat/meshes/housing.dae</uri>
-          </mesh>
-        </geometry>
-        <material>
-          <diffuse>1.0 1.0 1.0</diffuse>
-          <specular>1.0 1.0 1.0</specular>
-          <pbr>
-            <metal>
-              <albedo_map>file://usv_boat/materials/textures/Thruster_Albedo.png</albedo_map>
-              <roughness_map>file://usv_boat/materials/textures/Thruster_Roughness.png</roughness_map>
-            </metal>
-          </pbr>
-        </material>
+      <visual name="visual">
+        <pose>0.30 0.245 -0.178 0 1.5708 0</pose>
+        <geometry><cylinder><radius>0.045</radius><length>0.015</length></cylinder></geometry>
+        <material><ambient>0.7 0.1 0.1 1</ambient><diffuse>0.8 0.15 0.15 1</diffuse></material>
       </visual>
-
-      <visual name="left_mount_visual">
-        <pose>-0.3 0.33 -0.15 0 0 0</pose>
-        <geometry>
-           <mesh>
-            <uri>file://usv_boat/meshes/mount.dae</uri>
-          </mesh>
-        </geometry>
-        <material>
-          <diffuse>1.0 1.0 1.0</diffuse>
-          <specular>1.0 1.0 1.0</specular>
-          <pbr>
-            <metal>
-              <albedo_map>file://usv_boat/materials/textures/Thruster_Albedo.png</albedo_map>
-              <roughness_map>file://usv_boat/materials/textures/Thruster_Roughness.png</roughness_map>
-            </metal>
-          </pbr>
-        </material>
-      </visual>
-
-      <collision name="Box011d">
-        <pose>-0.3 0.33  -0.049048999999999995 0.0 0.0 0.0</pose>
-        <geometry>
-          <box>
-            <size>0.0810453 0.0430519 0.070925</size>
-          </box>
-        </geometry>
-      </collision>
-
-      <collision name="Cylinder264d">
-        <pose>-0.3 0.33 -0.08719339999999999 0.0 0.0 0.0</pose>
-        <geometry>
-          <cylinder>
-            <length>0.125613</length>
-            <radius>0.014703</radius>
-          </cylinder>
-        </geometry>
-      </collision>
-
-      <collision name="Cylinder263d">
-        <pose>-0.2833463 0.32986701 -0.15 1.5708 0.0 -1.5708</pose>
-        <geometry>
-          <cylinder>
-            <length>0.14376</length>
-            <radius>0.0243692</radius>
-          </cylinder>
-        </geometry>
-      </collision>
     </link>
-
-    <!-- Left propeller -->
-    <link name="left_prop_link">
-      <inertial>
-        <pose>-0.300872875 0.329867016 -0.15 1.5708 0.0 -1.5708</pose>
-        <mass>0.1</mass>
-        <inertia>
-          <ixx>0.00010562499999999999</ixx>
-          <ixy>0</ixy>
-          <ixz>0</ixz>
-          <iyy>0.00010562499999999999</iyy>
-          <iyz>0</iyz>
-          <izz>0.00015125000000000002</izz>
-        </inertia>
-      </inertial>
-      <visual name="left_prop_visual">
-        <pose>-0.3 0.33 -0.15 0 0 0</pose>
-        <geometry>
-           <mesh>
-            <uri>file://usv_boat/meshes/prop.dae</uri>
-          </mesh>
-        </geometry>
-        <material>
-          <diffuse>1.0 1.0 1.0</diffuse>
-          <specular>1.0 1.0 1.0</specular>
-          <pbr>
-            <metal>
-              <albedo_map>file://usv_boat/materials/textures/Thruster_Albedo.png</albedo_map>
-              <roughness_map>file://usv_boat/materials/textures/Thruster_Roughness.png</roughness_map>
-            </metal>
-          </pbr>
-        </material>
-      </visual>
-
-      <collision name="Cylinder262d">
-        <pose>-0.300872875 0.329867016 -0.15 1.5708 0.0 -1.5708</pose>
-        <geometry>
-          <cylinder>
-            <length>0.0608172</length>
-            <radius>0.0553844</radius>
-          </cylinder>
-        </geometry>
-      </collision>
-    </link>
-
-    <!-- Right thruster housing -->
-    <link name="right_housing_link">
-      <inertial>
-        <pose>-0.3 -0.33 -0.15 0 0 0</pose>
-        <mass>1</mass>
-        <inertia>
-          <ixx>0.0020290833333333333</ixx>
-          <ixy>0</ixy>
-          <ixz>0</ixz>
-          <iyy>0.002408333333333333</iyy>
-          <iyz>0</iyz>
-          <izz>0.0006874166666666666</izz>
-        </inertia>
-      </inertial>
-      <visual name="right_housing_visual">
-        <pose>-0.3 -0.33 -0.15 0 0 0</pose>
-        <geometry>
-           <mesh>
-            <uri>file://usv_boat/meshes/housing.dae</uri>
-          </mesh>
-        </geometry>
-        <material>
-          <diffuse>1.0 1.0 1.0</diffuse>
-          <specular>1.0 1.0 1.0</specular>
-          <pbr>
-            <metal>
-              <albedo_map>file://usv_boat/materials/textures/Thruster_Albedo.png</albedo_map>
-              <roughness_map>file://usv_boat/materials/textures/Thruster_Roughness.png</roughness_map>
-            </metal>
-          </pbr>
-        </material>
-      </visual>
-
-      <visual name="right_mount_visual">
-        <pose>-0.3 -0.33 -0.15 0 0 0</pose>
-        <geometry>
-           <mesh>
-            <uri>file://usv_boat/meshes/mount.dae</uri>
-          </mesh>
-        </geometry>
-        <material>
-          <diffuse>1.0 1.0 1.0</diffuse>
-          <specular>1.0 1.0 1.0</specular>
-          <pbr>
-            <metal>
-              <albedo_map>file://usv_boat/materials/textures/Thruster_Albedo.png</albedo_map>
-              <roughness_map>file://usv_boat/materials/textures/Thruster_Roughness.png</roughness_map>
-            </metal>
-          </pbr>
-        </material>
-      </visual>
-
-      <!-- Thruster collisions -->
-      <collision name="Box011i">
-        <pose>-0.3 -0.33  -0.049048999999999995 0.0 0.0 0.0</pose>
-        <geometry>
-          <box>
-            <size>0.0810453 0.0430519 0.070925</size>
-          </box>
-        </geometry>
-      </collision>
-
-      <collision name="Cylinder264i">
-        <pose>-0.3 -0.33 -0.08719339999999999 0.0 0.0 0.0</pose>
-        <geometry>
-          <cylinder>
-            <length>0.125613</length>
-            <radius>0.014703</radius>
-          </cylinder>
-        </geometry>
-      </collision>
-
-      <collision name="Cylinder263i">
-        <pose>-0.2833463 -0.32986701 -0.15 1.5708 0.0 -1.5708</pose>
-        <geometry>
-          <cylinder>
-            <length>0.14376</length>
-            <radius>0.0243692</radius>
-          </cylinder>
-        </geometry>
-      </collision>
-    </link>
-
-    <!-- Right propeller -->
-    <link name="right_prop_link">
-      <inertial>
-        <pose>-0.300872875 -0.329867016 -0.15 1.5708 0.0 -1.5708</pose>
-        <mass>0.1</mass>
-        <inertia>
-          <ixx>0.00010562499999999999</ixx>
-          <ixy>0</ixy>
-          <ixz>0</ixz>
-          <iyy>0.00010562499999999999</iyy>
-          <iyz>0</iyz>
-          <izz>0.00015125000000000002</izz>
-        </inertia>
-      </inertial>
-      <visual name="right_prop_visual">
-        <pose>-0.3 -0.33 -0.15 0 0 0</pose>
-        <geometry>
-           <mesh>
-            <uri>file://usv_boat/meshes/prop.dae</uri>
-          </mesh>
-        </geometry>
-        <material>
-          <diffuse>1.0 1.0 1.0</diffuse>
-          <specular>1.0 1.0 1.0</specular>
-          <pbr>
-            <metal>
-              <albedo_map>file://usv_boat/materials/textures/Thruster_Albedo.png</albedo_map>
-              <roughness_map>file://usv_boat/materials/textures/Thruster_Roughness.png</roughness_map>
-            </metal>
-          </pbr>
-        </material>
-      </visual>
-
-      <collision name="Cylinder262i">
-        <pose>-0.300872875 -0.329867016 -0.15 1.5708 0.0 -1.5708</pose>
-        <geometry>
-          <cylinder>
-            <length>0.0608172</length>
-            <radius>0.0553844</radius>
-          </cylinder>
-        </geometry>
-      </collision>
-    </link>
-
-    <!-- Chassis-left engine joint: steering axis through the thruster, +/-45 deg -->
-    <joint name="left_chasis_engine_joint" type="revolute">
-      <pose>-0.3 0.33 -0.15 0 0 0</pose>
+    <joint name="front_left_steer_joint" type="revolute">
+      <pose>0.363 0.245 -0.178 0 0 0</pose>
+      <parent>base_link</parent>
+      <child>front_left_housing_link</child>
       <axis>
         <xyz>0 0 1</xyz>
-        <limit>
-          <lower>-0.785</lower>
-          <upper>0.785</upper>
-          <effort>10</effort>
-          <velocity>10</velocity>
-        </limit>
+        <limit><lower>-0.785</lower><upper>0.785</upper><effort>10</effort><velocity>10</velocity></limit>
       </axis>
-      <parent>base_link</parent>
-      <child>left_housing_link</child>
     </joint>
-
-    <!-- Left joint housing-propeller -->
-    <joint name="left_engine_propeller_joint" type="revolute">
-      <pose>-0.300872875 0.329867016 -0.15 1.5708 0.0 0</pose>
+    <joint name="front_left_prop_joint" type="revolute">
+      <pose>0.30 0.245 -0.178 0 0 0</pose>
+      <parent>front_left_housing_link</parent>
+      <child>front_left_prop_link</child>
       <axis>
         <xyz>1 0 0</xyz>
-        <limit>
-          <effort>100</effort>
-          <velocity>100</velocity>
-        </limit>
-        <dynamics>
-          <friction>0.05</friction>
-          <damping>0.05</damping>
-        </dynamics>
+        <limit><effort>100</effort><velocity>1000</velocity></limit>
+        <dynamics><friction>0.05</friction><damping>0.05</damping></dynamics>
       </axis>
-      <parent>left_housing_link</parent>
-      <child>left_prop_link</child>
     </joint>
 
-    <!-- Chassis-right engine joint: steering axis through the thruster, +/-45 deg -->
-    <joint name="right_chasis_engine_joint" type="revolute">
-      <pose>-0.3 -0.33 -0.15 0 0 0</pose>
+    <!-- Front right -->
+    <link name="front_right_housing_link">
+      <inertial>
+        <pose>0.363 -0.245 -0.178 0 0 0</pose>
+        <mass>0.5</mass>
+        <inertia><ixx>0.0004</ixx><ixy>0</ixy><ixz>0</ixz><iyy>0.0008</iyy><iyz>0</iyz><izz>0.0008</izz></inertia>
+      </inertial>
+      <visual name="visual">
+        <pose>0.363 -0.245 -0.178 0 1.5708 0</pose>
+        <geometry><cylinder><radius>0.04</radius><length>0.12</length></cylinder></geometry>
+        <material><ambient>0.08 0.08 0.08 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+      </visual>
+    </link>
+    <link name="front_right_prop_link">
+      <inertial>
+        <pose>0.30 -0.245 -0.178 0 0 0</pose>
+        <mass>0.05</mass>
+        <inertia><ixx>0.000051</ixx><ixy>0</ixy><ixz>0</ixz><iyy>0.000027</iyy><iyz>0</iyz><izz>0.000027</izz></inertia>
+      </inertial>
+      <visual name="visual">
+        <pose>0.30 -0.245 -0.178 0 1.5708 0</pose>
+        <geometry><cylinder><radius>0.045</radius><length>0.015</length></cylinder></geometry>
+        <material><ambient>0.7 0.1 0.1 1</ambient><diffuse>0.8 0.15 0.15 1</diffuse></material>
+      </visual>
+    </link>
+    <joint name="front_right_steer_joint" type="revolute">
+      <pose>0.363 -0.245 -0.178 0 0 0</pose>
+      <parent>base_link</parent>
+      <child>front_right_housing_link</child>
       <axis>
         <xyz>0 0 1</xyz>
-        <limit>
-          <lower>-0.785</lower>
-          <upper>0.785</upper>
-          <effort>10</effort>
-          <velocity>10</velocity>
-        </limit>
+        <limit><lower>-0.785</lower><upper>0.785</upper><effort>10</effort><velocity>10</velocity></limit>
       </axis>
-      <parent>base_link</parent>
-      <child>right_housing_link</child>
     </joint>
-
-    <!-- Right joint housing-propeller -->
-    <joint name="right_engine_propeller_joint" type="revolute">
-      <pose>-0.300872875 -0.329867016 -0.15 1.5708 0.0 0</pose>
+    <joint name="front_right_prop_joint" type="revolute">
+      <pose>0.30 -0.245 -0.178 0 0 0</pose>
+      <parent>front_right_housing_link</parent>
+      <child>front_right_prop_link</child>
       <axis>
         <xyz>1 0 0</xyz>
-        <limit>
-          <effort>100</effort>
-          <velocity>100</velocity>
-        </limit>
-        <dynamics>
-          <friction>0.05</friction>
-          <damping>0.05</damping>
-        </dynamics>
+        <limit><effort>100</effort><velocity>1000</velocity></limit>
+        <dynamics><friction>0.05</friction><damping>0.05</damping></dynamics>
       </axis>
-      <parent>right_housing_link</parent>
-      <child>right_prop_link</child>
     </joint>
 
-    <!-- Left hull -->
-    <plugin
-      filename="libSurface.so"
-      name="vrx::Surface">
+    <!-- Rear left (fixed) -->
+    <link name="rear_left_housing_link">
+      <inertial>
+        <pose>-0.493 0.245 -0.178 0 0 0</pose>
+        <mass>0.5</mass>
+        <inertia><ixx>0.0004</ixx><ixy>0</ixy><ixz>0</ixz><iyy>0.0008</iyy><iyz>0</iyz><izz>0.0008</izz></inertia>
+      </inertial>
+      <visual name="visual">
+        <pose>-0.493 0.245 -0.178 0 1.5708 0</pose>
+        <geometry><cylinder><radius>0.04</radius><length>0.12</length></cylinder></geometry>
+        <material><ambient>0.08 0.08 0.08 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+      </visual>
+    </link>
+    <link name="rear_left_prop_link">
+      <inertial>
+        <pose>-0.556 0.245 -0.178 0 0 0</pose>
+        <mass>0.05</mass>
+        <inertia><ixx>0.000051</ixx><ixy>0</ixy><ixz>0</ixz><iyy>0.000027</iyy><iyz>0</iyz><izz>0.000027</izz></inertia>
+      </inertial>
+      <visual name="visual">
+        <pose>-0.556 0.245 -0.178 0 1.5708 0</pose>
+        <geometry><cylinder><radius>0.045</radius><length>0.015</length></cylinder></geometry>
+        <material><ambient>0.7 0.1 0.1 1</ambient><diffuse>0.8 0.15 0.15 1</diffuse></material>
+      </visual>
+    </link>
+    <joint name="rear_left_mount_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>rear_left_housing_link</child>
+    </joint>
+    <joint name="rear_left_prop_joint" type="revolute">
+      <pose>-0.556 0.245 -0.178 0 0 0</pose>
+      <parent>rear_left_housing_link</parent>
+      <child>rear_left_prop_link</child>
+      <axis>
+        <xyz>1 0 0</xyz>
+        <limit><effort>100</effort><velocity>1000</velocity></limit>
+        <dynamics><friction>0.05</friction><damping>0.05</damping></dynamics>
+      </axis>
+    </joint>
+
+    <!-- Rear right (fixed) -->
+    <link name="rear_right_housing_link">
+      <inertial>
+        <pose>-0.493 -0.245 -0.178 0 0 0</pose>
+        <mass>0.5</mass>
+        <inertia><ixx>0.0004</ixx><ixy>0</ixy><ixz>0</ixz><iyy>0.0008</iyy><iyz>0</iyz><izz>0.0008</izz></inertia>
+      </inertial>
+      <visual name="visual">
+        <pose>-0.493 -0.245 -0.178 0 1.5708 0</pose>
+        <geometry><cylinder><radius>0.04</radius><length>0.12</length></cylinder></geometry>
+        <material><ambient>0.08 0.08 0.08 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+      </visual>
+    </link>
+    <link name="rear_right_prop_link">
+      <inertial>
+        <pose>-0.556 -0.245 -0.178 0 0 0</pose>
+        <mass>0.05</mass>
+        <inertia><ixx>0.000051</ixx><ixy>0</ixy><ixz>0</ixz><iyy>0.000027</iyy><iyz>0</iyz><izz>0.000027</izz></inertia>
+      </inertial>
+      <visual name="visual">
+        <pose>-0.556 -0.245 -0.178 0 1.5708 0</pose>
+        <geometry><cylinder><radius>0.045</radius><length>0.015</length></cylinder></geometry>
+        <material><ambient>0.7 0.1 0.1 1</ambient><diffuse>0.8 0.15 0.15 1</diffuse></material>
+      </visual>
+    </link>
+    <joint name="rear_right_mount_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>rear_right_housing_link</child>
+    </joint>
+    <joint name="rear_right_prop_joint" type="revolute">
+      <pose>-0.556 -0.245 -0.178 0 0 0</pose>
+      <parent>rear_right_housing_link</parent>
+      <child>rear_right_prop_link</child>
+      <axis>
+        <xyz>1 0 0</xyz>
+        <limit><effort>100</effort><velocity>1000</velocity></limit>
+        <dynamics><friction>0.05</friction><damping>0.05</damping></dynamics>
+      </axis>
+    </joint>
+
+    <!-- ================= Buoyancy (VRX) ================= -->
+    <plugin filename="libSurface.so" name="vrx::Surface">
       <link_name>base_link</link_name>
-      <hull_length>1.15</hull_length>
-      <hull_radius>0.12</hull_radius>
+      <hull_length>1.18</hull_length>
+      <hull_radius>0.13</hull_radius>
       <fluid_level>0</fluid_level>
       <points>
-        <point>0.68 0.314338 0.0352701</point>
-        <point>-0.465 0.314338 0.0352701</point>
+        <point>0.55 0.26 -0.10</point>
+        <point>-0.55 0.26 -0.10</point>
       </points>
-      <wavefield>
-        <topic>/vrx/wavefield/parameters</topic>
-      </wavefield>
+      <wavefield><topic>/vrx/wavefield/parameters</topic></wavefield>
     </plugin>
 
-    <!-- Right hull -->
-    <plugin
-      filename="libSurface.so"
-      name="vrx::Surface">
+    <plugin filename="libSurface.so" name="vrx::Surface">
       <link_name>base_link</link_name>
-      <hull_length>1.15</hull_length>
-      <hull_radius>0.12</hull_radius>
+      <hull_length>1.18</hull_length>
+      <hull_radius>0.13</hull_radius>
       <fluid_level>0</fluid_level>
       <points>
-        <point>0.68 -0.314338 0.0352701</point>
-        <point>-0.465 -0.314338 0.0352701</point>
+        <point>0.55 -0.26 -0.10</point>
+        <point>-0.55 -0.26 -0.10</point>
       </points>
-      <wavefield>
-        <topic>/vrx/wavefield/parameters</topic>
-      </wavefield>
+      <wavefield><topic>/vrx/wavefield/parameters</topic></wavefield>
     </plugin>
 
-    <plugin
-      filename="libSimpleHydrodynamics.so"
-      name="vrx::SimpleHydrodynamics">
+    <!-- ================= Drag (VRX) - see header for sources ================= -->
+    <plugin filename="libSimpleHydrodynamics.so" name="vrx::SimpleHydrodynamics">
       <link_name>base_link</link_name>
-      <!-- Added mass -->
       <xDotU>0.0</xDotU>
       <yDotV>0.0</yDotV>
       <nDotR>0.0</nDotR>
-      <!-- Linear and quadratic drag -->
-      <xU>4.0</xU>
-      <xUU>6.0</xUU>
-      <yV>4.0</yV>
-      <yVV>4.0</yVV>
-      <zW>20.0</zW>
-      <kP>12.0</kP>
-      <kPP>24.0</kPP>
-      <mQ>36.0</mQ>
-      <mQQ>35.0</mQQ>
-      <nR>32.0</nR>
-      <nRR>32.0</nRR>
+      <xU>30.0</xU>
+      <xUU>20.0</xUU>
+      <yV>180.0</yV>
+      <yVV>120.0</yVV>
+      <zW>90.0</zW>
+      <kP>54.0</kP>
+      <kPP>108.0</kPP>
+      <mQ>162.0</mQ>
+      <mQQ>157.5</mQQ>
+      <nR>15.0</nR>
+      <nRR>19.0</nRR>
     </plugin>
 
-    <plugin
-      filename="gz-sim-thruster-system"
-      name="gz::sim::systems::Thruster">
+    <!-- ================= Thrust - limits ASSUMED ================= -->
+    <plugin filename="gz-sim-thruster-system" name="gz::sim::systems::Thruster">
       <namespace>usv_boat</namespace>
-      <topic>thrusters/left/thrust</topic>
-      <joint_name>left_engine_propeller_joint</joint_name>
-      <thrust_coefficient>0.0001</thrust_coefficient>
+      <topic>thrusters/front_left/thrust</topic>
+      <joint_name>front_left_prop_joint</joint_name>
+      <thrust_coefficient>0.004422</thrust_coefficient>
       <fluid_density>1000</fluid_density>
-      <propeller_diameter>0.1</propeller_diameter>
+      <propeller_diameter>0.09</propeller_diameter>
       <velocity_control>true</velocity_control>
+      <max_thrust_cmd>50</max_thrust_cmd>
+      <min_thrust_cmd>-40</min_thrust_cmd>
     </plugin>
-
-    <plugin
-      filename="gz-sim-thruster-system"
-      name="gz::sim::systems::Thruster">
+    <plugin filename="gz-sim-thruster-system" name="gz::sim::systems::Thruster">
       <namespace>usv_boat</namespace>
-      <topic>thrusters/right/thrust</topic>
-      <joint_name>right_engine_propeller_joint</joint_name>
-      <thrust_coefficient>0.0001</thrust_coefficient>
+      <topic>thrusters/front_right/thrust</topic>
+      <joint_name>front_right_prop_joint</joint_name>
+      <thrust_coefficient>0.004422</thrust_coefficient>
       <fluid_density>1000</fluid_density>
-      <propeller_diameter>0.1</propeller_diameter>
+      <propeller_diameter>0.09</propeller_diameter>
       <velocity_control>true</velocity_control>
+      <max_thrust_cmd>50</max_thrust_cmd>
+      <min_thrust_cmd>-40</min_thrust_cmd>
+    </plugin>
+    <plugin filename="gz-sim-thruster-system" name="gz::sim::systems::Thruster">
+      <namespace>usv_boat</namespace>
+      <topic>thrusters/rear_left/thrust</topic>
+      <joint_name>rear_left_prop_joint</joint_name>
+      <thrust_coefficient>0.004422</thrust_coefficient>
+      <fluid_density>1000</fluid_density>
+      <propeller_diameter>0.09</propeller_diameter>
+      <velocity_control>true</velocity_control>
+      <max_thrust_cmd>50</max_thrust_cmd>
+      <min_thrust_cmd>-40</min_thrust_cmd>
+    </plugin>
+    <plugin filename="gz-sim-thruster-system" name="gz::sim::systems::Thruster">
+      <namespace>usv_boat</namespace>
+      <topic>thrusters/rear_right/thrust</topic>
+      <joint_name>rear_right_prop_joint</joint_name>
+      <thrust_coefficient>0.004422</thrust_coefficient>
+      <fluid_density>1000</fluid_density>
+      <propeller_diameter>0.09</propeller_diameter>
+      <velocity_control>true</velocity_control>
+      <max_thrust_cmd>50</max_thrust_cmd>
+      <min_thrust_cmd>-40</min_thrust_cmd>
     </plugin>
 
-    <!-- Thruster steering: same mechanism as the VRX WAM-V -->
-    <plugin
-      filename="gz-sim-joint-position-controller-system"
-      name="gz::sim::systems::JointPositionController">
-      <joint_name>left_chasis_engine_joint</joint_name>
+    <!-- ================= Front thruster steering ================= -->
+    <plugin filename="gz-sim-joint-position-controller-system"
+            name="gz::sim::systems::JointPositionController">
+      <joint_name>front_left_steer_joint</joint_name>
       <use_velocity_commands>true</use_velocity_commands>
-      <topic>/usv_boat/thrusters/left/pos</topic>
+      <topic>/usv_boat/thrusters/front_left/pos</topic>
     </plugin>
-
-    <plugin
-      filename="gz-sim-joint-position-controller-system"
-      name="gz::sim::systems::JointPositionController">
-      <joint_name>right_chasis_engine_joint</joint_name>
+    <plugin filename="gz-sim-joint-position-controller-system"
+            name="gz::sim::systems::JointPositionController">
+      <joint_name>front_right_steer_joint</joint_name>
       <use_velocity_commands>true</use_velocity_commands>
-      <topic>/usv_boat/thrusters/right/pos</topic>
+      <topic>/usv_boat/thrusters/front_right/pos</topic>
     </plugin>
 
   </model>

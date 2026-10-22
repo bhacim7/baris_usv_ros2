@@ -1,7 +1,7 @@
 # USV ROS 2 Architecture
 
-Status: **approved** (2026-10-22). Message field lists in section 7 are drafts and are
-finalised when the `usv_interfaces` package is written.
+Status: **approved** (2026-10-22). Section 7 matches the implemented `usv_interfaces`.
+Progress is tracked in section 15; open requests in `open-items.md`.
 
 ## 1. Purpose and scope
 
@@ -241,12 +241,38 @@ Open: detecting a node that is alive but stuck (legacy heartbeat watchdog). Not 
 - **`fake_perception`:** publishes buoys from known world positions within camera FOV and range,
   because the real YOLO model does not recognise simulated buoys. Simulation therefore
   validates mission, planning and control, not detection.
-- **Hydrodynamics:** start from scaled `roboboat01` coefficients; identify real values from
-  field rosbags (coast-down for surge drag, turning test for yaw drag).
+- **Hydrodynamics:** identify real values from field data (coast-down for surge drag,
+  turning test for yaw drag).
 
-Data needed from the real boat: hull type and dimensions (length, beam, draft, hull spacing),
-mass, thruster positions, propeller diameter and approximate maximum thrust, steering servo
-PWM-to-angle mapping.
+### Boat model status (`usv_sim/models/usv_boat`, 2026-10-22)
+
+| Item | Value | Source |
+|---|---|---|
+| Hull | Catamaran, 1.182 x 0.78 m, hull centre lines y = +/-0.26 m | Technical drawing |
+| Mass | 45 kg | Team |
+| Thrusters | Front x = +0.363, rear x = -0.493, y = +/-0.245, 7 cm below the keel | Technical drawing |
+| Steering | Front pair, +/-45 deg (1100 PWM = 45 deg left, 1900 = 45 deg right) | Team, to be measured |
+| Buoyancy | Two VRX cylinders, radius 0.13 m, keel points at z = -0.10 | Computed, see below |
+| Yaw drag | nR = 15, nRR = 19 | Back-calculated from the legacy field measurement (spot turn 35-57 deg/s at PWM offset 200) |
+| Surge drag | xU = 30, xUU = 20 | ASSUMED (~1.5 m/s at cruise); to be fitted from a legacy vehicle CSV |
+| Sway drag | 6 x surge | Side area ~6x frontal area |
+| Thrust limits | +50 / -40 N, propeller 0.09 m | ASSUMED; thruster model unknown |
+| Visuals | Primitive shapes | To be replaced by an STL export of the CAD model |
+
+Lessons recorded in the model header:
+- VRX `Surface` clamps the submerged depth at `hull_radius`, so at most half of each
+  cylinder counts. A radius sized to carry exactly the mass at half depth leaves no reserve:
+  the first model sank (centre at z = -0.375). Size the radius for reserve (here ~40 %).
+- Drag cannot be scaled by mass: it follows hull shape. Equal surge and sway drag (inherited
+  from `roboboat01`) made the boat slide sideways instead of turning.
+- Steering sign, measured: positive angle (counter-clockwise from above) on a **rear**
+  thruster turns the boat right; on a **front** thruster it turns the boat left. With the
+  team's definition (1900 PWM = thrusters right = boat turns right), `sim_bridge` maps
+  1900 PWM to -0.785 rad.
+
+Gazebo topics (`gz.msgs.Double`):
+`/usv_boat/thrusters/{rear_left,rear_right,front_left,front_right}/thrust` (N) and
+`/usv_boat/thrusters/{front_left,front_right}/pos` (rad).
 
 ## 11. Recording
 
@@ -288,6 +314,21 @@ so every node sees the same values (the legacy `spawn` copy problem disappears).
 |---|---|---|
 | 3 | This document | Approved |
 | 4 | `usv_interfaces`; `usv_core` (`navigation`, `planner`) with tests; boat model; `sim_bridge`; `fake_perception` | Boat driven manually in simulation; buoys on `/usv/buoys` |
+
+Phase 4 progress (2026-10-22):
+
+| Item | State |
+|---|---|
+| `usv_interfaces` | Done |
+| `usv_core`: `navigation`, `planner`, `object_memory`, `mixer` | Done, 487 equivalence and behaviour tests passing |
+| Boat model | Four thrusters, steerable front pair, buoyancy and yaw drag calibrated; surge drag and visuals pending |
+| `sim_bridge` | Next |
+| `fake_perception` | Not started |
+
+Remaining phases:
+
+| Phase | Work | Done when |
+|---|---|---|
 | 5 | `navigator` (mixer, controller, mission) | Tasks 1, 2, 3 completed in simulation |
 | 6 | Boat image (arm64), `fc_bridge`, `perception`, `heading_source`, `telemetry_bridge`, `recorder` | Sensors flowing on land and at the pier; GCS connects unchanged |
 | 7 | Sea trials | ROS 2 version completes the same course as the legacy system |

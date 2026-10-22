@@ -21,7 +21,16 @@ Komutları yukarıdan aşağı sırayla çalıştır. Terminale yapıştırma k�
 | `~/usv_ros2/ws/src` | Kendi paketlerin. Container içinde `/ws/src` olarak görünür |
 | `~/usv_ros2/docker/Dockerfile` | İmajın tarifi |
 | `~/usv_ros2/compose.yaml` | Container'ın nasıl başlatılacağı |
+| `~/usv_ros2/docs/ARCHITECTURE.md` | Onaylanmış mimari ve yol haritası (İngilizce) |
+| `~/usv_ros2/docs/open-items.md` | Senden beklenen dosyalar, yapılacak kontroller |
 | `~/usv_legacy` | Eski multiprocess kod. Yalnızca başvuru için; içinde değişiklik yapma |
+
+| Paket (`ws/src/`) | Ne |
+|---|---|
+| `usv_interfaces` | Özel mesaj ve service tanımları |
+| `usv_core` | ROS'suz algoritma kütüphanesi (taşınan eski kod) ve testleri |
+| `usv_sim` | Simülasyon teknesi (`usv_boat`) ve dünya (`nbpark`) |
+| `usv_learn` | Öğrenme paketi; sistemin parçası değil |
 
 ---
 
@@ -65,7 +74,7 @@ Beklenen: satır başı `ubuntu@...:/ws$` olur. Artık container'ın içindesin.
 ```bash
 ros2 pkg list | grep usv
 ```
-Beklenen: `usv_learn` (ve ileride eklenen diğer `usv_` paketleri).
+Beklenen: `usv_interfaces` ve `usv_learn`. `usv_core` ve `usv_sim` henüz `colcon` ile derlenmedi; testleri ve simülasyonu doğrudan klasörlerinden çalıştırıyoruz (3. bölüm).
 
 ### Ek terminal gerektiğinde
 
@@ -109,7 +118,62 @@ ros2 launch usv_learn learn.launch.py
 ```
 Durdurmak için: `Ctrl + C`
 
-### VRX simülasyonu
+### `usv_core` testleri
+
+Taşınan eski kodun eski kodla aynı sonucu verdiğini kontrol eder. Kodda bir şey değiştirdikten sonra, commit'ten **önce** çalıştır:
+
+```bash
+cd /ws/src/usv_core && python3 -m pytest test/test_navigation.py test/test_planner.py test/test_object_memory.py test/test_mixer.py
+```
+Beklenen: `487 passed` (test eklendikçe sayı artar). Kırmızı `FAILED` varsa commit etme.
+
+### Kendi simülasyonumuz (`usv_sim`)
+
+Gazebo'ya kendi model klasörümüzü göster (her yeni terminalde bir kez):
+
+```bash
+export GZ_SIM_RESOURCE_PATH=/ws/src/usv_sim/models:$GZ_SIM_RESOURCE_PATH
+```
+
+```bash
+gz sim -v 3 /ws/src/usv_sim/worlds/nbpark.sdf
+```
+- Dünya **duraklatılmış** açılır (sağ altta `0.00 %`). Sol alttaki **▶**'e bas.
+- Entity tree'de `usv_boat`'a sağ tık → **Follow**: kamera tekneyi takip eder.
+- Gazebo'yu `Ctrl + C` ile kapatıp açmak tekneyi başlangıç noktasına döndürür.
+
+İkinci bir container terminalinde Gazebo'nun kendi komutları (`gz`, `ros2` değil):
+
+| Komut | Ne yapar |
+|---|---|
+| `gz topic -l \| grep usv_boat` | Teknenin Gazebo topic'leri |
+| `gz model -m usv_boat -p` | Teknenin anlık konumu ve açısı |
+
+Konumu 5 kez, 1 saniye arayla ölç:
+
+```bash
+for i in 1 2 3 4 5; do gz model -m usv_boat -p 2>/dev/null | grep -A1 "Pose" | tail -n 1; sleep 1; done
+```
+
+Dört iticiye aynı itki (N; ileri pozitif):
+
+```bash
+for t in front_left front_right rear_left rear_right; do gz topic -t /usv_boat/thrusters/$t/thrust -m gz.msgs.Double -p 'data: 10.0'; done
+```
+
+Ön iticilerin açısı (rad; + = yukarıdan bakınca saat yönünün tersi, tekne sola döner; sınır ±0,785):
+
+```bash
+for t in front_left front_right; do gz topic -t /usv_boat/thrusters/$t/pos -m gz.msgs.Double -p 'data: 0.5'; done
+```
+
+Hepsini durdur:
+
+```bash
+for t in front_left front_right rear_left rear_right; do gz topic -t /usv_boat/thrusters/$t/thrust -m gz.msgs.Double -p 'data: 0.0'; done
+```
+
+### VRX'in hazır simülasyonu
 
 ```bash
 ros2 launch vrx_gz competition.launch.py world:=sydney_regatta
@@ -262,6 +326,9 @@ Bunu yapmadan bilgisayarı kapatsan da bir şey bozulmaz; bir sonraki açılış
 | `Driver/library version mismatch` | Sürücü güncellendi, yeniden başlatılmadı | Bilgisayarı yeniden başlat |
 | `glxinfo` NVIDIA yerine Intel ya da llvmpipe gösteriyor | Çizim yanlış kartta | Dur, çıktıyı Claude'a göster |
 | Uzun blok yapıştırınca ekran karışık görünüyor | Terminalin çizim hatası | Dosyayı `cat` ya da `python3 -m py_compile` ile doğrula |
+| Gazebo'da hiçbir şey hareket etmiyor, sağ altta `0.00 %` | Dünya duraklatılmış | Sol alttaki ▶ |
+| Gazebo `usv_boat` modelini bulamıyor | Model klasörü tanıtılmamış | `export GZ_SIM_RESOURCE_PATH=...` satırı (3. bölüm) |
+| Suyun üstünde yeşil tel çerçeveli bir kare | Güneşin (ışık kaynağının) işareti | Zararsız; tekneyi bulmak için `usv_boat` → **Follow** |
 
 ### Ekran donarsa
 
