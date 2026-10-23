@@ -1,20 +1,25 @@
 <?xml version="1.0"?>
 <!--
-  usv_boat: simulation model of the team's catamaran USV.
+  usv_boat: simulation model of the team's catamaran USV (DHO Kemalreis, A-1773).
 
   Started from the VRX roboboat01 model (github.com/osrf/vrx, Apache-2.0); geometry,
-  thrusters and physics are now our own. Simple shapes are used for visuals.
+  thrusters and physics are now our own.
 
   Frame: x forward (bow), y left, z up. Origin on the centre line, at the design waterline,
   half way along the hull.
 
-  Sources of the numbers (2026-10-22):
-    from the technical drawing (Sekil 6): length 1.182 m, beam 0.78 m, hull centre lines
-      +/-0.26 m, hull width ~0.20 m, hull depth ~0.30 m, thruster positions
-    from the ANSYS VOF images: draft ~0.11-0.13 m
-    from the team: total mass 45 kg; steering 1100 PWM = 45 deg left, 1900 PWM = 45 deg right
-    ASSUMED, to be identified in the field: thrust limits (+50 / -40 N), propeller
-      diameter (0.09 m), centre of gravity height, inertia, surge drag
+  Sources of the numbers (2026-10-23):
+    technical drawing (Sekil 6): length 1.182 m, beam 0.78 m, hull centre lines +/-0.26 m,
+      hull width ~0.20 m, hull depth ~0.30 m, thruster positions, box position
+    ANSYS VOF images: draft ~0.11-0.13 m
+    photos (2026-10-23): bow "scoop" profile, blue bow bumper, ZED on the front cross
+      profile between the hulls, GNSS mast leaning aft, ducted thrusters on struts
+    team: total mass 45 kg; steering +/-45 deg (1100 PWM = 45 deg left, 1900 = 45 deg right);
+      thrusters are Degz Utras (M5 motor)
+    Degz Utras product page: 8-11 kgf at 24-25.2 V (sources disagree). Used: 78 N (8 kgf,
+      the conservative figure), ASSUMING a 6S battery. Reverse: ASSUMED 70 % = -55 N.
+    ASSUMED, to be identified in the field: propeller diameter (0.09 m), centre of gravity
+      height, inertia, surge drag
 
   Buoyancy: VRX (Surface.cc) models each hull as a cylinder whose submerged depth is
   measured from the keel point and CLAMPED to hull_radius, i.e. at most half the cylinder
@@ -23,15 +28,26 @@
   area needed 45 / (1000 * 2 * 1.18) = 0.0191 m^2), maximum ~63 kg, i.e. ~40 % reserve.
   Keel points at z = -0.10 so the origin sits at the waterline in equilibrium.
 
-  Drag (SimpleHydrodynamics), revised 2026-10-22 after the first drive test, where the
-  boat slid sideways and turned at ~4 deg/s:
-    yaw  nR = 15, nRR = 19: back-calculated from the legacy field measurement in
-         config.py (spot turn 35-57 deg/s at SPOT_TURN_PWM 200, 22-38 deg/s at 140),
-         assuming 50 N at 1900 PWM and thrust linear in PWM. Check: 140 PWM -> 36 deg/s.
-    surge xU = 30, xUU = 20: ASSUMED ~1.5 m/s at CRUISE_PWM (1680). To be fitted from the
-         legacy vehicle CSV (yer_hizi_mps vs hiz_set_pwm).
-    sway yV, yVV = 6 x surge: a catamaran's side area is ~6x its frontal area.
-    heave/roll/pitch: unchanged first guesses.
+  Drag (SimpleHydrodynamics). Thrust is taken as linear in PWM: 78 N at 1900 (ASSUMED).
+    yaw  nR = 24, nRR = 30: back-calculated from the legacy field measurement in config.py
+         (spot turn 35-57 deg/s at SPOT_TURN_PWM 200, i.e. 39 N per thruster, 38 Nm).
+         Check: 140 PWM -> 36 deg/s, legacy measured 22-38 deg/s.
+    surge xU = 39, xUU = 22: ~1.8 m/s at CRUISE_PWM 180 (4 x 35 N = 140 N), from a comment
+         in legacy config.py ("1.5 m at ~1.8 m/s"). An observation, not a measurement; to be
+         fitted from the legacy vehicle CSV (yer_hizi_mps vs hiz_set_pwm).
+    sway yV, yVV = 6 x surge: a catamaran's side area is ~6x its frontal area. The first
+         model had sway = surge (inherited from roboboat01) and slid sideways instead of
+         turning.
+    heave/roll/pitch: first guesses.
+
+  Steering sign (measured in simulation): positive angle (counter-clockwise from above) on a
+  FRONT thruster turns the boat LEFT. So 1900 PWM (team: thrusters right, boat turns right)
+  maps to -0.785 rad.
+
+  Visuals: hull mesh from scripts/make_hull_mesh.py (meshes/hull.obj) until the CAD export
+  arrives; everything else primitive shapes. Collisions stay simple boxes.
+
+  ZED camera (for the future sensor): x = +0.29, y = 0, z = +0.18, facing forward.
 
   Gazebo topics (gz.msgs.Double):
     /usv_boat/thrusters/{rear_left,rear_right,front_left,front_right}/thrust   N
@@ -40,7 +56,7 @@
 <sdf version="1.6">
   <model name="usv_boat">
 
-    <!-- ================= Hull, deck box, mast ================= -->
+    <!-- ================= Hull, deck, superstructure ================= -->
     <link name="base_link">
       <inertial>
         <!-- 45 kg total minus 4 x (0.5 kg housing + 0.05 kg propeller) -->
@@ -57,55 +73,129 @@
         </inertia>
       </inertial>
 
-      <!-- Hulls: bottom at z = -0.11 (the draft), 0.30 m deep -->
+      <!-- Hulls (mesh) -->
       <visual name="left_hull_visual">
-        <pose>0 0.26 0.04 0 0 0</pose>
-        <geometry><box><size>1.182 0.20 0.30</size></box></geometry>
-        <material><ambient>0.55 0.55 0.55 1</ambient><diffuse>0.65 0.65 0.65 1</diffuse></material>
+        <pose>0 0.26 0 0 0 0</pose>
+        <geometry><mesh><uri>file://usv_boat/meshes/hull.obj</uri></mesh></geometry>
+        <material><ambient>0.55 0.57 0.60 1</ambient><diffuse>0.62 0.64 0.67 1</diffuse><specular>0.3 0.3 0.3 1</specular></material>
       </visual>
+      <visual name="right_hull_visual">
+        <pose>0 -0.26 0 0 0 0</pose>
+        <geometry><mesh><uri>file://usv_boat/meshes/hull.obj</uri></mesh></geometry>
+        <material><ambient>0.55 0.57 0.60 1</ambient><diffuse>0.62 0.64 0.67 1</diffuse><specular>0.3 0.3 0.3 1</specular></material>
+      </visual>
+
+      <!-- Hatch lids on top of the hulls -->
+      <visual name="left_front_lid">
+        <pose>0.10 0.26 0.20 0 0 0</pose>
+        <geometry><box><size>0.36 0.17 0.02</size></box></geometry>
+        <material><ambient>0.6 0.62 0.65 1</ambient><diffuse>0.68 0.70 0.73 1</diffuse></material>
+      </visual>
+      <visual name="right_front_lid">
+        <pose>0.10 -0.26 0.20 0 0 0</pose>
+        <geometry><box><size>0.36 0.17 0.02</size></box></geometry>
+        <material><ambient>0.6 0.62 0.65 1</ambient><diffuse>0.68 0.70 0.73 1</diffuse></material>
+      </visual>
+      <visual name="left_rear_lid">
+        <pose>-0.40 0.26 0.20 0 0 0</pose>
+        <geometry><box><size>0.24 0.17 0.02</size></box></geometry>
+        <material><ambient>0.6 0.62 0.65 1</ambient><diffuse>0.68 0.70 0.73 1</diffuse></material>
+      </visual>
+      <visual name="right_rear_lid">
+        <pose>-0.40 -0.26 0.20 0 0 0</pose>
+        <geometry><box><size>0.24 0.17 0.02</size></box></geometry>
+        <material><ambient>0.6 0.62 0.65 1</ambient><diffuse>0.68 0.70 0.73 1</diffuse></material>
+      </visual>
+
+      <!-- Aluminium cross profiles (front one carries the ZED) -->
+      <visual name="front_profile">
+        <pose>0.27 0 0.205 0 0 0</pose>
+        <geometry><box><size>0.04 0.74 0.03</size></box></geometry>
+        <material><ambient>0.7 0.7 0.72 1</ambient><diffuse>0.8 0.8 0.82 1</diffuse></material>
+      </visual>
+      <visual name="rear_profile">
+        <pose>-0.47 0 0.205 0 0 0</pose>
+        <geometry><box><size>0.04 0.74 0.03</size></box></geometry>
+        <material><ambient>0.7 0.7 0.72 1</ambient><diffuse>0.8 0.8 0.82 1</diffuse></material>
+      </visual>
+
+      <!-- Electronics box: beige body, aluminium lid -->
+      <visual name="box_body">
+        <pose>-0.10 0 0.30 0 0 0</pose>
+        <geometry><box><size>0.66 0.52 0.18</size></box></geometry>
+        <material><ambient>0.72 0.71 0.62 1</ambient><diffuse>0.82 0.81 0.72 1</diffuse></material>
+      </visual>
+      <visual name="box_lid">
+        <pose>-0.10 0 0.43 0 0 0</pose>
+        <geometry><box><size>0.70 0.55 0.08</size></box></geometry>
+        <material><ambient>0.72 0.73 0.75 1</ambient><diffuse>0.82 0.83 0.85 1</diffuse><specular>0.6 0.6 0.6 1</specular></material>
+      </visual>
+      <visual name="estop">
+        <pose>-0.44 0.12 0.32 0 1.5708 0</pose>
+        <geometry><cylinder><radius>0.02</radius><length>0.03</length></cylinder></geometry>
+        <material><ambient>0.7 0.05 0.05 1</ambient><diffuse>0.85 0.1 0.1 1</diffuse></material>
+      </visual>
+
+      <!-- ZED 2i on the front profile, facing forward -->
+      <visual name="zed">
+        <pose>0.29 0 0.18 0 0 0</pose>
+        <geometry><box><size>0.03 0.175 0.033</size></box></geometry>
+        <material><ambient>0.05 0.05 0.05 1</ambient><diffuse>0.1 0.1 0.1 1</diffuse></material>
+      </visual>
+
+      <!-- Blue bow bumper and its two struts back to the front profile -->
+      <visual name="bumper">
+        <pose>0.63 0 0.10 0 0 0</pose>
+        <geometry><box><size>0.04 0.80 0.05</size></box></geometry>
+        <material><ambient>0.08 0.18 0.65 1</ambient><diffuse>0.12 0.25 0.85 1</diffuse></material>
+      </visual>
+      <visual name="bumper_strut_left">
+        <pose>0.45 0.13 0.15 0 0.278 0</pose>
+        <geometry><box><size>0.37 0.03 0.03</size></box></geometry>
+        <material><ambient>0.08 0.18 0.65 1</ambient><diffuse>0.12 0.25 0.85 1</diffuse></material>
+      </visual>
+      <visual name="bumper_strut_right">
+        <pose>0.45 -0.13 0.15 0 0.278 0</pose>
+        <geometry><box><size>0.37 0.03 0.03</size></box></geometry>
+        <material><ambient>0.08 0.18 0.65 1</ambient><diffuse>0.12 0.25 0.85 1</diffuse></material>
+      </visual>
+
+      <!-- GNSS mast leaning aft, antenna on top -->
+      <visual name="mast">
+        <pose>-0.525 0 0.51 0 -0.343 0</pose>
+        <geometry><cylinder><radius>0.012</radius><length>0.45</length></cylinder></geometry>
+        <material><ambient>0.7 0.7 0.72 1</ambient><diffuse>0.8 0.8 0.82 1</diffuse></material>
+      </visual>
+      <visual name="gnss">
+        <pose>-0.60 0 0.735 0 0 0</pose>
+        <geometry><cylinder><radius>0.045</radius><length>0.03</length></cylinder></geometry>
+        <material><ambient>0.05 0.05 0.05 1</ambient><diffuse>0.1 0.1 0.1 1</diffuse></material>
+      </visual>
+
+      <!-- Collisions: simple boxes -->
       <collision name="left_hull_collision">
         <pose>0 0.26 0.04 0 0 0</pose>
         <geometry><box><size>1.182 0.20 0.30</size></box></geometry>
       </collision>
-
-      <visual name="right_hull_visual">
-        <pose>0 -0.26 0.04 0 0 0</pose>
-        <geometry><box><size>1.182 0.20 0.30</size></box></geometry>
-        <material><ambient>0.55 0.55 0.55 1</ambient><diffuse>0.65 0.65 0.65 1</diffuse></material>
-      </visual>
       <collision name="right_hull_collision">
         <pose>0 -0.26 0.04 0 0 0</pose>
         <geometry><box><size>1.182 0.20 0.30</size></box></geometry>
       </collision>
-
-      <!-- Electronics box on top of the hulls, slightly aft -->
-      <visual name="box_visual">
-        <pose>-0.10 0 0.335 0 0 0</pose>
-        <geometry><box><size>0.70 0.55 0.29</size></box></geometry>
-        <material><ambient>0.55 0.58 0.75 1</ambient><diffuse>0.65 0.68 0.85 1</diffuse></material>
-      </visual>
       <collision name="box_collision">
-        <pose>-0.10 0 0.335 0 0 0</pose>
-        <geometry><box><size>0.70 0.55 0.29</size></box></geometry>
+        <pose>-0.10 0 0.34 0 0 0</pose>
+        <geometry><box><size>0.70 0.55 0.26</size></box></geometry>
       </collision>
-
-      <!-- GNSS mast (visual only) -->
-      <visual name="mast_visual">
-        <pose>-0.09 0 0.675 0 0 0</pose>
-        <geometry><cylinder><radius>0.015</radius><length>0.39</length></cylinder></geometry>
-        <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.7 0.7 0.7 1</diffuse></material>
-      </visual>
-      <visual name="gnss_visual">
-        <pose>-0.09 0 0.88 0 0 0</pose>
-        <geometry><cylinder><radius>0.04</radius><length>0.02</length></cylinder></geometry>
-        <material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.15 0.15 0.15 1</diffuse></material>
-      </visual>
+      <collision name="bumper_collision">
+        <pose>0.63 0 0.10 0 0 0</pose>
+        <geometry><box><size>0.04 0.80 0.05</size></box></geometry>
+      </collision>
     </link>
 
     <!-- ================= Thrusters =================
          Positions: front x = +0.363 (0.228 m behind the bow), rear x = -0.493
          (0.098 m ahead of the transom), y = +/-0.245, z = -0.178 (7 cm below the hull bottom).
-         Each thruster: housing link + propeller link. Front housings rotate about z. -->
+         Each thruster: housing link (strut, duct, hub) + propeller link.
+         Front housings rotate about z. -->
 
     <!-- Front left -->
     <link name="front_left_housing_link">
@@ -114,22 +204,32 @@
         <mass>0.5</mass>
         <inertia><ixx>0.0004</ixx><ixy>0</ixy><ixz>0</ixz><iyy>0.0008</iyy><iyz>0</iyz><izz>0.0008</izz></inertia>
       </inertial>
-      <visual name="visual">
+      <visual name="strut">
+        <pose>0.363 0.245 -0.115 0 0 0</pose>
+        <geometry><box><size>0.04 0.02 0.08</size></box></geometry>
+        <material><ambient>0.05 0.05 0.05 1</ambient><diffuse>0.1 0.1 0.1 1</diffuse></material>
+      </visual>
+      <visual name="duct">
         <pose>0.363 0.245 -0.178 0 1.5708 0</pose>
-        <geometry><cylinder><radius>0.04</radius><length>0.12</length></cylinder></geometry>
-        <material><ambient>0.08 0.08 0.08 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        <geometry><cylinder><radius>0.055</radius><length>0.07</length></cylinder></geometry>
+        <material><ambient>0.05 0.05 0.05 1</ambient><diffuse>0.1 0.1 0.1 1</diffuse></material>
+      </visual>
+      <visual name="hub">
+        <pose>0.40 0.245 -0.178 0 1.5708 0</pose>
+        <geometry><cylinder><radius>0.022</radius><length>0.10</length></cylinder></geometry>
+        <material><ambient>0.05 0.05 0.05 1</ambient><diffuse>0.1 0.1 0.1 1</diffuse></material>
       </visual>
     </link>
     <link name="front_left_prop_link">
       <inertial>
-        <pose>0.30 0.245 -0.178 0 0 0</pose>
+        <pose>0.33 0.245 -0.178 0 0 0</pose>
         <mass>0.05</mass>
         <inertia><ixx>0.000051</ixx><ixy>0</ixy><ixz>0</ixz><iyy>0.000027</iyy><iyz>0</iyz><izz>0.000027</izz></inertia>
       </inertial>
       <visual name="visual">
-        <pose>0.30 0.245 -0.178 0 1.5708 0</pose>
-        <geometry><cylinder><radius>0.045</radius><length>0.015</length></cylinder></geometry>
-        <material><ambient>0.7 0.1 0.1 1</ambient><diffuse>0.8 0.15 0.15 1</diffuse></material>
+        <pose>0.33 0.245 -0.178 0 1.5708 0</pose>
+        <geometry><cylinder><radius>0.045</radius><length>0.01</length></cylinder></geometry>
+        <material><ambient>0.6 0.1 0.15 1</ambient><diffuse>0.75 0.15 0.2 1</diffuse></material>
       </visual>
     </link>
     <joint name="front_left_steer_joint" type="revolute">
@@ -142,7 +242,7 @@
       </axis>
     </joint>
     <joint name="front_left_prop_joint" type="revolute">
-      <pose>0.30 0.245 -0.178 0 0 0</pose>
+      <pose>0.33 0.245 -0.178 0 0 0</pose>
       <parent>front_left_housing_link</parent>
       <child>front_left_prop_link</child>
       <axis>
@@ -159,22 +259,32 @@
         <mass>0.5</mass>
         <inertia><ixx>0.0004</ixx><ixy>0</ixy><ixz>0</ixz><iyy>0.0008</iyy><iyz>0</iyz><izz>0.0008</izz></inertia>
       </inertial>
-      <visual name="visual">
+      <visual name="strut">
+        <pose>0.363 -0.245 -0.115 0 0 0</pose>
+        <geometry><box><size>0.04 0.02 0.08</size></box></geometry>
+        <material><ambient>0.05 0.05 0.05 1</ambient><diffuse>0.1 0.1 0.1 1</diffuse></material>
+      </visual>
+      <visual name="duct">
         <pose>0.363 -0.245 -0.178 0 1.5708 0</pose>
-        <geometry><cylinder><radius>0.04</radius><length>0.12</length></cylinder></geometry>
-        <material><ambient>0.08 0.08 0.08 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        <geometry><cylinder><radius>0.055</radius><length>0.07</length></cylinder></geometry>
+        <material><ambient>0.05 0.05 0.05 1</ambient><diffuse>0.1 0.1 0.1 1</diffuse></material>
+      </visual>
+      <visual name="hub">
+        <pose>0.40 -0.245 -0.178 0 1.5708 0</pose>
+        <geometry><cylinder><radius>0.022</radius><length>0.10</length></cylinder></geometry>
+        <material><ambient>0.05 0.05 0.05 1</ambient><diffuse>0.1 0.1 0.1 1</diffuse></material>
       </visual>
     </link>
     <link name="front_right_prop_link">
       <inertial>
-        <pose>0.30 -0.245 -0.178 0 0 0</pose>
+        <pose>0.33 -0.245 -0.178 0 0 0</pose>
         <mass>0.05</mass>
         <inertia><ixx>0.000051</ixx><ixy>0</ixy><ixz>0</ixz><iyy>0.000027</iyy><iyz>0</iyz><izz>0.000027</izz></inertia>
       </inertial>
       <visual name="visual">
-        <pose>0.30 -0.245 -0.178 0 1.5708 0</pose>
-        <geometry><cylinder><radius>0.045</radius><length>0.015</length></cylinder></geometry>
-        <material><ambient>0.7 0.1 0.1 1</ambient><diffuse>0.8 0.15 0.15 1</diffuse></material>
+        <pose>0.33 -0.245 -0.178 0 1.5708 0</pose>
+        <geometry><cylinder><radius>0.045</radius><length>0.01</length></cylinder></geometry>
+        <material><ambient>0.6 0.1 0.15 1</ambient><diffuse>0.75 0.15 0.2 1</diffuse></material>
       </visual>
     </link>
     <joint name="front_right_steer_joint" type="revolute">
@@ -187,7 +297,7 @@
       </axis>
     </joint>
     <joint name="front_right_prop_joint" type="revolute">
-      <pose>0.30 -0.245 -0.178 0 0 0</pose>
+      <pose>0.33 -0.245 -0.178 0 0 0</pose>
       <parent>front_right_housing_link</parent>
       <child>front_right_prop_link</child>
       <axis>
@@ -204,22 +314,32 @@
         <mass>0.5</mass>
         <inertia><ixx>0.0004</ixx><ixy>0</ixy><ixz>0</ixz><iyy>0.0008</iyy><iyz>0</iyz><izz>0.0008</izz></inertia>
       </inertial>
-      <visual name="visual">
+      <visual name="strut">
+        <pose>-0.493 0.245 -0.12 0 0 0</pose>
+        <geometry><box><size>0.04 0.02 0.07</size></box></geometry>
+        <material><ambient>0.05 0.05 0.05 1</ambient><diffuse>0.1 0.1 0.1 1</diffuse></material>
+      </visual>
+      <visual name="duct">
         <pose>-0.493 0.245 -0.178 0 1.5708 0</pose>
-        <geometry><cylinder><radius>0.04</radius><length>0.12</length></cylinder></geometry>
-        <material><ambient>0.08 0.08 0.08 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        <geometry><cylinder><radius>0.055</radius><length>0.07</length></cylinder></geometry>
+        <material><ambient>0.05 0.05 0.05 1</ambient><diffuse>0.1 0.1 0.1 1</diffuse></material>
+      </visual>
+      <visual name="hub">
+        <pose>-0.456 0.245 -0.178 0 1.5708 0</pose>
+        <geometry><cylinder><radius>0.022</radius><length>0.10</length></cylinder></geometry>
+        <material><ambient>0.05 0.05 0.05 1</ambient><diffuse>0.1 0.1 0.1 1</diffuse></material>
       </visual>
     </link>
     <link name="rear_left_prop_link">
       <inertial>
-        <pose>-0.556 0.245 -0.178 0 0 0</pose>
+        <pose>-0.526 0.245 -0.178 0 0 0</pose>
         <mass>0.05</mass>
         <inertia><ixx>0.000051</ixx><ixy>0</ixy><ixz>0</ixz><iyy>0.000027</iyy><iyz>0</iyz><izz>0.000027</izz></inertia>
       </inertial>
       <visual name="visual">
-        <pose>-0.556 0.245 -0.178 0 1.5708 0</pose>
-        <geometry><cylinder><radius>0.045</radius><length>0.015</length></cylinder></geometry>
-        <material><ambient>0.7 0.1 0.1 1</ambient><diffuse>0.8 0.15 0.15 1</diffuse></material>
+        <pose>-0.526 0.245 -0.178 0 1.5708 0</pose>
+        <geometry><cylinder><radius>0.045</radius><length>0.01</length></cylinder></geometry>
+        <material><ambient>0.6 0.1 0.15 1</ambient><diffuse>0.75 0.15 0.2 1</diffuse></material>
       </visual>
     </link>
     <joint name="rear_left_mount_joint" type="fixed">
@@ -227,7 +347,7 @@
       <child>rear_left_housing_link</child>
     </joint>
     <joint name="rear_left_prop_joint" type="revolute">
-      <pose>-0.556 0.245 -0.178 0 0 0</pose>
+      <pose>-0.526 0.245 -0.178 0 0 0</pose>
       <parent>rear_left_housing_link</parent>
       <child>rear_left_prop_link</child>
       <axis>
@@ -244,22 +364,32 @@
         <mass>0.5</mass>
         <inertia><ixx>0.0004</ixx><ixy>0</ixy><ixz>0</ixz><iyy>0.0008</iyy><iyz>0</iyz><izz>0.0008</izz></inertia>
       </inertial>
-      <visual name="visual">
+      <visual name="strut">
+        <pose>-0.493 -0.245 -0.12 0 0 0</pose>
+        <geometry><box><size>0.04 0.02 0.07</size></box></geometry>
+        <material><ambient>0.05 0.05 0.05 1</ambient><diffuse>0.1 0.1 0.1 1</diffuse></material>
+      </visual>
+      <visual name="duct">
         <pose>-0.493 -0.245 -0.178 0 1.5708 0</pose>
-        <geometry><cylinder><radius>0.04</radius><length>0.12</length></cylinder></geometry>
-        <material><ambient>0.08 0.08 0.08 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        <geometry><cylinder><radius>0.055</radius><length>0.07</length></cylinder></geometry>
+        <material><ambient>0.05 0.05 0.05 1</ambient><diffuse>0.1 0.1 0.1 1</diffuse></material>
+      </visual>
+      <visual name="hub">
+        <pose>-0.456 -0.245 -0.178 0 1.5708 0</pose>
+        <geometry><cylinder><radius>0.022</radius><length>0.10</length></cylinder></geometry>
+        <material><ambient>0.05 0.05 0.05 1</ambient><diffuse>0.1 0.1 0.1 1</diffuse></material>
       </visual>
     </link>
     <link name="rear_right_prop_link">
       <inertial>
-        <pose>-0.556 -0.245 -0.178 0 0 0</pose>
+        <pose>-0.526 -0.245 -0.178 0 0 0</pose>
         <mass>0.05</mass>
         <inertia><ixx>0.000051</ixx><ixy>0</ixy><ixz>0</ixz><iyy>0.000027</iyy><iyz>0</iyz><izz>0.000027</izz></inertia>
       </inertial>
       <visual name="visual">
-        <pose>-0.556 -0.245 -0.178 0 1.5708 0</pose>
-        <geometry><cylinder><radius>0.045</radius><length>0.015</length></cylinder></geometry>
-        <material><ambient>0.7 0.1 0.1 1</ambient><diffuse>0.8 0.15 0.15 1</diffuse></material>
+        <pose>-0.526 -0.245 -0.178 0 1.5708 0</pose>
+        <geometry><cylinder><radius>0.045</radius><length>0.01</length></cylinder></geometry>
+        <material><ambient>0.6 0.1 0.15 1</ambient><diffuse>0.75 0.15 0.2 1</diffuse></material>
       </visual>
     </link>
     <joint name="rear_right_mount_joint" type="fixed">
@@ -267,7 +397,7 @@
       <child>rear_right_housing_link</child>
     </joint>
     <joint name="rear_right_prop_joint" type="revolute">
-      <pose>-0.556 -0.245 -0.178 0 0 0</pose>
+      <pose>-0.526 -0.245 -0.178 0 0 0</pose>
       <parent>rear_right_housing_link</parent>
       <child>rear_right_prop_link</child>
       <axis>
@@ -308,20 +438,20 @@
       <xDotU>0.0</xDotU>
       <yDotV>0.0</yDotV>
       <nDotR>0.0</nDotR>
-      <xU>30.0</xU>
-      <xUU>20.0</xUU>
-      <yV>180.0</yV>
-      <yVV>120.0</yVV>
+      <xU>39.0</xU>
+      <xUU>22.0</xUU>
+      <yV>234.0</yV>
+      <yVV>132.0</yVV>
       <zW>90.0</zW>
       <kP>54.0</kP>
       <kPP>108.0</kPP>
       <mQ>162.0</mQ>
       <mQQ>157.5</mQQ>
-      <nR>15.0</nR>
-      <nRR>19.0</nRR>
+      <nR>24.0</nR>
+      <nRR>30.0</nRR>
     </plugin>
 
-    <!-- ================= Thrust - limits ASSUMED ================= -->
+    <!-- ================= Thrust: Degz Utras, 8 kgf forward (6S ASSUMED) ================= -->
     <plugin filename="gz-sim-thruster-system" name="gz::sim::systems::Thruster">
       <namespace>usv_boat</namespace>
       <topic>thrusters/front_left/thrust</topic>
@@ -330,8 +460,8 @@
       <fluid_density>1000</fluid_density>
       <propeller_diameter>0.09</propeller_diameter>
       <velocity_control>true</velocity_control>
-      <max_thrust_cmd>50</max_thrust_cmd>
-      <min_thrust_cmd>-40</min_thrust_cmd>
+      <max_thrust_cmd>78</max_thrust_cmd>
+      <min_thrust_cmd>-55</min_thrust_cmd>
     </plugin>
     <plugin filename="gz-sim-thruster-system" name="gz::sim::systems::Thruster">
       <namespace>usv_boat</namespace>
@@ -341,8 +471,8 @@
       <fluid_density>1000</fluid_density>
       <propeller_diameter>0.09</propeller_diameter>
       <velocity_control>true</velocity_control>
-      <max_thrust_cmd>50</max_thrust_cmd>
-      <min_thrust_cmd>-40</min_thrust_cmd>
+      <max_thrust_cmd>78</max_thrust_cmd>
+      <min_thrust_cmd>-55</min_thrust_cmd>
     </plugin>
     <plugin filename="gz-sim-thruster-system" name="gz::sim::systems::Thruster">
       <namespace>usv_boat</namespace>
@@ -352,8 +482,8 @@
       <fluid_density>1000</fluid_density>
       <propeller_diameter>0.09</propeller_diameter>
       <velocity_control>true</velocity_control>
-      <max_thrust_cmd>50</max_thrust_cmd>
-      <min_thrust_cmd>-40</min_thrust_cmd>
+      <max_thrust_cmd>78</max_thrust_cmd>
+      <min_thrust_cmd>-55</min_thrust_cmd>
     </plugin>
     <plugin filename="gz-sim-thruster-system" name="gz::sim::systems::Thruster">
       <namespace>usv_boat</namespace>
@@ -363,8 +493,8 @@
       <fluid_density>1000</fluid_density>
       <propeller_diameter>0.09</propeller_diameter>
       <velocity_control>true</velocity_control>
-      <max_thrust_cmd>50</max_thrust_cmd>
-      <min_thrust_cmd>-40</min_thrust_cmd>
+      <max_thrust_cmd>78</max_thrust_cmd>
+      <min_thrust_cmd>-55</min_thrust_cmd>
     </plugin>
 
     <!-- ================= Front thruster steering ================= -->

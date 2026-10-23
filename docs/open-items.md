@@ -10,8 +10,9 @@ Bir şey tamamlandıkça buradan sil ya da üstünü çiz. Son güncelleme: 22 E
 |---|---|---|---|---|
 | 1 | Eski sistemin bir koşusundan **telemetri CSV'si** (`arac_telemetri_YYYYMMDD_HHMMSS.csv`). En iyisi Parkur 1'de uzun düz gidişi olan bir koşu | Simülasyondaki ileri yön su direnci (`xU`, `xUU`) şu an tahmin. CSV'deki GPS hızı (`yer_hizi_mps`) ve PWM (`hiz_set_pwm`) ile gerçek değeri hesaplanacak | `~/usv_ros2/docs/data/`. Git'e eklenip eklenmeyeceğine sen karar ver | Bulabildiğinde; işi bekletmiyor |
 | 2 | Teknenin SolidWorks montajından **STL dosyası** (ayarlar aşağıda) | Simülasyondaki tekne şu an kutulardan oluşuyor; görünüş gerçek tekneye benzesin. Fiziği etkilemez | `~/usv_ros2/ws/src/usv_sim/models/usv_boat/meshes/usv_boat.stl` | Bulabildiğinde |
-| 3 | **Degz Ultras**'ın tam modeli ya da itki tablosu (azami ileri ve geri itki, pervane çapı) | Simülasyonda itki sınırı +50 / -40 N ve pervane çapı 9 cm olarak varsayıldı. Dönme direnci de bu varsayımla hesaplandı | Bana yaz | Öğrenebildiğinde |
-| 4 | **Dümen servosunun** gerçek açı aralığı (1100 ve 1900 PWM'de kaç derece) | Şu an 1100 = 45° sol, 1900 = 45° sağ varsayılıyor | Bana yaz | Teknede ölçebildiğinde |
+| 3 | **İtici bataryasının hücre sayısı** (4S mi, 6S mi?) | İticiler Degz **Utras** (M5 motor); üretici 24 V'ta 8–11 kgf veriyor. Modelde 6S varsayımıyla 8 kgf (78 N) kullanıldı. İtki voltajın karesiyle değişir; 4S'te yarıdan az olur. Dönme ve ileri direnci de bu değere göre hesaplandı | Bana yaz | Öğrenebildiğinde |
+| 4 | **Dümen servosunun** gerçek açı aralığı | Şu an ±45° (1100 = 45° sol, 1900 = 45° sağ) kabul edildi | Bana yaz | Teknede ölçebildiğinde |
+| 4b | **Video** (14 Ekim, eski kodla hareket) | Kare kare inceleme: dönme ve hız davranışı | `~/usv_ros2/ws/bags/video/` (git dışı) | Şimdi |
 | 5 | Elinizde varsa ZED'in ham kayıtları (**`.svo`**) | `perception` node'unu tekneye çıkmadan, gerçek görüntü ve derinlikle geliştirmek için | Bana sor, yeri birlikte belirleriz | Faz 6'dan önce, isteğe bağlı |
 | 6 | YOLO modelinin **`.pt`** dosyası | Thor'da `.engine`'e yeniden dönüştürülecek (eski `.engine` yeni donanımda çalışmaz). Depoya konmayacak | `~/usv_models/` (depo dışında) | Faz 6 |
 | 7 | **RoboBoat kural belgesi** | Uyarlama aşamasında görevler ve raporlama buna göre tasarlanacak | Bana gönder | Faz 8 |
