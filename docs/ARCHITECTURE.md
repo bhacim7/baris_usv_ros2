@@ -244,7 +244,7 @@ Open: detecting a node that is alive but stuck (legacy heartbeat watchdog). Not 
 - **Hydrodynamics:** identify real values from field data (coast-down for surge drag,
   turning test for yaw drag).
 
-### Boat model status (`usv_sim/models/usv_boat`, 2026-10-22)
+### Boat model status (`usv_sim/models/usv_boat`, 2026-10-23)
 
 | Item | Value | Source |
 |---|---|---|
@@ -253,11 +253,11 @@ Open: detecting a node that is alive but stuck (legacy heartbeat watchdog). Not 
 | Thrusters | Front x = +0.363, rear x = -0.493, y = +/-0.245, 7 cm below the keel | Technical drawing |
 | Steering | Front pair, +/-45 deg (1100 PWM = 45 deg left, 1900 = 45 deg right) | Team, to be measured |
 | Buoyancy | Two VRX cylinders, radius 0.13 m, keel points at z = -0.10 | Computed, see below |
-| Yaw drag | nR = 15, nRR = 19 | Back-calculated from the legacy field measurement (spot turn 35-57 deg/s at PWM offset 200) |
-| Surge drag | xU = 30, xUU = 20 | ASSUMED (~1.5 m/s at cruise); to be fitted from a legacy vehicle CSV |
-| Sway drag | 6 x surge | Side area ~6x frontal area |
-| Thrust limits | +50 / -40 N, propeller 0.09 m | ASSUMED; thruster model unknown |
-| Visuals | Primitive shapes | To be replaced by an STL export of the CAD model |
+| Yaw drag | nR = 28, nRR = 35 | Back-calculated from the legacy field measurement (spot turn 35-57 deg/s at PWM offset 200); consistent with the 2026-10-14 video (~33-43 deg/s at +/-156) |
+| Surge drag | xU = 70.5, xUU = 39.2 | Fitted from the 2026-10-14 video: 1.25-1.31 m/s on straight legs at PWM 1680 (GPS track); to be confirmed with a vehicle CSV |
+| Sway drag | yV = 273, yVV = 152 | 6 x the earlier surge guess (side area ~6x frontal area); kept, turning checked |
+| Thrust | +91 / -64 N, linear in PWM, propeller 0.09 m | Degz Utras on 7S (8 kgf at 24 V scaled); reverse and linearity ASSUMED |
+| Visuals | Generated hull mesh + primitive shapes | To be replaced by an STL export of the CAD model |
 
 Lessons recorded in the model header:
 - VRX `Surface` clamps the submerged depth at `hull_radius`, so at most half of each
@@ -321,7 +321,7 @@ Phase 4 progress (2026-10-22):
 |---|---|
 | `usv_interfaces` | Done |
 | `usv_core`: `navigation`, `planner`, `object_memory`, `mixer` | Done, 487 equivalence and behaviour tests passing |
-| Boat model | Four thrusters, steerable front pair, buoyancy and yaw drag calibrated; surge drag and visuals pending |
+| Boat model | Four thrusters, steerable front pair; buoyancy, yaw and surge drag calibrated (surge from the legacy video); CAD visuals pending |
 | `sim_bridge` | Next |
 | `fake_perception` | Not started |
 

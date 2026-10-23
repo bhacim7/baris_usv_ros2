@@ -8,11 +8,11 @@ Bir şey tamamlandıkça buradan sil ya da üstünü çiz. Son güncelleme: 22 E
 
 | # | Ne | Neden | Nereye | Ne zaman |
 |---|---|---|---|---|
-| 1 | Eski sistemin bir koşusundan **telemetri CSV'si** (`arac_telemetri_YYYYMMDD_HHMMSS.csv`). En iyisi Parkur 1'de uzun düz gidişi olan bir koşu | Simülasyondaki ileri yön su direnci (`xU`, `xUU`) şu an tahmin. CSV'deki GPS hızı (`yer_hizi_mps`) ve PWM (`hiz_set_pwm`) ile gerçek değeri hesaplanacak | `~/usv_ros2/docs/data/`. Git'e eklenip eklenmeyeceğine sen karar ver | Bulabildiğinde; işi bekletmiyor |
+| 1 | Eski sistemin bir koşusundan **telemetri CSV'si** (`arac_telemetri_YYYYMMDD_HHMMSS.csv`). En iyisi Parkur 1'de uzun düz gidişi olan bir koşu | İleri yön su direnci (`xU`, `xUU`) 14 Ekim videosundan ayarlandı (1680 PWM'de ≈1,28 m/s). CSV ile iki şey doğrulanacak: (a) bu hız, başka yönlerde de (rüzgâr etkisi); (b) HUD'daki HIZ değerinin (VFR_HUD groundspeed) GPS konumuna göre neden yarı yarıya düşük okuduğu | `~/usv_ros2/docs/data/`. Git'e eklenip eklenmeyeceğine sen karar ver | Bulabildiğinde; işi bekletmiyor |
 | 2 | Teknenin SolidWorks montajından **STL dosyası** (ayarlar aşağıda) | Simülasyondaki tekne şu an kutulardan oluşuyor; görünüş gerçek tekneye benzesin. Fiziği etkilemez | `~/usv_ros2/ws/src/usv_sim/models/usv_boat/meshes/usv_boat.stl` | Bulabildiğinde |
 | 3 | ~~İtici bataryası~~ **Cevaplandı:** her iticiye bir 7S. Modelde 91 N (8 kgf @24 V, 7S'e ölçeklendi). Not: üretici Utras'ı 3S–6S için veriyor | | | |
 | 4 | **Dümen servosunun** gerçek açı aralığı | Şu an ±45° (1100 = 45° sol, 1900 = 45° sağ) kabul edildi | Bana yaz | Teknede ölçebildiğinde |
-| 4b | **Video** (14 Ekim, eski kodla hareket) | Kare kare inceleme: dönme ve hız davranışı | `~/usv_ros2/ws/bags/video/` (git dışı) | Şimdi |
+| 4b | ~~**Video** (14 Ekim, eski kodla hareket)~~ **Tamam:** 2123 karenin hepsi okundu (23 Ekim). İleri hız modele işlendi, dönüş hızı modelle uyumlu | | | |
 | 5 | Elinizde varsa ZED'in ham kayıtları (**`.svo`**) | `perception` node'unu tekneye çıkmadan, gerçek görüntü ve derinlikle geliştirmek için | Bana sor, yeri birlikte belirleriz | Faz 6'dan önce, isteğe bağlı |
 | 6 | YOLO modelinin **`.pt`** dosyası | Thor'da `.engine`'e yeniden dönüştürülecek (eski `.engine` yeni donanımda çalışmaz). Depoya konmayacak | `~/usv_models/` (depo dışında) | Faz 6 |
 | 7 | **RoboBoat kural belgesi** | Uyarlama aşamasında görevler ve raporlama buna göre tasarlanacak | Bana gönder | Faz 8 |

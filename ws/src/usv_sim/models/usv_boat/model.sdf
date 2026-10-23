@@ -20,8 +20,9 @@
       Used: the conservative 8 kgf at 24 V, scaled with voltage squared to 7S nominal
       25.9 V: 8 * (25.9 / 24)^2 = 9.3 kgf = 91 N. Range if the 11 kgf figure holds: ~114 N.
       Reverse: ASSUMED 70 % = -64 N.
+    legacy run video 2026-10-14 (ZED HUD recording, read frame by frame): surge drag
     ASSUMED, to be identified in the field: propeller diameter (0.09 m), centre of gravity
-      height, inertia, surge drag
+      height, inertia
 
   Buoyancy: VRX (Surface.cc) models each hull as a cylinder whose submerged depth is
   measured from the keel point and CLAMPED to hull_radius, i.e. at most half the cylinder
@@ -34,12 +35,20 @@
     yaw  nR = 28, nRR = 35: back-calculated from the legacy field measurement in config.py
          (spot turn 35-57 deg/s at SPOT_TURN_PWM 200, i.e. 45.5 N per thruster, 44.6 Nm).
          Check: 140 PWM -> 36 deg/s, legacy measured 22-38 deg/s.
-    surge xU = 45.5, xUU = 25.3: ~1.8 m/s at CRUISE_PWM 180 (4 x 41 N = 164 N), from a
-         comment in legacy config.py ("1.5 m at ~1.8 m/s"). An observation, not a
-         measurement; to be fitted from the legacy HUD video / vehicle CSV.
-    sway yV, yVV = 6 x surge: a catamaran's side area is ~6x its frontal area. The first
-         model had sway = surge (inherited from roboboat01) and slid sideways instead of
-         turning.
+    surge xU = 70.5, xUU = 39.2: 1.28 m/s at CRUISE_PWM 180 (4 x 41 N = 164 N). Fitted
+         from the legacy run video of 2026-10-14 (every frame read): on the straight legs
+         with all four thrusters at ~1680 (e.g. frames 1069-1186) the GPS track and the
+         distance-to-target both give 1.25-1.31 m/s. The previous values (45.5 / 25.3,
+         from a config.py comment) gave 1.73 m/s in simulation, ~35 % too fast. Both
+         terms scaled by the same factor 1.55, so the shape of the curve is unchanged.
+         The HUD "HIZ" (VFR_HUD groundspeed) read 0.3-0.8 on those legs and was NOT used.
+         Single heading, wind unknown: confirm with the vehicle CSV.
+    yaw check from the same video: +/-156 PWM pure differential (frames 950-975) turned the
+         boat at ~33-43 deg/s; this model predicts ~39 deg/s, so nR / nRR are kept.
+    sway yV, yVV: 6 x the OLD surge values (a catamaran's side area is ~6x its frontal
+         area). Kept when surge was refitted: the turning behaviour was already checked.
+         The first model had sway = surge (inherited from roboboat01) and slid sideways
+         instead of turning.
     heave/roll/pitch: first guesses.
 
   Steering sign (measured in simulation): positive angle (counter-clockwise from above) on a
@@ -440,8 +449,8 @@
       <xDotU>0.0</xDotU>
       <yDotV>0.0</yDotV>
       <nDotR>0.0</nDotR>
-      <xU>45.5</xU>
-      <xUU>25.3</xUU>
+      <xU>70.5</xU>
+      <xUU>39.2</xUU>
       <yV>273.0</yV>
       <yVV>152.0</yVV>
       <zW>90.0</zW>
