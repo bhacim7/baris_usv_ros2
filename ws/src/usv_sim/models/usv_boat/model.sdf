@@ -15,9 +15,11 @@
     photos (2026-10-23): bow "scoop" profile, blue bow bumper, ZED on the front cross
       profile between the hulls, GNSS mast leaning aft, ducted thrusters on struts
     team: total mass 45 kg; steering +/-45 deg (1100 PWM = 45 deg left, 1900 = 45 deg right);
-      thrusters are Degz Utras (M5 motor)
-    Degz Utras product page: 8-11 kgf at 24-25.2 V (sources disagree). Used: 78 N (8 kgf,
-      the conservative figure), ASSUMING a 6S battery. Reverse: ASSUMED 70 % = -55 N.
+      thrusters are Degz Utras (M5 motor), one 7S battery per thruster
+    Degz Utras product page: 8-11 kgf at 24-25.2 V (sources disagree; rated 3S-6S).
+      Used: the conservative 8 kgf at 24 V, scaled with voltage squared to 7S nominal
+      25.9 V: 8 * (25.9 / 24)^2 = 9.3 kgf = 91 N. Range if the 11 kgf figure holds: ~114 N.
+      Reverse: ASSUMED 70 % = -64 N.
     ASSUMED, to be identified in the field: propeller diameter (0.09 m), centre of gravity
       height, inertia, surge drag
 
@@ -28,13 +30,13 @@
   area needed 45 / (1000 * 2 * 1.18) = 0.0191 m^2), maximum ~63 kg, i.e. ~40 % reserve.
   Keel points at z = -0.10 so the origin sits at the waterline in equilibrium.
 
-  Drag (SimpleHydrodynamics). Thrust is taken as linear in PWM: 78 N at 1900 (ASSUMED).
-    yaw  nR = 24, nRR = 30: back-calculated from the legacy field measurement in config.py
-         (spot turn 35-57 deg/s at SPOT_TURN_PWM 200, i.e. 39 N per thruster, 38 Nm).
+  Drag (SimpleHydrodynamics). Thrust is taken as linear in PWM: 91 N at 1900 (ASSUMED).
+    yaw  nR = 28, nRR = 35: back-calculated from the legacy field measurement in config.py
+         (spot turn 35-57 deg/s at SPOT_TURN_PWM 200, i.e. 45.5 N per thruster, 44.6 Nm).
          Check: 140 PWM -> 36 deg/s, legacy measured 22-38 deg/s.
-    surge xU = 39, xUU = 22: ~1.8 m/s at CRUISE_PWM 180 (4 x 35 N = 140 N), from a comment
-         in legacy config.py ("1.5 m at ~1.8 m/s"). An observation, not a measurement; to be
-         fitted from the legacy vehicle CSV (yer_hizi_mps vs hiz_set_pwm).
+    surge xU = 45.5, xUU = 25.3: ~1.8 m/s at CRUISE_PWM 180 (4 x 41 N = 164 N), from a
+         comment in legacy config.py ("1.5 m at ~1.8 m/s"). An observation, not a
+         measurement; to be fitted from the legacy HUD video / vehicle CSV.
     sway yV, yVV = 6 x surge: a catamaran's side area is ~6x its frontal area. The first
          model had sway = surge (inherited from roboboat01) and slid sideways instead of
          turning.
@@ -438,20 +440,20 @@
       <xDotU>0.0</xDotU>
       <yDotV>0.0</yDotV>
       <nDotR>0.0</nDotR>
-      <xU>39.0</xU>
-      <xUU>22.0</xUU>
-      <yV>234.0</yV>
-      <yVV>132.0</yVV>
+      <xU>45.5</xU>
+      <xUU>25.3</xUU>
+      <yV>273.0</yV>
+      <yVV>152.0</yVV>
       <zW>90.0</zW>
       <kP>54.0</kP>
       <kPP>108.0</kPP>
       <mQ>162.0</mQ>
       <mQQ>157.5</mQQ>
-      <nR>24.0</nR>
-      <nRR>30.0</nRR>
+      <nR>28.0</nR>
+      <nRR>35.0</nRR>
     </plugin>
 
-    <!-- ================= Thrust: Degz Utras, 8 kgf forward (6S ASSUMED) ================= -->
+    <!-- ================= Thrust: Degz Utras on 7S, 91 N forward (see header) ================= -->
     <plugin filename="gz-sim-thruster-system" name="gz::sim::systems::Thruster">
       <namespace>usv_boat</namespace>
       <topic>thrusters/front_left/thrust</topic>
@@ -460,8 +462,8 @@
       <fluid_density>1000</fluid_density>
       <propeller_diameter>0.09</propeller_diameter>
       <velocity_control>true</velocity_control>
-      <max_thrust_cmd>78</max_thrust_cmd>
-      <min_thrust_cmd>-55</min_thrust_cmd>
+      <max_thrust_cmd>91</max_thrust_cmd>
+      <min_thrust_cmd>-64</min_thrust_cmd>
     </plugin>
     <plugin filename="gz-sim-thruster-system" name="gz::sim::systems::Thruster">
       <namespace>usv_boat</namespace>
@@ -471,8 +473,8 @@
       <fluid_density>1000</fluid_density>
       <propeller_diameter>0.09</propeller_diameter>
       <velocity_control>true</velocity_control>
-      <max_thrust_cmd>78</max_thrust_cmd>
-      <min_thrust_cmd>-55</min_thrust_cmd>
+      <max_thrust_cmd>91</max_thrust_cmd>
+      <min_thrust_cmd>-64</min_thrust_cmd>
     </plugin>
     <plugin filename="gz-sim-thruster-system" name="gz::sim::systems::Thruster">
       <namespace>usv_boat</namespace>
@@ -482,8 +484,8 @@
       <fluid_density>1000</fluid_density>
       <propeller_diameter>0.09</propeller_diameter>
       <velocity_control>true</velocity_control>
-      <max_thrust_cmd>78</max_thrust_cmd>
-      <min_thrust_cmd>-55</min_thrust_cmd>
+      <max_thrust_cmd>91</max_thrust_cmd>
+      <min_thrust_cmd>-64</min_thrust_cmd>
     </plugin>
     <plugin filename="gz-sim-thruster-system" name="gz::sim::systems::Thruster">
       <namespace>usv_boat</namespace>
@@ -493,8 +495,8 @@
       <fluid_density>1000</fluid_density>
       <propeller_diameter>0.09</propeller_diameter>
       <velocity_control>true</velocity_control>
-      <max_thrust_cmd>78</max_thrust_cmd>
-      <min_thrust_cmd>-55</min_thrust_cmd>
+      <max_thrust_cmd>91</max_thrust_cmd>
+      <min_thrust_cmd>-64</min_thrust_cmd>
     </plugin>
 
     <!-- ================= Front thruster steering ================= -->

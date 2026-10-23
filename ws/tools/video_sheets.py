@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Turn a video into numbered contact sheets so that every frame can be reviewed.
 
-Each tile is one frame, labelled with its index and timestamp. No frame is skipped.
+Each tile is one frame with its index and timestamp in a strip ABOVE the image, so nothing
+in the frame (e.g. a HUD) is covered. No frame is skipped.
 
 Usage (inside the container):
     python3 /ws/tools/video_sheets.py INPUT.mp4 OUTPUT_DIR [--cols C --rows R --width W]
@@ -15,6 +16,8 @@ import sys
 
 import cv2
 import numpy as np
+
+LABEL_H = 24
 
 
 def write_sheet(path, tiles, cols, rows, tile_w, tile_h):
@@ -59,16 +62,20 @@ def main():
     tiles, index, sheets = [], 0, 0
     frame = first                      # already decoded; no seeking, so no frame is lost
     while frame is not None:
-        tile = cv2.resize(frame, (tile_w, tile_h), interpolation=cv2.INTER_AREA)
-        cv2.rectangle(tile, (0, 0), (tile_w, 22), (0, 0, 0), -1)
-        cv2.putText(tile, f'#{index}  t={index / fps:.2f}s', (5, 16),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+        if (tile_w, tile_h) == (frame.shape[1], frame.shape[0]):
+            image = frame
+        else:
+            image = cv2.resize(frame, (tile_w, tile_h), interpolation=cv2.INTER_AREA)
+        tile = np.zeros((tile_h + LABEL_H, tile_w, 3), dtype=np.uint8)
+        tile[LABEL_H:] = image
+        cv2.putText(tile, f'#{index}  t={index / fps:.2f}s', (5, 17),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1, cv2.LINE_AA)
         tiles.append(tile)
         index += 1
         if len(tiles) == per_sheet:
             sheets += 1
             write_sheet(os.path.join(args.out_dir, f'sheet_{sheets:04d}.jpg'),
-                        tiles, cols, rows, tile_w, tile_h)
+                        tiles, cols, rows, tile_w, tile_h + LABEL_H)
             tiles = []
         ok, frame = cap.read()
         if not ok:
@@ -76,7 +83,7 @@ def main():
     if tiles:
         sheets += 1
         write_sheet(os.path.join(args.out_dir, f'sheet_{sheets:04d}.jpg'),
-                    tiles, cols, rows, tile_w, tile_h)
+                    tiles, cols, rows, tile_w, tile_h + LABEL_H)
 
     print(f'Frames read: {index}. Sheets written: {sheets} in {args.out_dir}')
 
