@@ -257,7 +257,8 @@ Open: detecting a node that is alive but stuck (legacy heartbeat watchdog). Not 
 | Surge drag | xU = 70.5, xUU = 39.2 | Fitted from the 2026-10-14 video: 1.25-1.31 m/s on straight legs at PWM 1680 (GPS track); to be confirmed with a vehicle CSV |
 | Sway drag | yV = 273, yVV = 152 | 6 x the earlier surge guess (side area ~6x frontal area); kept, turning checked |
 | Thrust | +91 / -64 N, linear in PWM, propeller 0.09 m | Degz Utras on 7S (8 kgf at 24 V scaled); reverse and linearity ASSUMED |
-| Visuals | Generated hull mesh + primitive shapes | To be replaced by an STL export of the CAD model |
+| Hull shape | Mesh from `ROBO27_MAIN_BODY_SIM.STL` (pre-build CAD), ~8 000 triangles; 0.247 m wide, 0.32 m deep, draft ~0.13 m at 45 kg | STL; hull spacing kept at the drawing's +/-0.26 m (the STL has +/-0.30) |
+| Other visuals | Primitive shapes (lids, profiles, box, ZED, bumper, mast) | Photos |
 
 Lessons recorded in the model header:
 - VRX `Surface` clamps the submerged depth at `hull_radius`, so at most half of each
@@ -321,7 +322,7 @@ Phase 4 progress (2026-10-22):
 |---|---|
 | `usv_interfaces` | Done |
 | `usv_core`: `navigation`, `planner`, `object_memory`, `mixer` | Done, 487 equivalence and behaviour tests passing |
-| Boat model | Four thrusters, steerable front pair; buoyancy, yaw and surge drag calibrated (surge from the legacy video); CAD visuals pending |
+| Boat model | Four thrusters, steerable front pair; buoyancy, yaw and surge drag calibrated (surge from the legacy video); hull mesh from the CAD STL |
 | `sim_bridge` | Next |
 | `fake_perception` | Not started |
 
