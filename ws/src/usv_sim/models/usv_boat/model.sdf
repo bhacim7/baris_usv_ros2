@@ -28,12 +28,16 @@
     ASSUMED, to be identified in the field: propeller diameter (0.09 m), centre of gravity
       height, inertia
 
-  Buoyancy: VRX (Surface.cc) models each hull as a cylinder whose submerged depth is
-  measured from the keel point and CLAMPED to hull_radius, i.e. at most half the cylinder
-  counts. Radius 0.11 m gave exactly 45 kg at that clamp - no reserve - and the boat sank
-  (measured centre at z = -0.375). Radius 0.13 m: equilibrium at 0.10 m depth (half-hull
-  area needed 45 / (1000 * 2 * 1.18) = 0.0191 m^2), maximum ~63 kg, i.e. ~40 % reserve.
-  Keel points at z = -0.10 so the origin sits at the waterline in equilibrium.
+  Buoyancy: usv_gz_plugins::HullBuoyancy integrates the water pressure over the hull mesh
+  (meshes/hull.obj, made from the STL), with the VRX waves, so draft, heave/roll/pitch
+  stiffness and reserve buoyancy follow from the real shape. Expected from the STL, sea
+  water: 43.6 kg at the origin, so the boat settles ~3 mm below it; heave stiffness ~4 050
+  N/m; roll ~290 Nm/rad; pitch ~340 Nm/rad; 128 kg before the hulls go under.
+    Replaced (2026-10-26): VRX Surface, which treats each hull as a cylinder and counts at
+    most half of it (radius 0.13 m: 50 % too stiff in heave, sank above 63 kg).
+  Centre of gravity: x = -0.045 m, over the centre of buoyancy of the STL hulls, i.e. the
+  boat ASSUMED to float level. Base link x = -0.044 gives that with the thruster masses.
+  With the old x = 0 the hulls would trim ~3 deg bow down.
 
   Drag (SimpleHydrodynamics). Thrust is taken as linear in PWM: 91 N at 1900 (ASSUMED).
     yaw  nR = 28, nRR = 35: back-calculated from the legacy field measurement in config.py
@@ -53,7 +57,8 @@
          area). Kept when surge was refitted: the turning behaviour was already checked.
          The first model had sway = surge (inherited from roboboat01) and slid sideways
          instead of turning.
-    heave/roll/pitch: first guesses.
+    heave/roll/pitch damping: first guesses (with the new stiffness: heave ~10 % of
+         critical, roll ~90 %, pitch overdamped); to be checked against the real boat.
 
   Steering sign (measured in simulation): positive angle (counter-clockwise from above) on a
   FRONT thruster turns the boat LEFT. So 1900 PWM (team: thrusters right, boat turns right)
@@ -62,7 +67,7 @@
   Visuals: hull mesh made from the STL by scripts/make_hull_mesh.py (meshes/hull.obj, ~8 000
   triangles, deck at z = +0.19, keel at z = -0.13 = the computed draft, so the drawn
   waterline matches the real one); everything else primitive shapes, placed from the
-  photos. Collisions are simple boxes around each hull. Buoyancy does not use the mesh.
+  photos. Collisions are simple boxes around each hull. The same mesh carries the buoyancy.
 
   ZED camera (for the future sensor): x = +0.29, y = 0, z = +0.18, facing forward.
 
@@ -76,8 +81,8 @@
     <!-- ================= Hull, deck, superstructure ================= -->
     <link name="base_link">
       <inertial>
-        <!-- 45 kg total minus 4 x (0.5 kg housing + 0.05 kg propeller) -->
-        <pose>0 0 0.05 0 0 0</pose>
+        <!-- 45 kg total minus 4 x (0.5 kg housing + 0.05 kg propeller); x: see header -->
+        <pose>-0.044 0 0.05 0 0 0</pose>
         <mass>42.8</mass>
         <inertia>
           <!-- Solid box 1.18 x 0.78 x 0.5 m: a rough first estimate -->
@@ -424,28 +429,15 @@
       </axis>
     </joint>
 
-    <!-- ================= Buoyancy (VRX) ================= -->
-    <plugin filename="libSurface.so" name="vrx::Surface">
+    <!-- ================= Buoyancy: water pressure on the hull mesh (usv_gz_plugins) ================= -->
+    <plugin filename="UsvHullBuoyancy" name="usv_gz_plugins::HullBuoyancy">
       <link_name>base_link</link_name>
-      <hull_length>1.18</hull_length>
-      <hull_radius>0.13</hull_radius>
+      <mesh>file://usv_boat/meshes/hull.obj</mesh>
+      <hull_offset>0 0.26 0</hull_offset>
+      <hull_offset>0 -0.26 0</hull_offset>
+      <fluid_density>1025</fluid_density>
       <fluid_level>0</fluid_level>
-      <points>
-        <point>0.55 0.26 -0.10</point>
-        <point>-0.55 0.26 -0.10</point>
-      </points>
-      <wavefield><topic>/vrx/wavefield/parameters</topic></wavefield>
-    </plugin>
-
-    <plugin filename="libSurface.so" name="vrx::Surface">
-      <link_name>base_link</link_name>
-      <hull_length>1.18</hull_length>
-      <hull_radius>0.13</hull_radius>
-      <fluid_level>0</fluid_level>
-      <points>
-        <point>0.55 -0.26 -0.10</point>
-        <point>-0.55 -0.26 -0.10</point>
-      </points>
+      <report_period>5</report_period>
       <wavefield><topic>/vrx/wavefield/parameters</topic></wavefield>
     </plugin>
 

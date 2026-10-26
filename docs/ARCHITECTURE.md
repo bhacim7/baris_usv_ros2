@@ -45,6 +45,7 @@ These are not cleaned up during the port, because the gains were tuned against t
 | `usv_core` | ament_python | ROS-free library: `navigation`, `planner`, `object_memory`, `mixer`, `mission`, `controller`. Unit tests |
 | `usv_nodes` | ament_python | `navigator`, `fc_bridge`, `perception`, `heading_source`, `telemetry_bridge`, `recorder` |
 | `usv_sim` | ament_python | `sim_bridge`, `fake_perception`, boat model, worlds |
+| `usv_gz_plugins` | ament_cmake | Gazebo systems (C++): `HullBuoyancy`, buoyancy from the hull mesh. Simulation only; skipped where VRX is absent |
 | `usv_bringup` | ament_python | Launch files and per-node YAML parameters (replaces `config.py`) |
 | `usv_learn` | ament_python | Tutorial package, not part of the system |
 
@@ -244,7 +245,7 @@ Open: detecting a node that is alive but stuck (legacy heartbeat watchdog). Not 
 - **Hydrodynamics:** identify real values from field data (coast-down for surge drag,
   turning test for yaw drag).
 
-### Boat model status (`usv_sim/models/usv_boat`, 2026-10-23)
+### Boat model status (`usv_sim/models/usv_boat`, 2026-10-26)
 
 | Item | Value | Source |
 |---|---|---|
@@ -252,7 +253,8 @@ Open: detecting a node that is alive but stuck (legacy heartbeat watchdog). Not 
 | Mass | 45 kg | Team |
 | Thrusters | Front x = +0.363, rear x = -0.493, y = +/-0.245, 7 cm below the keel | Technical drawing |
 | Steering | Front pair, +/-45 deg (1100 PWM = 45 deg left, 1900 = 45 deg right) | Team, to be measured |
-| Buoyancy | Two VRX cylinders, radius 0.13 m, keel points at z = -0.10 | Computed, see below |
+| Buoyancy | `usv_gz_plugins::HullBuoyancy`: water pressure integrated over the hull mesh, with VRX waves (replaced the VRX cylinder model on 2026-10-26) | STL; heave ~4 050 N/m, roll ~290 Nm/rad, pitch ~340 Nm/rad, reserve 128 kg |
+| Centre of gravity | x = -0.045 m, z = +0.05 m | x over the STL centre of buoyancy (level trim ASSUMED); z guessed |
 | Yaw drag | nR = 28, nRR = 35 | Back-calculated from the legacy field measurement (spot turn 35-57 deg/s at PWM offset 200); consistent with the 2026-10-14 video (~33-43 deg/s at +/-156) |
 | Surge drag | xU = 70.5, xUU = 39.2 | Fitted from the 2026-10-14 video: 1.25-1.31 m/s on straight legs at PWM 1680 (GPS track); to be confirmed with a vehicle CSV |
 | Sway drag | yV = 273, yVV = 152 | 6 x the earlier surge guess (side area ~6x frontal area); kept, turning checked |
@@ -263,7 +265,8 @@ Open: detecting a node that is alive but stuck (legacy heartbeat watchdog). Not 
 Lessons recorded in the model header:
 - VRX `Surface` clamps the submerged depth at `hull_radius`, so at most half of each
   cylinder counts. A radius sized to carry exactly the mass at half depth leaves no reserve:
-  the first model sank (centre at z = -0.375). Size the radius for reserve (here ~40 %).
+  the first model sank (centre at z = -0.375). Replaced by `HullBuoyancy`, which has no
+  such limit; a visual mesh alone never changes the physics.
 - Drag cannot be scaled by mass: it follows hull shape. Equal surge and sway drag (inherited
   from `roboboat01`) made the boat slide sideways instead of turning.
 - Steering sign, measured: positive angle (counter-clockwise from above) on a **rear**
