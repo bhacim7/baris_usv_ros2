@@ -335,12 +335,12 @@ Phase 4 progress (2026-10-26):
 | Item | State |
 |---|---|
 | `usv_interfaces` | Done |
-| `usv_core`: `navigation`, `planner`, `object_memory`, `mixer` | Done, 487 equivalence and behaviour tests passing |
-| `usv_core`: `heading` (ZED filter, declination as a parameter, source selection), `detection` (box + depth -> buoy position) | Written, equivalence tests against the legacy code |
-| `usv_nodes`: `heading_source` | Written: first node that runs on the boat and in simulation |
+| `usv_core`: `navigation`, `planner`, `object_memory`, `mixer`, `heading` (ZED filter, declination as a parameter, source selection), `detection` (box + depth -> buoy position) | Done, 514 equivalence and behaviour tests passing |
+| `usv_nodes`: `heading_source` | Done and tested: first node that runs on the boat and in simulation |
 | Boat model | Four thrusters, steerable front pair; buoyancy, yaw and surge drag calibrated (surge from the legacy video); hull mesh from the CAD STL |
-| `sim_bridge` | Commands done and tested (relay, emergency stop, timeout); sensors written |
-| `fake_perception` | Not started |
+| `sim_bridge` | Done and tested: commands (relay, emergency stop, timeout) and FC-side sensors |
+| Course `golcuk_2026_10_14` (provisional, from the video) + world generator | Written: `courses/*.yaml` is the single source; `make_course_world.py` builds the world (site origin, magnetic field, buoys) |
+| `fake_perception` | Heading (magnetometer, legacy filter), attitude, FPS written; buoys next |
 
 Remaining phases:
 

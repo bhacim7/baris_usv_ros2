@@ -77,6 +77,7 @@
     /usv_boat/navsat     gz.msgs.NavSat    GNSS antenna on the mast, 10 Hz, exact
     /usv_boat/imu        gz.msgs.IMU       orientation in ENU, 50 Hz, exact
     /usv_boat/odometry   gz.msgs.Odometry  velocity for the ground speed, 50 Hz, exact
+    /usv_boat/magnetometer gz.msgs.Magnetometer  ZED 2i magnetometer, 50 Hz, exact
 -->
 <sdf version="1.6">
   <model name="usv_boat">
@@ -232,6 +233,13 @@
         <imu>
           <orientation_reference_frame><localization>ENU</localization></orientation_reference_frame>
         </imu>
+      </sensor>
+      <!-- Magnetometer of the ZED 2i, in the camera; the field comes from the world -->
+      <sensor name="zed_magnetometer" type="magnetometer">
+        <pose>0.29 0 0.18 0 0 0</pose>
+        <always_on>1</always_on>
+        <update_rate>50</update_rate>
+        <topic>/usv_boat/magnetometer</topic>
       </sensor>
     </link>
 

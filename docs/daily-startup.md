@@ -173,6 +173,26 @@ Hepsini durdur:
 for t in front_left front_right rear_left rear_right; do gz topic -t /usv_boat/thrusters/$t/thrust -m gz.msgs.Double -p 'data: 0.0'; done
 ```
 
+### Parkurlu simülasyon (ROS 2 ile)
+
+Parkur dosyası (`usv_sim/courses/*.yaml`) değiştiyse önce dünyayı yeniden üret:
+
+```bash
+python3 /ws/src/usv_sim/scripts/make_course_world.py /ws/src/usv_sim/courses/golcuk_2026_10_14.yaml /ws/src/usv_sim/worlds/golcuk_2026_10_14.sdf
+```
+
+Her biri ayrı terminalde, bu sırayla (Gazebo'da ▶'e basmayı unutma):
+
+| # | Komut | Ne |
+|---|---|---|
+| 1 | `export GZ_SIM_RESOURCE_PATH=/ws/src/usv_sim/models:$GZ_SIM_RESOURCE_PATH && gz sim -v 3 /ws/src/usv_sim/worlds/golcuk_2026_10_14.sdf` | Gazebo, Gölcük parkuru |
+| 2 | `ros2 run ros_gz_bridge parameter_bridge --ros-args -p config_file:=/ws/src/usv_sim/config/ros_gz_bridge.yaml` | ROS ↔ Gazebo köprüsü |
+| 3 | `ros2 run usv_sim sim_bridge --ros-args --params-file /ws/src/usv_sim/config/sim_bridge.yaml` | Cube tarafı: itici, dümen, röle, GPS, hız, FC pruvası |
+| 4 | `ros2 run usv_sim fake_perception --ros-args --params-file /ws/src/usv_sim/config/fake_perception.yaml` | ZED tarafı: ZED pruvası, yalpa/baş-kıç, FPS |
+| 5 | `ros2 run usv_nodes heading_source --ros-args --params-file /ws/src/usv_nodes/config/heading_source.yaml` | `/usv/heading` |
+
+Elle sürmek: `ros2 topic pub -r 20 /usv/thrusters/pwm usv_interfaces/msg/ThrusterPwm "{rear_left: 1680, rear_right: 1680, front_left: 1680, front_right: 1680, steer: 1500}"` (Ctrl+C ile bırakınca 0,5 sn sonra durur).
+
 ### VRX'in hazır simülasyonu
 
 ```bash

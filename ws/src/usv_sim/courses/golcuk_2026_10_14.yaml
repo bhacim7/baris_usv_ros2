@@ -1,0 +1,67 @@
+# Course of the legacy run of 2026-10-14 (Golcuk), PROVISIONAL.
+#
+# Anchors read from the HUD video (exact as recorded):
+#   origin       TASK2 start waypoint (HEDEF_KONUM, frame 0)
+#   T2 mid/end   40.723589, 29.825499 (config has MID = END, so GO_TO_END ends at once)
+#   T3 start     40.723576, 29.825515    T3 mid 40.723547, 29.825561
+# Estimated (+/- 2 m), because the WhatsApp copy of the video is too small to read most ZED
+# distance labels: the Task 2 corridor follows the TEKNOFEST course diagram (orange flagged
+# boundary buoys, yellow obstacles inside) with spacings and side offsets taken from where
+# the boat passed buoys in the video; the three Task 3 targets from single sightings.
+# Replace with final_costmap.npz from a real run when one is found.
+#
+# Generate the Gazebo world from this file:
+#   python3 /ws/src/usv_sim/scripts/make_course_world.py \
+#       /ws/src/usv_sim/courses/golcuk_2026_10_14.yaml /ws/src/usv_sim/worlds/golcuk_2026_10_14.sdf
+
+name: golcuk_2026_10_14
+
+# World (0, 0) is here. Gazebo turns positions into latitude/longitude from this point.
+origin: {lat: 40.724038, lon: 29.825102}
+
+# Earth's magnetic field at the site, for the simulated magnetometer (ZED 2i).
+# Declination +6 deg is what the team uses in Istanbul (legacy camera_process); inclination
+# and strength are rounded WMM values for the Izmit bay.
+magnetic_field: {declination_deg: 6.0, inclination_deg: 56.5, strength_uT: 46.5}
+
+# Where the boat starts: first HUD position (frame 0), pointing down the corridor
+boat: {lat: 40.724066, lon: 29.825080, heading_deg: 146.0}
+
+# Shapes of each buoy type (metres above the water). From the photos and the video.
+buoy_types:
+  orange_flag: {class_id: 3, shape: sphere,   diameter: 0.45, height: 0.40, flag: true}
+  yellow_flag: {class_id: 1, shape: sphere,   diameter: 0.50, height: 0.45, flag: true}
+  red_target:  {class_id: 0, shape: cylinder, diameter: 0.45, height: 0.75, flag: false}
+  green_target: {class_id: 4, shape: cylinder, diameter: 0.45, height: 0.75, flag: false}
+  black_target: {class_id: 2, shape: cylinder, diameter: 0.45, height: 0.75, flag: false}
+
+buoys:
+  # Task 2 corridor, 60.2 m from the origin at 146.2 deg; left boundary 3 m left of that line
+  - {type: orange_flag, lat: 40.7240530, lon: 29.8251315}   # left,  0 m along
+  - {type: orange_flag, lat: 40.7239858, lon: 29.8251909}   # left,  9 m
+  - {type: orange_flag, lat: 40.7239187, lon: 29.8252503}   # left, 18 m
+  - {type: orange_flag, lat: 40.7238552, lon: 29.8253064}   # left, 26.5 m
+  - {type: orange_flag, lat: 40.7237918, lon: 29.8253625}   # left, 35 m
+  - {type: orange_flag, lat: 40.7237246, lon: 29.8254219}   # left, 44 m
+  - {type: orange_flag, lat: 40.7236649, lon: 29.8254747}   # left, 52 m
+  - {type: orange_flag, lat: 40.7236052, lon: 29.8255274}   # left, 60 m
+  # right boundary, 9 m right of the line
+  - {type: orange_flag, lat: 40.7239631, lon: 29.8250398}   # right,  4 m
+  - {type: orange_flag, lat: 40.7238960, lon: 29.8250992}   # right, 13 m
+  - {type: orange_flag, lat: 40.7238288, lon: 29.8251585}   # right, 22 m
+  - {type: orange_flag, lat: 40.7237617, lon: 29.8252179}   # right, 31 m
+  - {type: orange_flag, lat: 40.7236945, lon: 29.8252773}   # right, 40 m
+  - {type: orange_flag, lat: 40.7236273, lon: 29.8253367}   # right, 49 m
+  - {type: orange_flag, lat: 40.7235602, lon: 29.8253961}   # right, 58 m
+  # yellow obstacles inside, right of the line (the boat passed them on its right)
+  - {type: yellow_flag, lat: 40.7239111, lon: 29.8251928}   # 16 m, 1.5 m right
+  - {type: yellow_flag, lat: 40.7238574, lon: 29.8252360}   # 23 m, 1.8 m right
+  - {type: yellow_flag, lat: 40.7238202, lon: 29.8252375}   # 26.5 m, 4.0 m right
+  - {type: yellow_flag, lat: 40.7237892, lon: 29.8253148}   # 33 m, 0.5 m right (hit, frame ~950)
+  - {type: yellow_flag, lat: 40.7237360, lon: 29.8253377}   # 39 m, 2.2 m right
+  - {type: yellow_flag, lat: 40.7236722, lon: 29.8253612}   # 46 m, 4.5 m right
+  - {type: yellow_flag, lat: 40.7236310, lon: 29.8254504}   # 54 m, 0.8 m right (hit, frame ~1500)
+  # Task 3 targets
+  - {type: red_target,   lat: 40.7234720, lon: 29.8256043}  # hit by the kamikaze, frame ~2046
+  - {type: green_target, lat: 40.7234919, lon: 29.8255519}  # frame 1920: 4.3 m, 49 deg right
+  - {type: black_target, lat: 40.7235171, lon: 29.8256400}  # frame 1812: 7.3 m, 29 deg left

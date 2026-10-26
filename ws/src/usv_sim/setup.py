@@ -13,6 +13,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/config', glob('config/*.yaml')),
+        ('share/' + package_name + '/courses', glob('courses/*.yaml')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -28,6 +29,7 @@ setup(
     entry_points={
         'console_scripts': [
             'sim_bridge = usv_sim.sim_bridge:main',
+            'fake_perception = usv_sim.fake_perception:main',
         ],
     },
 )

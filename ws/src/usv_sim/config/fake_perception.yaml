@@ -1,0 +1,26 @@
+# fake_perception: the simulated ZED 2i. Every number describes the real camera and is to be
+# replaced by a measurement when one exists.
+fake_perception:
+  ros__parameters:
+    # 0 = different noise every run, any other number = the same noise every run
+    random_seed: 0
+
+    # ---------------------------------------------------------------- heading
+    # Added after the filter, as camera_process does (+6 Istanbul; RoboBoat USA used -6).
+    # Keep it equal to the course's magnetic_field.declination_deg for a correct compass.
+    magnetic_declination_deg: 6.0
+    magnetometer_noise_deg: 1.0          # ASSUMED, per frame, before the legacy filter
+    # Compass error. The 2026-10-14 video suggests the ZED read ~4 deg (heading ~145) to
+    # ~8.5 deg (heading ~165) too high: uncertain, so 0 until measured on the boat.
+    #   compass_offset_deg: the same error at every heading
+    #   hard_iron_body_uT:  a field fixed to the boat (x forward, y left, z up); gives an
+    #                       error that changes with heading, like a badly calibrated compass
+    compass_offset_deg: 0.0
+    hard_iron_body_uT: [0.0, 0.0, 0.0]
+
+    # ---------------------------------------------------------------- frame rate
+    # HD720 at 30 fps; the video's FPS counter dropped to 13-19 now and then
+    fps_normal: 30.0
+    fps_slow: 15.0
+    fps_normal_mean_s: 20.0              # mean length of a normal spell (0 = never slow)
+    fps_slow_mean_s: 2.0                 # mean length of a slow spell

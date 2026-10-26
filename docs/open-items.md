@@ -14,6 +14,7 @@ Bir şey tamamlandıkça buradan sil ya da üstünü çiz. Son güncelleme: 22 E
 | 4 | **Dümen servosunun** gerçek açı aralığı (servo: 2× MG995, hız datasheet'ten) | Şu an ±45° (1100 = 45° sol, 1900 = 45° sağ) kabul edildi | Bana yaz | Teknede ölçebildiğinde |
 | 4c | **ArduPilot parametre dosyası** (Mission Planner → Config → Full Parameter List → Save, `.param`) | GPS hızı, akış hızları, servo kanalları, röle başlangıç durumu, pusula ayarları; `sim_bridge` değerleri şimdilik koddan ve varsayımdan | Bana gönder | Bulabildiğinde |
 | 4b | ~~**Video** (14 Ekim, eski kodla hareket)~~ **Tamam:** 2123 karenin hepsi okundu (23 Ekim). İleri hız modele işlendi, dönüş hızı modelle uyumlu | | | |
+| 1b | **14 Ekim koşusunun dosyaları** (bulunamadı, silinmiş olabilir): `final_costmap.npz`, `kayit_20261014_*.mp4` (tam çözünürlük), `arac_telemetri_20261014_*.csv`. Başka koşularınki de olur | Gölcük parkuru şu an videodan TAHMİNİ (±2 m). `.npz` gerçek şamandıra konumlarını, CSV pusula hatasını verir | `~/usv_ros2/ws/bags/legacy_runs/` | Bulunursa |
 | 5 | Elinizde varsa ZED'in ham kayıtları (**`.svo`**) | `perception` node'unu tekneye çıkmadan, gerçek görüntü ve derinlikle geliştirmek için | Bana sor, yeri birlikte belirleriz | Faz 6'dan önce, isteğe bağlı |
 | 6 | YOLO modelinin **`.pt`** dosyası | Thor'da `.engine`'e yeniden dönüştürülecek (eski `.engine` yeni donanımda çalışmaz). Depoya konmayacak | `~/usv_models/` (depo dışında) | Faz 6 |
 | 7 | **RoboBoat kural belgesi** | Uyarlama aşamasında görevler ve raporlama buna göre tasarlanacak | Bana gönder | Faz 8 |

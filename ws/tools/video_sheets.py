@@ -6,8 +6,11 @@ in the frame (e.g. a HUD) is covered. No frame is skipped.
 
 Usage (inside the container):
     python3 /ws/tools/video_sheets.py INPUT.mp4 OUTPUT_DIR [--cols C --rows R --width W]
+        [--start FIRST --end LAST --step N]
 
-Defaults: 4 x 2 tiles of 320 px for portrait video, 3 x 3 tiles of 480 px for landscape.
+Defaults: 4 x 2 tiles of 320 px for portrait video, 3 x 3 tiles of 480 px for landscape,
+every frame. --start/--end/--step keep frames FIRST, FIRST+N, ... up to LAST; a width
+larger than the video enlarges the frames (for reading small text).
 """
 
 import argparse
@@ -35,7 +38,12 @@ def main():
     p.add_argument('--cols', type=int)
     p.add_argument('--rows', type=int)
     p.add_argument('--width', type=int)
+    p.add_argument('--start', type=int, default=0)
+    p.add_argument('--end', type=int, default=None)
+    p.add_argument('--step', type=int, default=1)
     args = p.parse_args()
+    if args.step < 1:
+        sys.exit('--step must be at least 1')
 
     cap = cv2.VideoCapture(args.video)
     if not cap.isOpened():
@@ -59,13 +67,24 @@ def main():
 
     os.makedirs(args.out_dir, exist_ok=True)
     per_sheet = cols * rows
-    tiles, index, sheets = [], 0, 0
+    tiles, index, sheets, kept = [], 0, 0, 0
     frame = first                      # already decoded; no seeking, so no frame is lost
     while frame is not None:
+        if args.end is not None and index > args.end:
+            break
+        if index < args.start or (index - args.start) % args.step:
+            index += 1
+            ok, frame = cap.read()
+            if not ok:
+                frame = None
+            continue
+        kept += 1
         if (tile_w, tile_h) == (frame.shape[1], frame.shape[0]):
             image = frame
         else:
-            image = cv2.resize(frame, (tile_w, tile_h), interpolation=cv2.INTER_AREA)
+            # Shrinking averages pixels; enlarging interpolates smoothly for readable text
+            interp = cv2.INTER_AREA if tile_w < frame.shape[1] else cv2.INTER_CUBIC
+            image = cv2.resize(frame, (tile_w, tile_h), interpolation=interp)
         tile = np.zeros((tile_h + LABEL_H, tile_w, 3), dtype=np.uint8)
         tile[LABEL_H:] = image
         cv2.putText(tile, f'#{index}  t={index / fps:.2f}s', (5, 17),
@@ -85,7 +104,7 @@ def main():
         write_sheet(os.path.join(args.out_dir, f'sheet_{sheets:04d}.jpg'),
                     tiles, cols, rows, tile_w, tile_h + LABEL_H)
 
-    print(f'Frames read: {index}. Sheets written: {sheets} in {args.out_dir}')
+    print(f'Frames read: {index}, kept: {kept}. Sheets written: {sheets} in {args.out_dir}')
 
 
 if __name__ == '__main__':
