@@ -31,3 +31,28 @@ sim_bridge:
     # MG995 datasheet: 0.20 s / 60 deg at 4.8 V (0.16 s at 6 V), no load = 5.2-6.5 rad/s.
     # The lower figure, since the servo turns a thruster in water.
     steer_rate_rad_s: 5.2
+
+    # ---------------------------------------------------------------- sensors
+    # Noise: 0 = different every run, any other number = the same noise every run
+    random_seed: 0
+
+    # /usv/fix: GPS_RAW_INT from the Orange Cube, Here Pro WITHOUT RTK.
+    # The legacy code asks for every stream at 5 Hz, but in the 2026-10-14 video the
+    # position changed only every 12-17 frames (2-2.5 Hz). ArduPilot .param not seen yet.
+    fix_rate_hz: 2.0
+    fix_delay_s: 0.1             # ASSUMED receiver + MAVLink latency
+    # Error = slow drift + jitter. ASSUMED for a non-RTK receiver: ~1 m that wanders over
+    # a minute; in the video the track was smooth to ~0.2 m over 1-2 s.
+    gps_bias_sigma_m: 1.0
+    gps_bias_tau_s: 60.0
+    gps_white_sigma_m: 0.15
+
+    # /usv/speed: VFR_HUD ground speed (EKF, from GPS velocity), ALL stream at 5 Hz.
+    # The HUD under-read seen in the video is NOT copied until its cause is known.
+    speed_rate_hz: 5.0
+    speed_sigma_mps: 0.05        # ASSUMED, typical GPS Doppler velocity noise
+
+    # /usv/heading/fc: GLOBAL_POSITION_INT.hdg (EKF heading, Cube compass), 5 Hz
+    heading_fc_rate_hz: 5.0
+    heading_fc_offset_deg: 0.0   # constant compass error; unknown for the Cube
+    heading_fc_sigma_deg: 1.0    # ASSUMED

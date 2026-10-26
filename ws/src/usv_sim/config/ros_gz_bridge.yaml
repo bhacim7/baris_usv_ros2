@@ -35,3 +35,20 @@
   ros_type_name: std_msgs/msg/Float64
   gz_type_name: gz.msgs.Double
   direction: ROS_TO_GZ
+
+# Sensors, from Gazebo to sim_bridge (which adds the real sensors' rates, delays and errors)
+- ros_topic_name: /usv/sim/navsat
+  gz_topic_name: /usv_boat/navsat
+  ros_type_name: sensor_msgs/msg/NavSatFix
+  gz_type_name: gz.msgs.NavSat
+  direction: GZ_TO_ROS
+- ros_topic_name: /usv/sim/imu
+  gz_topic_name: /usv_boat/imu
+  ros_type_name: sensor_msgs/msg/Imu
+  gz_type_name: gz.msgs.IMU
+  direction: GZ_TO_ROS
+- ros_topic_name: /usv/sim/odometry
+  gz_topic_name: /usv_boat/odometry
+  ros_type_name: nav_msgs/msg/Odometry
+  gz_type_name: gz.msgs.Odometry
+  direction: GZ_TO_ROS

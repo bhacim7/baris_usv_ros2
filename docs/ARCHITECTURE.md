@@ -73,8 +73,8 @@ These are not cleaned up during the port, because the gains were tuned against t
 | `navigator` | `nav_process` | 25 Hz timer: mission state machine, local costmap, A*, Task 2 corridor, LOS/PID and Pure Pursuit, mixer. Publishes `ThrusterPwm` and `NavStatus` |
 | `telemetry_bridge` | `telem_process`, `utils/telem.py` | RFD900x JSON protocol unchanged. Turns GCS commands into service calls and echoes `aq` after a successful call |
 | `recorder` | CSV + `CostmapRecorder` | Competition deliverables: vehicle CSV (2 Hz, legacy header) and costmap record |
-| `sim_bridge` | new | Maps `/usv/*` to and from Gazebo (see section 10) |
-| `fake_perception` | new | Publishes `/usv/buoys` from ground-truth buoy positions limited by camera FOV and range |
+| `sim_bridge` | new | Stands in for `fc_bridge`: commands to Gazebo, FC-side sensors back, with the real hardware's rates and errors (section 10) |
+| `fake_perception` | new | Stands in for `perception`: buoys from ground truth within camera FOV and range, ZED heading and attitude, all with ZED-like errors |
 
 `navigator` is deliberately one node. Its internals are split into classes (section 8);
 splitting it into several nodes would add message latency inside a 25 Hz control loop for
@@ -89,10 +89,10 @@ All topics use the default reliable QoS (depth 10) unless marked *latched*
 |---|---|---|---|
 | `/usv/fix` | `sensor_msgs/NavSatFix` | `fc_bridge` / `sim_bridge` | navigator, perception, telemetry_bridge, recorder |
 | `/usv/speed` | `std_msgs/Float32` (m/s, ground speed) | `fc_bridge` / `sim_bridge` | navigator, telemetry_bridge, recorder |
-| `/usv/heading/fc` | `std_msgs/Float32` (deg) | `fc_bridge` | heading_source |
-| `/usv/heading/zed` | `std_msgs/Float32` (deg) | `perception` | heading_source |
-| `/usv/heading` | `std_msgs/Float32` (deg, 0-360, clockwise from north, declination applied) | `heading_source` / `sim_bridge` | navigator, perception, telemetry_bridge, recorder |
-| `/usv/attitude` | `geometry_msgs/Vector3Stamped` (x = roll deg, y = pitch deg) | `perception` / `sim_bridge` | recorder |
+| `/usv/heading/fc` | `std_msgs/Float32` (deg) | `fc_bridge` / `sim_bridge` | heading_source |
+| `/usv/heading/zed` | `std_msgs/Float32` (deg) | `perception` / `fake_perception` | heading_source |
+| `/usv/heading` | `std_msgs/Float32` (deg, 0-360, clockwise from north, declination applied) | `heading_source` | navigator, perception, telemetry_bridge, recorder |
+| `/usv/attitude` | `geometry_msgs/Vector3Stamped` (x = roll deg, y = pitch deg) | `perception` / `fake_perception` | recorder |
 | `/usv/relay_state` | `std_msgs/Int8` (-1 unknown, 0 off, 1 on) | `fc_bridge` / `sim_bridge` | telemetry_bridge |
 | `/usv/buoys` | `usv_interfaces/BuoyArray` | `perception` / `fake_perception` | navigator, recorder |
 | `/usv/perception/fps` | `std_msgs/Float32` | `perception` | telemetry_bridge |
@@ -236,12 +236,23 @@ Open: detecting a node that is alive but stuck (legacy heartbeat watchdog). Not 
   `gz::sim::systems::JointPositionController` (in `roboboat01` this joint exists but is
   locked). First step of the model work is a test of this rotation.
   Fallback: WAM-V with a custom four-thruster YAML layout.
-- **`sim_bridge`:** each PWM channel drives its own thruster; the steering PWM sets the angle
-  of both front thrusters. Publishes `/usv/fix`, `/usv/speed`, `/usv/heading`,
-  `/usv/attitude` and `/usv/relay_state` from Gazebo sensors.
-- **`fake_perception`:** publishes buoys from known world positions within camera FOV and range,
-  because the real YOLO model does not recognise simulated buoys. Simulation therefore
+- **Rule:** the software must not be able to tell the simulation from the boat: same topics,
+  units, rates, delays and errors. Every stand-in copies exactly one real node, and every
+  number lives in a YAML file with its source, to be replaced by a measurement.
+- **`sim_bridge`** stands in for `fc_bridge` + Orange Cube + ESCs + MG995 servos. Commands:
+  legacy write thinning, 0.5 s timeout, PWM -> N table, steering at servo speed, relay and
+  emergency stop services. Sensors: `/usv/fix` (non-RTK drift, 2 Hz as in the video, 1e-7
+  deg), `/usv/speed`, `/usv/heading/fc`, `/usv/relay_state`. Gazebo NavSat, IMU and
+  odometry reach it through `ros_gz_bridge` on `/usv/sim/*`.
+- **`fake_perception`** stands in for `perception` (ZED 2i): `/usv/buoys`, `/usv/heading/zed`,
+  `/usv/attitude`, `/usv/perception/fps`. The real `heading_source` then makes
+  `/usv/heading`, in simulation as on the boat.
+  Buoys come from known world positions within the camera FOV and range, with ZED-like
+  errors, because the real YOLO model does not recognise simulated buoys: this layer
   validates mission, planning and control, not detection.
+- **Later, for detection:** a Gazebo RGB-D camera with the ZED 2i geometry and a camera-source
+  option in `perception` (pyzed on the boat, ROS image topics in simulation); `.svo`
+  playback to measure detection and distance on real recordings.
 - **Hydrodynamics:** identify real values from field data (coast-down for surge drag,
   turning test for yaw drag).
 
@@ -326,7 +337,7 @@ Phase 4 progress (2026-10-22):
 | `usv_interfaces` | Done |
 | `usv_core`: `navigation`, `planner`, `object_memory`, `mixer` | Done, 487 equivalence and behaviour tests passing |
 | Boat model | Four thrusters, steerable front pair; buoyancy, yaw and surge drag calibrated (surge from the legacy video); hull mesh from the CAD STL |
-| `sim_bridge` | Next |
+| `sim_bridge` | Commands done and tested (relay, emergency stop, timeout); sensors written |
 | `fake_perception` | Not started |
 
 Remaining phases:

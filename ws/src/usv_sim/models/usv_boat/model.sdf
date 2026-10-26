@@ -74,6 +74,9 @@
   Gazebo topics (gz.msgs.Double):
     /usv_boat/thrusters/{rear_left,rear_right,front_left,front_right}/thrust   N
     /usv_boat/thrusters/{front_left,front_right}/pos                             rad, + = CCW seen from above
+    /usv_boat/navsat     gz.msgs.NavSat    GNSS antenna on the mast, 10 Hz, exact
+    /usv_boat/imu        gz.msgs.IMU       orientation in ENU, 50 Hz, exact
+    /usv_boat/odometry   gz.msgs.Odometry  velocity for the ground speed, 50 Hz, exact
 -->
 <sdf version="1.6">
   <model name="usv_boat">
@@ -211,7 +214,34 @@
         <pose>0.63 0 0.10 0 0 0</pose>
         <geometry><box><size>0.04 0.80 0.05</size></box></geometry>
       </collision>
+
+      <!-- Sensors: exact values; sim_bridge adds the real sensors' rates, delays and errors -->
+      <!-- GNSS antenna on top of the mast, so rolling and pitching move it as on the boat -->
+      <sensor name="navsat" type="navsat">
+        <pose>-0.60 0 0.75 0 0 0</pose>
+        <always_on>1</always_on>
+        <update_rate>10</update_rate>
+        <topic>/usv_boat/navsat</topic>
+      </sensor>
+      <!-- Attitude and heading reference (the Orange Cube sits in the box) -->
+      <sensor name="imu" type="imu">
+        <pose>-0.10 0 0.30 0 0 0</pose>
+        <always_on>1</always_on>
+        <update_rate>50</update_rate>
+        <topic>/usv_boat/imu</topic>
+        <imu>
+          <orientation_reference_frame><localization>ENU</localization></orientation_reference_frame>
+        </imu>
+      </sensor>
     </link>
+
+    <!-- Exact velocity for /usv/speed (GPS Doppler on the boat); the pose is not used -->
+    <plugin filename="gz-sim-odometry-publisher-system"
+            name="gz::sim::systems::OdometryPublisher">
+      <odom_topic>/usv_boat/odometry</odom_topic>
+      <odom_publish_frequency>50</odom_publish_frequency>
+      <dimensions>3</dimensions>
+    </plugin>
 
     <!-- ================= Thrusters =================
          Positions: front x = +0.363 (0.228 m behind the bow), rear x = -0.493
