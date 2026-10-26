@@ -1,0 +1,7 @@
+heading_source:
+  ros__parameters:
+    # config.py HEADING_SOURCE: 'ZED' (ZED 2i magnetometer, used on the boat), 'FC' (Orange
+    # Cube EKF) or 'FUSED' (half way between the two)
+    source: ZED
+    # The legacy nav loop recomputed the heading every cycle (50 Hz)
+    rate_hz: 50.0

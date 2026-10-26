@@ -42,7 +42,7 @@ These are not cleaned up during the port, because the gains were tuned against t
 | Package | Build type | Content |
 |---|---|---|
 | `usv_interfaces` | ament_cmake | Custom messages and services |
-| `usv_core` | ament_python | ROS-free library: `navigation`, `planner`, `object_memory`, `mixer`, `mission`, `controller`. Unit tests |
+| `usv_core` | ament_python | ROS-free library: `navigation`, `planner`, `object_memory`, `mixer`, `heading`, `detection`, `mission`, `controller`. Unit tests |
 | `usv_nodes` | ament_python | `navigator`, `fc_bridge`, `perception`, `heading_source`, `telemetry_bridge`, `recorder` |
 | `usv_sim` | ament_python | `sim_bridge`, `fake_perception`, boat model, worlds |
 | `usv_gz_plugins` | ament_cmake | Gazebo systems (C++): `HullBuoyancy`, buoyancy from the hull mesh. Simulation only; skipped where VRX is absent |
@@ -330,12 +330,14 @@ so every node sees the same values (the legacy `spawn` copy problem disappears).
 | 3 | This document | Approved |
 | 4 | `usv_interfaces`; `usv_core` (`navigation`, `planner`) with tests; boat model; `sim_bridge`; `fake_perception` | Boat driven manually in simulation; buoys on `/usv/buoys` |
 
-Phase 4 progress (2026-10-22):
+Phase 4 progress (2026-10-26):
 
 | Item | State |
 |---|---|
 | `usv_interfaces` | Done |
 | `usv_core`: `navigation`, `planner`, `object_memory`, `mixer` | Done, 487 equivalence and behaviour tests passing |
+| `usv_core`: `heading` (ZED filter, declination as a parameter, source selection), `detection` (box + depth -> buoy position) | Written, equivalence tests against the legacy code |
+| `usv_nodes`: `heading_source` | Written: first node that runs on the boat and in simulation |
 | Boat model | Four thrusters, steerable front pair; buoyancy, yaw and surge drag calibrated (surge from the legacy video); hull mesh from the CAD STL |
 | `sim_bridge` | Commands done and tested (relay, emergency stop, timeout); sensors written |
 | `fake_perception` | Not started |
