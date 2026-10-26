@@ -3,9 +3,15 @@
 <package format="3">
   <name>usv_sim</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>Simulation of the USV: boat model, worlds, sim_bridge</description>
   <maintainer email="ubuntu@todo.todo">ubuntu</maintainer>
   <license>TODO: License declaration</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
+  <exec_depend>usv_interfaces</exec_depend>
+  <exec_depend>ros_gz_bridge</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

@@ -1,0 +1,37 @@
+# ros_gz_bridge: ROS 2 topics <-> Gazebo (gz-transport) topics, one entry per topic.
+# Run: ros2 run ros_gz_bridge parameter_bridge --ros-args -p config_file:=<this file>
+# std_msgs/Float64 on the ROS side is gz.msgs.Double on the Gazebo side.
+
+# Thrust (N), from sim_bridge to the four Thruster systems
+- ros_topic_name: /usv/sim/thrust/rear_left
+  gz_topic_name: /usv_boat/thrusters/rear_left/thrust
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+- ros_topic_name: /usv/sim/thrust/rear_right
+  gz_topic_name: /usv_boat/thrusters/rear_right/thrust
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+- ros_topic_name: /usv/sim/thrust/front_left
+  gz_topic_name: /usv_boat/thrusters/front_left/thrust
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+- ros_topic_name: /usv/sim/thrust/front_right
+  gz_topic_name: /usv_boat/thrusters/front_right/thrust
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+
+# Front thruster angle (rad), from sim_bridge to the two JointPositionController systems
+- ros_topic_name: /usv/sim/steer/front_left
+  gz_topic_name: /usv_boat/thrusters/front_left/pos
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+- ros_topic_name: /usv/sim/steer/front_right
+  gz_topic_name: /usv_boat/thrusters/front_right/pos
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ

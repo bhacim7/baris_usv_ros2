@@ -1,0 +1,33 @@
+# sim_bridge: the simulated flight-controller side of the boat. Every number here describes
+# real hardware and is meant to be replaced by a measurement when one exists.
+# Lists must stay floats (1100.0, not 1100): ROS parameters are typed.
+sim_bridge:
+  ros__parameters:
+    output_rate_hz: 50.0
+
+    # fc_bridge design (ARCHITECTURE.md, safety): no ThrusterPwm for this long -> 1500
+    command_timeout_s: 0.5
+
+    # Motor power relay at start. On the boat this is ArduPilot's RELAY_DEFAULT
+    # (parameter file not seen yet); on here so the boat can be driven straight away.
+    relay_on_at_start: true
+
+    # Legacy USVController.set_servo write thinning (config.py)
+    min_pwm_delta_us: 3          # SERVO_MIN_PWM_DELTA
+    servo_refresh_s: 0.5         # SERVO_REFRESH_S
+
+    # ESC + Degz Utras on 7S: PWM (us) -> thrust (N). ASSUMED linear from the datasheet:
+    # 91 N forward at 1900, reverse 70 % = -64 N at 1100, no ESC dead band.
+    # Replace with the bollard pull test (scale reading in kgf x 9.81 = N per PWM step).
+    thrust_table_pwm:    [1100.0, 1500.0, 1900.0]
+    thrust_table_newton: [-64.0,  0.0,    91.0]
+
+    # Steering: one PWM channel, two MG995 servos (one per front thruster).
+    # Team: 1100 = 45 deg left, 1900 = 45 deg right (to be measured on the boat).
+    steer_center_us: 1500.0
+    steer_half_range_us: 400.0
+    steer_max_angle_rad: 0.785
+    steer_sign: -1.0             # PWM > 1500 = boat turns right = negative Gazebo angle
+    # MG995 datasheet: 0.20 s / 60 deg at 4.8 V (0.16 s at 6 V), no load = 5.2-6.5 rad/s.
+    # The lower figure, since the servo turns a thruster in water.
+    steer_rate_rad_s: 5.2
