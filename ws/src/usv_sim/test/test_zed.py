@@ -8,12 +8,10 @@ import math
 import pytest
 
 from usv_sim.sensors import make_rng
-from usv_sim.zed import FrameClock, magnetic_heading_deg, rotate
+from usv_sim.zed import body_field, FrameClock, magnetic_heading_deg, rotate, world_field_enu
 
-# Earth field in ENU (T): declination +6 deg, inclination 56.5 deg, 46.5 uT
-_H = 46.5e-6 * math.cos(math.radians(56.5))
-FIELD_ENU = (_H * math.sin(math.radians(6.0)), _H * math.cos(math.radians(6.0)),
-             -46.5e-6 * math.sin(math.radians(56.5)))
+# Earth field at Golcuk (course file): declination +6 deg, inclination 56.5 deg, 46.5 uT
+FIELD_ENU = world_field_enu(6.0, 56.5, 46.5)
 
 
 def quat(roll=0.0, pitch=0.0, yaw=0.0):
@@ -25,10 +23,11 @@ def quat(roll=0.0, pitch=0.0, yaw=0.0):
             math.cos(r) * math.cos(p) * math.cos(y) + math.sin(r) * math.sin(p) * math.sin(y))
 
 
-def body_field(q):
-    """What a body-fixed magnetometer reads: the world field turned into the body frame."""
-    x, y, z, w = q
-    return rotate((-x, -y, -z, w), FIELD_ENU)
+def test_field_points_north_east_and_down():
+    east, north, up = FIELD_ENU
+    assert north > 0 and east > 0 and up < 0                 # northern hemisphere: down
+    assert math.degrees(math.atan2(east, north)) == pytest.approx(6.0)
+    assert math.hypot(east, north, up) == pytest.approx(46.5e-6)
 
 
 def compass_to_enu_yaw(heading_deg):
@@ -39,14 +38,14 @@ def compass_to_enu_yaw(heading_deg):
 def test_level_boat_reads_true_heading_minus_declination(true_heading):
     q = quat(yaw=compass_to_enu_yaw(true_heading))
     expected = (true_heading - 6.0) % 360.0
-    got = magnetic_heading_deg(body_field(q), q)
+    got = magnetic_heading_deg(body_field(FIELD_ENU, q), q)
     assert min(abs(got - expected), 360 - abs(got - expected)) < 1e-6
 
 
 @pytest.mark.parametrize('roll, pitch', [(10, 0), (0, -8), (15, 12), (-20, 5)])
 def test_rolling_and_pitching_do_not_move_the_heading(roll, pitch):
     q = quat(roll=roll, pitch=pitch, yaw=compass_to_enu_yaw(146.0))
-    assert magnetic_heading_deg(body_field(q), q) == pytest.approx(140.0, abs=1e-6)
+    assert magnetic_heading_deg(body_field(FIELD_ENU, q), q) == pytest.approx(140.0, abs=1e-6)
 
 
 def test_hard_iron_error_depends_on_heading():
@@ -54,7 +53,7 @@ def test_hard_iron_error_depends_on_heading():
     errors = []
     for h in (0.0, 90.0, 180.0, 270.0):
         q = quat(yaw=compass_to_enu_yaw(h))
-        got = magnetic_heading_deg(body_field(q), q, hard_iron_body=(0.0, 5e-6, 0.0))
+        got = magnetic_heading_deg(body_field(FIELD_ENU, q), q, hard_iron_body=(0.0, 5e-6, 0.0))
         err = (got - (h - 6.0) + 180.0) % 360.0 - 180.0
         errors.append(err)
     assert max(abs(e) for e in errors) > 5.0

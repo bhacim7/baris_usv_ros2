@@ -19,9 +19,10 @@ name: golcuk_2026_10_14
 # World (0, 0) is here. Gazebo turns positions into latitude/longitude from this point.
 origin: {lat: 40.724038, lon: 29.825102}
 
-# Earth's magnetic field at the site, for the simulated magnetometer (ZED 2i).
-# Declination +6 deg is what the team uses in Istanbul (legacy camera_process); inclination
-# and strength are rounded WMM values for the Izmit bay.
+# Earth's magnetic field at the site. fake_perception computes the ZED 2i magnetometer from
+# it (Gazebo's own magnetometer gets the field wrong). Declination +6 deg is what the team
+# uses in Istanbul (legacy camera_process); inclination and strength are rounded WMM values
+# for the Izmit bay.
 magnetic_field: {declination_deg: 6.0, inclination_deg: 56.5, strength_uT: 46.5}
 
 # Where the boat starts: first HUD position (frame 0), pointing down the corridor

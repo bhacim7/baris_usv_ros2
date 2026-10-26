@@ -8,8 +8,9 @@ physics, sensors, water, waves and our boat), with these changes:
   * the Nathan Benderson Park land model is left out: open water only
   * the VRX wind plugin is left out (it only acts on the WAM-V)
   * spherical_coordinates: the course origin, so /usv/fix reads the course's lat/lon
-  * magnetic_field: the site's field (declination, inclination, strength), so the
-    simulated magnetometer points where a real one would
+  * NO magnetic field: with spherical coordinates gz-sim ignores <magnetic_field> and
+    uses a coarse built-in table; fake_perception computes the ZED 2i magnetometer from
+    the course's magnetic_field instead (see usv_sim/zed.py)
   * the boat starts at the course's start pose
   * one static model per buoy, shaped from the course's buoy_types
 
@@ -46,15 +47,6 @@ def enu(lat, lon, origin):
         math.radians(origin['lat']))
     north = math.radians(lat - origin['lat']) * EARTH_RADIUS_M
     return east, north
-
-
-def magnetic_vector_tesla(field):
-    """ENU field vector from declination (east of north), inclination (down) and strength."""
-    total = field['strength_uT'] * 1e-6
-    inc = math.radians(field['inclination_deg'])
-    dec = math.radians(field['declination_deg'])
-    horizontal = total * math.cos(inc)
-    return (horizontal * math.sin(dec), horizontal * math.cos(dec), -total * math.sin(inc))
 
 
 def sub(parent, tag, text=None, **attrib):
@@ -148,12 +140,6 @@ def main():
     sc.find('latitude_deg').text = f"{origin['lat']:.7f}"
     sc.find('longitude_deg').text = f"{origin['lon']:.7f}"
 
-    mf = world.find('magnetic_field')
-    if mf is None:
-        mf = ET.Element('magnetic_field')
-        world.insert(list(world).index(sc) + 1, mf)
-    mf.text = '%.4e %.4e %.4e' % magnetic_vector_tesla(course['magnetic_field'])
-
     types = course['buoy_types']
     for i, b in enumerate(course['buoys']):
         x, y = enu(b['lat'], b['lon'], origin)
@@ -165,7 +151,7 @@ def main():
     with open(sys.argv[2], 'w') as f:
         f.write(header + ET.tostring(tree.getroot(), encoding='unicode') + '\n')
     print(f"{sys.argv[2]}: {len(course['buoys'])} buoys, origin {origin['lat']}, "
-          f"{origin['lon']}, magnetic field {mf.text} T (ENU)")
+          f"{origin['lon']}")
 
 
 if __name__ == '__main__':

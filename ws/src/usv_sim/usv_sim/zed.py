@@ -1,5 +1,12 @@
 """What the ZED 2i measures, for the simulation (ROS-free, unit tested).
 
+  world_field_enu       the Earth's field at the course (declination, inclination,
+                        strength from the course file), as an ENU vector. Gazebo's own
+                        magnetometer is NOT used: with spherical coordinates set, gz-sim
+                        computes the field from a coarse built-in table (4.8 deg declination
+                        at Golcuk instead of ~6), in gauss, and stores north/east/down in the
+                        east/north/up axes (measured 2026-10-26: z came out +0.40 G, i.e. up).
+  body_field            what a magnetometer fixed to the boat reads from a world field
   magnetic_heading_deg  heading from the magnetometer, as the ZED SDK's magnetic_heading:
                         the field is levelled with the attitude (tilt compensation), then
                         the angle of its horizontal part gives the heading clockwise from
@@ -25,6 +32,21 @@ def rotate(q, v):
     return (vx + w * tx + (y * tz - z * ty),
             vy + w * ty + (z * tx - x * tz),
             vz + w * tz + (x * ty - y * tx))
+
+
+def world_field_enu(declination_deg, inclination_deg, strength_uT):
+    """ENU field vector (T): declination east of north, inclination downwards."""
+    total = strength_uT * 1e-6
+    inc = math.radians(inclination_deg)
+    dec = math.radians(declination_deg)
+    horizontal = total * math.cos(inc)
+    return (horizontal * math.sin(dec), horizontal * math.cos(dec), -total * math.sin(inc))
+
+
+def body_field(field_enu, q_body_to_enu):
+    """The world field as seen from the body frame (inverse rotation)."""
+    x, y, z, w = q_body_to_enu
+    return rotate((-x, -y, -z, w), field_enu)
 
 
 def magnetic_heading_deg(field_body, q_body_to_enu, hard_iron_body=(0.0, 0.0, 0.0)):

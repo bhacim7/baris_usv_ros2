@@ -260,7 +260,6 @@
       <elevation>0.0</elevation>
       <heading_deg>0.0</heading_deg>
     </spherical_coordinates>
-    <magnetic_field>2.6827e-06 2.5524e-05 -3.8776e-05</magnetic_field>
     <light type="directional" name="sun">
       <cast_shadows>true</cast_shadows>
       <pose>0 0 10 0 0 0</pose>

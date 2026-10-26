@@ -5,9 +5,13 @@ fake_perception:
     # 0 = different noise every run, any other number = the same noise every run
     random_seed: 0
 
+    # Course file (usv_sim/courses/<name>.yaml): the Earth's field at the site, and the
+    # buoys. Use the same course the Gazebo world was generated from.
+    course: golcuk_2026_10_14
+
     # ---------------------------------------------------------------- heading
     # Added after the filter, as camera_process does (+6 Istanbul; RoboBoat USA used -6).
-    # Keep it equal to the course's magnetic_field.declination_deg for a correct compass.
+    # Equal to the course's magnetic_field.declination_deg = a correct compass.
     magnetic_declination_deg: 6.0
     magnetometer_noise_deg: 1.0          # ASSUMED, per frame, before the legacy filter
     # Compass error. The 2026-10-14 video suggests the ZED read ~4 deg (heading ~145) to
