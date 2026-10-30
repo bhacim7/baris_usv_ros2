@@ -4,13 +4,13 @@ import os
 import random
 import sys
 
-import pytest
-
-from usv_core.heading import HeadingFilter, LEGACY_DECLINATION_DEG, select_heading, zed_heading
-
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'legacy'))
-from utils.headingFilter import KalmanFilter as LegacyFilter  # noqa: E402
+
+import pytest  # noqa: E402
+from usv_core.heading import (  # noqa: E402
+    HeadingFilter, LEGACY_DECLINATION_DEG, select_heading, zed_heading)
 from utils import navigasyon as legacy_nav  # noqa: E402
+from utils.headingFilter import KalmanFilter as LegacyFilter  # noqa: E402
 
 
 def raw_heading_stream(seed, n=3000):
@@ -29,8 +29,8 @@ def raw_heading_stream(seed, n=3000):
 
 @pytest.mark.parametrize('seed', range(5))
 def test_filter_matches_legacy_bit_for_bit(seed):
-    ours, theirs = HeadingFilter(1e-3, 1e-1), LegacyFilter(process_variance=1e-3,
-                                                         measurement_variance=1e-1)
+    ours = HeadingFilter(1e-3, 1e-1)
+    theirs = LegacyFilter(process_variance=1e-3, measurement_variance=1e-1)
     for raw in raw_heading_stream(seed):
         assert ours.update(raw) == theirs.update(raw)
 

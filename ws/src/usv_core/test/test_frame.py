@@ -1,4 +1,5 @@
-"""Port check for detection.process_frame / memory_snapshot against the legacy camera loop.
+"""
+Port check for detection.process_frame / memory_snapshot against the legacy camera loop.
 
 legacy_frame() below is camera_process.py lines 534-605 and 648-675 (commit 5df3f5b) with
 only these changes: inputs are arguments instead of camera/YOLO objects, the HUD drawing and
@@ -10,14 +11,13 @@ import os
 import random
 import sys
 
-import numpy as np
-import pytest
-
-from usv_core.detection import intrinsics_from_hfov, memory_snapshot, process_frame
-from usv_core.object_memory import ObjectMemoryManager
-
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'legacy'))
+
+import numpy as np  # noqa: E402
 import object_memory_extract as legacy_memory  # noqa: E402
+import pytest  # noqa: E402
+from usv_core.detection import intrinsics_from_hfov, memory_snapshot, process_frame  # noqa: E402
+from usv_core.object_memory import ObjectMemoryManager  # noqa: E402
 from utils.navigasyon import calculate_obj_gps  # noqa: E402
 
 WIDTH, HEIGHT = 1280, 720
@@ -92,19 +92,19 @@ def legacy_frame(coords, cids, depth_at, magnetic_heading, ida_enlem, ida_boylam
     memory_objects = []
     for obj in obj_manager.memory:
         memory_objects.append({
-            "type": obj.get('type'),
-            "color": obj.get('color'),
-            "lat": obj.get('lat'),
-            "lon": obj.get('lon'),
-            "id": obj.get('id'),
-            "cid": obj.get('cid'),
-            "cx": obj.get('cx'),
-            "cy": obj.get('cy'),
-            "dist": obj.get('dist', 10.0),
-            "area": obj.get('area', 0),
-            "last_seen": obj.get('last_seen', 0.0),
-            "seen": obj.get('seen', 1),
-            "pos_ok": bool(obj.get('pos_ok', True)),
+            'type': obj.get('type'),
+            'color': obj.get('color'),
+            'lat': obj.get('lat'),
+            'lon': obj.get('lon'),
+            'id': obj.get('id'),
+            'cid': obj.get('cid'),
+            'cx': obj.get('cx'),
+            'cy': obj.get('cy'),
+            'dist': obj.get('dist', 10.0),
+            'area': obj.get('area', 0),
+            'last_seen': obj.get('last_seen', 0.0),
+            'seen': obj.get('seen', 1),
+            'pos_ok': bool(obj.get('pos_ok', True)),
         })
     return memory_objects
 
@@ -130,7 +130,7 @@ def depth_image(rng):
 
 
 def frames(seed, n=250):
-    """A run past a buoy field: drifting boat, a few boxes per frame, odd frames mixed in."""
+    """Generate a run past a buoy field: drifting boat, a few boxes, odd frames mixed in."""
     rng = random.Random(seed)
     lat, lon, heading, t = 40.7240380, 29.8251020, 146.0, 1000.0
     out = []

@@ -1,4 +1,5 @@
-"""Port check for usv_core.detection against the legacy camera_process formulas.
+"""
+Port check for usv_core.detection against the legacy camera_process formulas.
 
 The legacy code is inline in the camera loop, so it cannot be imported; the reference
 functions below repeat it line for line (camera_process.py, commit 5df3f5b).

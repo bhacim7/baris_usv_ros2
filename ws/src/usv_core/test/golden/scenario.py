@@ -1,4 +1,5 @@
-"""The world both navigators are run in for the golden comparison.
+"""
+The world both navigators are run in for the golden comparison.
 
 Everything here is deterministic: the same scenario always produces the same inputs, so
 the legacy nav_worker and the new navigator can be compared cycle by cycle. Nothing in here
@@ -14,8 +15,8 @@ the navigation is exercised in closed loop.
   SCENARIOS        the named scenarios the tests use
 """
 
-import math
 from dataclasses import dataclass, field
+import math
 
 # ---------------------------------------------------------------- geometry (WGS84 local)
 WGS84_A = 6378137.0

@@ -4,11 +4,10 @@ import math
 import os
 import sys
 
-import pytest
-
-from usv_core import navigation as nav
-
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'legacy'))
+
+import pytest  # noqa: E402
+from usv_core import navigation as nav  # noqa: E402
 from utils import navigasyon as legacy  # noqa: E402
 
 # Course waypoints from legacy config.py, plus far-away and Southern Hemisphere points
@@ -48,7 +47,8 @@ def test_cross_track_matches_legacy(start, current, target):
 @pytest.mark.parametrize('bearing', [0.0, 45.0, 90.0, 180.0, 270.0, 359.0])
 def test_obj_gps_matches_legacy(dist, bearing):
     lat, lon = POINTS[0]
-    assert nav.calculate_obj_gps(lat, lon, dist, bearing) == legacy.calculate_obj_gps(lat, lon, dist, bearing)
+    assert (nav.calculate_obj_gps(lat, lon, dist, bearing)
+            == legacy.calculate_obj_gps(lat, lon, dist, bearing))
 
 
 @pytest.mark.parametrize('a1', [0.0, 10.0, 179.0, 181.0, 350.0, -30.0])
@@ -59,7 +59,8 @@ def test_angle_difference_matches_legacy(a1, a2):
 
 @pytest.mark.parametrize('err', [-90.0, -10.0, 0.0, 30.0, 170.0])
 def test_hybrid_point_matches_legacy(err):
-    assert nav.get_hybrid_point(1.0, -2.0, 0.7, err, 2.0) == legacy.get_hybrid_point(1.0, -2.0, 0.7, err, 2.0)
+    assert (nav.get_hybrid_point(1.0, -2.0, 0.7, err, 2.0)
+            == legacy.get_hybrid_point(1.0, -2.0, 0.7, err, 2.0))
 
 
 # --- Known values: what the functions mean -------------------------------------
@@ -77,7 +78,7 @@ def test_bearing_north_and_east():
 def test_angle_difference_sign_and_wrap():
     assert nav.signed_angle_difference(350.0, 10.0) == 20.0     # right turn through north
     assert nav.signed_angle_difference(10.0, 350.0) == -20.0    # left turn
-    assert nav.signed_angle_difference(0.0, 180.0) == -180.0    # exactly behind: left by convention
+    assert nav.signed_angle_difference(0.0, 180.0) == -180.0    # behind: left by convention
 
 
 def test_cross_track_sign():
@@ -88,4 +89,4 @@ def test_cross_track_sign():
 def test_radius_mismatch_is_documented():
     lat, lon = nav.calculate_obj_gps(40.0, 29.0, 10.0, 0.0)
     measured = nav.haversine(40.0, 29.0, lat, lon)
-    assert measured == pytest.approx(10.0 * 6371000.0 / 6378137.0, abs=1e-6)   # 9.989 mS
+    assert measured == pytest.approx(10.0 * 6371000.0 / 6378137.0, abs=1e-6)   # 9.989 m

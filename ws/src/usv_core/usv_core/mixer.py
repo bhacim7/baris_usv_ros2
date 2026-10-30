@@ -1,4 +1,5 @@
-"""Thruster mixer, ported from legacy core/nav_process.py apply_motor_mixer (commit 5df3f5b).
+"""
+Thruster mixer, ported from legacy core/nav_process.py apply_motor_mixer (commit 5df3f5b).
 
 What changed in the port, and only this:
   * The slew limiter's "previous PWM" used to be read back from USVController's cache
@@ -63,6 +64,8 @@ class Mixer:
 
     def mix(self, forward_pwm, yaw_pwm, slew=True):
         """
+        Mix forward and yaw effort into the five channels.
+
         forward_pwm: absolute PWM-style forward effort (1500 = stop).
         yaw_pwm: turn effort, positive = turn right.
         slew=False bypasses the rate limiter (emergency braking, neutralise).
@@ -125,5 +128,5 @@ class Mixer:
         return self.last
 
     def neutral(self):
-        """Immediate neutral on every channel (legacy apply_motor_mixer(c, 1500, 0, slew=False))."""
+        """Go neutral on every channel at once (legacy mix(1500, 0, slew=False))."""
         return self.mix(1500, 0, slew=False)

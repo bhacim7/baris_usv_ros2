@@ -1,5 +1,7 @@
-"""From a YOLO box and the ZED depth image to a buoy position, ported from legacy
-core/camera_process.py (commit 5df3f5b).
+"""
+From a YOLO box and the ZED depth image to a buoy position.
+
+Ported from legacy core/camera_process.py (commit 5df3f5b).
 
 This is everything perception does AFTER the hardware: the boat runs it on real YOLO boxes
 and the real ZED depth, the simulation (fake_perception) on boxes and depth it draws from
@@ -49,7 +51,8 @@ def depth_sample_pixel(x1, y1, x2, y2, height):
 
 
 def median_depth(depth_at, cx, cy, width, height):
-    """Median of the valid depths around (cx, cy); inf when none is valid.
+    """
+    Median of the valid depths around (cx, cy); inf when none is valid.
 
     depth_at(x, y) returns the depth in metres at a pixel (NaN / inf allowed), e.g. a
     wrapper around the ZED's depth.get_value or a simulated depth image.
@@ -86,7 +89,8 @@ BUOY_CLASS_IDS = (0, 1, 2, 3, 4)    # YOLO data.yaml: red, yellow, black, orange
 
 def process_frame(boxes, depth_at, width, height, cam_cx, cam_fx, heading_deg, boat_lat,
                   boat_lon, memory, now=None):
-    """One camera frame, as the legacy camera loop handles it.
+    """
+    Handle one camera frame, as the legacy camera loop does.
 
     boxes: [(x1, y1, x2, y2, class_id), ...] in pixels (YOLO's xyxy, any number type).
     depth_at(x, y): depth in metres at a pixel (see median_depth).

@@ -3,15 +3,14 @@
 import os
 import sys
 
-import cv2
-import numpy as np
-import pytest
-
-from usv_core import planner
-from usv_core.planner import DEFAULT_CONFIG
-
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'legacy'))
+
 import config as legacy_config  # noqa: E402
+import cv2  # noqa: E402
+import numpy as np  # noqa: E402
+import pytest  # noqa: E402
+from usv_core import planner  # noqa: E402
+from usv_core.planner import DEFAULT_CONFIG  # noqa: E402
 from utils import planner as legacy  # noqa: E402
 
 # Same geometry nav_process uses: 20 m crop radius at 0.10 m/px, map centred on the boat
@@ -120,7 +119,8 @@ def test_free_cell_and_goal_nudge_match_legacy(name):
     # Both versions index the map directly, so only in-window cells are valid input
     cells = [c for c in cells if 0 <= c[0] < SIZE[0] and 0 <= c[1] < SIZE[1]]
     for cell in cells:
-        assert planner._find_free_cell(nav_map, cell, 13) == legacy._find_free_cell(nav_map, cell, 13)
+        assert (planner._find_free_cell(nav_map, cell, 13)
+                == legacy._find_free_cell(nav_map, cell, 13))
         assert (planner._nudge_goal_to_free(cell, (200, 200), nav_map)
                 == legacy._nudge_goal_to_free(cell, (200, 200), nav_map))
 
@@ -186,8 +186,8 @@ def test_lookahead_matches_legacy(pose, lookahead, start_idx):
 @pytest.mark.parametrize('path', [PATH, [], [(4.0, 4.0)]])
 def test_pure_pursuit_matches_legacy(pose, speed, start_idx, path):
     x, y, yaw = pose
-    kwargs = dict(current_speed=speed, base_speed=1680, prev_error=5.0, dt=0.04,
-                  start_idx=start_idx)
+    kwargs = {'current_speed': speed, 'base_speed': 1680, 'prev_error': 5.0, 'dt': 0.04,
+              'start_idx': start_idx}
     assert (planner.pure_pursuit_control(x, y, yaw, path, **kwargs)
             == legacy.pure_pursuit_control(x, y, yaw, path, **kwargs))
 

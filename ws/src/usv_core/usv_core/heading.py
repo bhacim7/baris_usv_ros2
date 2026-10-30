@@ -1,4 +1,5 @@
-"""Heading pipeline ported from the legacy code (commit 5df3f5b).
+"""
+Heading pipeline ported from the legacy code (commit 5df3f5b).
 
   HeadingFilter    utils/headingFilter.py KalmanFilter, body unchanged. camera_process feeds
                    it the ZED 2i magnetometer's magnetic_heading once per new IMU sample,
@@ -16,7 +17,8 @@ SOURCES = ('ZED', 'FC', 'FUSED')
 
 
 class HeadingFilter:
-    """Scalar Kalman filter on a heading in degrees, wrap-around aware (legacy KalmanFilter).
+    """
+    Scalar Kalman filter on a heading in degrees, wrap-around aware (legacy KalmanFilter).
 
     process_variance 1e-3 and measurement_variance 1e-1 are the values camera_process uses.
     """
@@ -61,12 +63,13 @@ def zed_heading(heading_filter, raw_magnetic_heading, declination_deg=LEGACY_DEC
 
 
 def signed_angle_difference(angle1, angle2):
-    """Same as navigation.signed_angle_difference (legacy navigasyon)."""
+    """Return angle2 - angle1 in [-180, 180), as navigation.signed_angle_difference."""
     return (angle2 - angle1 + 180) % 360 - 180
 
 
 def select_heading(source, zed_heading_deg, fc_heading_deg):
-    """Heading the navigation uses.
+    """
+    Pick the heading the navigation uses.
 
     zed_heading_deg: legacy reads shared_state.get('zed_heading', 0.0), so a ZED that never
     reported gives 0.0 (north). The caller decides what to pass before the first sample.

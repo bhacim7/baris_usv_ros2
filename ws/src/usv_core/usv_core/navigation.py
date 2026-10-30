@@ -1,4 +1,5 @@
-"""Geodesy helpers ported from legacy utils/navigasyon.py (commit 5df3f5b).
+"""
+Geodesy helpers ported from legacy utils/navigasyon.py (commit 5df3f5b).
 
 Function bodies are unchanged on purpose; test/test_navigation.py checks that every
 function returns exactly the same value as the legacy copy in test/legacy/.
@@ -12,7 +13,8 @@ import math
 
 
 def calculate_obj_gps(lat1, lon1, dist_m, bearing_deg):
-    """Point reached from (lat1, lon1) after dist_m metres along bearing_deg.
+    """
+    Point reached from (lat1, lon1) after dist_m metres along bearing_deg.
 
     Returns (lat, lon) in degrees. Bearing is clockwise from north.
     """
@@ -24,8 +26,9 @@ def calculate_obj_gps(lat1, lon1, dist_m, bearing_deg):
     lat2_rad = math.asin(math.sin(lat1_rad) * math.cos(dist_m / R) +
                          math.cos(lat1_rad) * math.sin(dist_m / R) * math.cos(bearing_rad))
 
-    lon2_rad = lon1_rad + math.atan2(math.sin(bearing_rad) * math.sin(dist_m / R) * math.cos(lat1_rad),
-                                     math.cos(dist_m / R) - math.sin(lat1_rad) * math.sin(lat2_rad))
+    lon2_rad = lon1_rad + math.atan2(
+        math.sin(bearing_rad) * math.sin(dist_m / R) * math.cos(lat1_rad),
+        math.cos(dist_m / R) - math.sin(lat1_rad) * math.sin(lat2_rad))
 
     return math.degrees(lat2_rad), math.degrees(lon2_rad)
 
@@ -45,13 +48,16 @@ def haversine(lat1, lon1, lat2, lon2):
     phi_2 = math.radians(lat2)
     delta_phi = math.radians(lat2 - lat1)
     delta_lambda = math.radians(lon2 - lon1)
-    a = math.sin(delta_phi / 2.0) ** 2 + math.cos(phi_1) * math.cos(phi_2) * math.sin(delta_lambda / 2.0) ** 2
+    a = math.sin(delta_phi / 2.0) ** 2 + \
+        math.cos(phi_1) * math.cos(phi_2) * math.sin(delta_lambda / 2.0) ** 2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
 
 
-def calculate_cross_track_error(start_lat, start_lon, current_lat, current_lon, target_lat, target_lon):
-    """Signed distance in metres from the current position to the start->target line.
+def calculate_cross_track_error(start_lat, start_lon, current_lat, current_lon,
+                                target_lat, target_lon):
+    """
+    Signed distance in metres from the current position to the start->target line.
 
     Positive means the boat is right of the line, negative means left.
     """
@@ -67,7 +73,7 @@ def calculate_cross_track_error(start_lat, start_lon, current_lat, current_lon, 
 
 
 def calculate_bearing(lat1, lon1, lat2, lon2):
-    """Initial bearing from point 1 to point 2, degrees in [0, 360)."""
+    """Return the initial bearing from point 1 to point 2, degrees in [0, 360)."""
     phi1 = math.radians(lat1)
     phi2 = math.radians(lat2)
     lam1 = math.radians(lon1)
@@ -79,7 +85,8 @@ def calculate_bearing(lat1, lon1, lat2, lon2):
 
 
 def signed_angle_difference(angle1, angle2):
-    """Shortest signed turn from angle1 to angle2, degrees in [-180, 180).
+    """
+    Shortest signed turn from angle1 to angle2, degrees in [-180, 180).
 
     Positive means angle2 is clockwise (to the right) of angle1.
     """

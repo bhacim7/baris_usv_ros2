@@ -1,6 +1,7 @@
-"""Local path planning and path following, ported from legacy utils/planner.py (commit 5df3f5b).
+"""
+Local path planning and path following, ported from legacy utils/planner.py.
 
-What changed in the port, and only this:
+Source: commit 5df3f5b. What changed in the port, and only this:
   * Settings are no longer read from a global `config` module. They come from a
     PlannerConfig passed as the `cfg` argument; its defaults are the legacy config.py
     values, so calling any function without `cfg` behaves exactly like the legacy code.
@@ -13,10 +14,10 @@ Frame convention (inherited, do not change): world x = North, y = East, in metre
 Grid: column grows with x, row grows with -y.
 """
 
+from dataclasses import dataclass
 import heapq
 import math
 import time
-from dataclasses import dataclass
 
 import cv2
 import numpy as np
@@ -68,7 +69,7 @@ def get_hybrid_point(robot_x, robot_y, robot_yaw, angle_error_deg, step_dist=2.0
 
 def get_inflated_nav_map(raw_costmap, cfg=DEFAULT_CONFIG):
     """
-    Prepares map for A* by inflating obstacles to account for robot radius.
+    Prepare the map for A* by inflating obstacles to account for robot radius.
 
     Returns (nav_map, inflated_obstacles): nav_map is 255 where free and 0 where blocked.
     """
@@ -85,7 +86,8 @@ def get_inflated_nav_map(raw_costmap, cfg=DEFAULT_CONFIG):
     res = cfg.costmap_res_m_per_px
 
     kernel_size = (int((robot_radius + inflation_m) / res) * 2) + 1
-    inflated_obstacles = cv2.dilate(obstacles_mask, np.ones((kernel_size, kernel_size), np.uint8), iterations=1)
+    inflated_obstacles = cv2.dilate(obstacles_mask, np.ones((kernel_size, kernel_size), np.uint8),
+                                    iterations=1)
 
     nav_map[:] = 255  # Assume clear everywhere
     nav_map[inflated_obstacles > 0] = 0  # Mark inflated obstacles as black
@@ -95,8 +97,10 @@ def get_inflated_nav_map(raw_costmap, cfg=DEFAULT_CONFIG):
 
 def _segment_is_clear(nav_map, p1, p2, cost_map=None, max_cost=None):
     """
-    O(L) obstacle check along a pixel segment. Samples one pixel per unit of the
-    dominant axis instead of rasterising the line into a full-size mask.
+    Check a pixel segment for obstacles in O(L).
+
+    Samples one pixel per unit of the dominant axis instead of rasterising the line into a
+    full-size mask.
     """
     h, w = nav_map.shape[:2]
 
@@ -130,8 +134,10 @@ def _segment_is_clear(nav_map, p1, p2, cost_map=None, max_cost=None):
 def check_line_of_sight(start, end, nav_map, center_m, res, size_px,
                         cost_map=None, max_cost=None):
     """
-    Raycast on the grid to check if a straight line between start and end is obstacle-free
-    and, if a soft cost layer is supplied, does not cross anything above `max_cost`.
+    Raycast on the grid: is the straight line from start to end obstacle-free.
+
+    If a soft cost layer is supplied, the line must also not cross anything above
+    `max_cost`.
     """
     if nav_map is None:
         return True
@@ -165,8 +171,9 @@ def heuristic(a, b, weight=1.0):
 
 def string_pulling(path, nav_map, center_m, res, size_px, cost_map=None, max_cost=None):
     """
-    Smoothens the jagged A* grid path by drawing straight lines between furthest
-    visible nodes.
+    Smooth the jagged A* grid path.
+
+    Draws straight lines between the furthest mutually visible nodes.
     """
     if not path or len(path) <= 2:
         return path
@@ -333,7 +340,7 @@ def get_path_plan(start_world, end_world, nav_map, center_m, res, size_px,
                   goal_tolerance_px=3, cost_map=None, los_max_cost=None,
                   cfg=DEFAULT_CONFIG):
     """
-    A* over the local costmap grid. Returns a smoothed list of world (x, y), or None.
+    Run A* over the local costmap grid; return a smoothed list of world (x, y), or None.
 
     max_expansions / time_budget_s bound the search. Note the time budget makes the result
     depend on CPU speed when the search is long; tests pass a generous budget.
@@ -479,7 +486,7 @@ def _closest_point_on_segment(px, py, ax, ay, bx, by):
 
 def find_lookahead_point(x, y, path, lookahead_dist, start_idx=0):
     """
-    Returns (target_point, segment_index).
+    Return (target_point, segment_index).
 
     Projects the boat onto the path polyline (closest segment, not closest node) and walks
     lookahead_dist forward from that projection. start_idx keeps progress monotonic.

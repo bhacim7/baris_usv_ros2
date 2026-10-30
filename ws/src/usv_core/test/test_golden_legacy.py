@@ -1,4 +1,5 @@
-"""Step 5.1 of the navigator port: the legacy nav_worker runs unchanged in the golden harness.
+"""
+Step 5.1 of the navigator port: the legacy nav_worker runs unchanged in the golden harness.
 
 These tests only check the harness itself - the legacy loop runs every scenario to the end
 without crashing, repeatably, and reacts to the inputs it is given. The comparison with the
@@ -11,10 +12,10 @@ Run: cd /ws/src/usv_core && python3 -m pytest test/test_golden_legacy.py -v
 import os
 import sys
 
-import pytest
-
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'golden'))
+
 from legacy_runner import run_legacy  # noqa: E402
+import pytest  # noqa: E402
 from scenario import SCENARIOS  # noqa: E402
 
 PERIOD = 1.0 / 25.0

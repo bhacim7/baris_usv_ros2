@@ -12,12 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
 from ament_pep257.main import main
 import pytest
+
+# Frozen copies of the legacy code (the golden reference): kept byte for byte, not restyled
+LEGACY = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'legacy')
 
 
 @pytest.mark.linter
 @pytest.mark.pep257
 def test_pep257():
-    rc = main(argv=['.', 'test'])
+    rc = main(argv=['.', 'test', '--exclude', LEGACY])
     assert rc == 0, 'Found code style errors / warnings'

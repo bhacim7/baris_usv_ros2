@@ -1,5 +1,8 @@
-"""Run the legacy nav_worker (frozen copy, test/legacy/core/nav_process.py) unchanged, with
-fake hardware and a virtual clock, and record every control cycle.
+"""
+Run the legacy nav_worker unchanged and record every control cycle.
+
+The frozen copy (test/legacy/core/nav_process.py) runs with fake hardware and a virtual
+clock.
 
 What the legacy code thinks it is talking to, and what it really gets:
   hardware.MainSystem2.USVController   FakeController: PWMs go to a BoatModel, position,
@@ -34,7 +37,7 @@ _current = {}                # the harness of the run in progress (the fake cont
 
 
 class FakeController:
-    """Stands in for hardware.MainSystem2.USVController, call for call."""
+    """Stand-in for hardware.MainSystem2.USVController, call for call."""
 
     def __init__(self, port='/dev/ttyACM0', baud=57600):
         self.h = _current['harness']
@@ -131,7 +134,7 @@ class LegacyHarness:
                 'steer': c.FRONT_STEER_SERVO}
 
     def end_of_cycle(self):
-        """Called by the loop's closing sleep: record, move the boat, refresh the inputs."""
+        """Record the cycle, move the boat, refresh the inputs (the loop's closing sleep)."""
         s = self.shared
         pwm = {k: self.controller.pwms.get(ch, 1500) for k, ch in self._channels().items()}
         self.records.append({

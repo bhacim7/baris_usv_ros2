@@ -12,14 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
 from ament_flake8.main import main_with_errors
 import pytest
+
+# Frozen copies of the legacy code (the golden reference): kept byte for byte, not restyled
+LEGACY = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'legacy')
 
 
 @pytest.mark.flake8
 @pytest.mark.linter
 def test_flake8():
-    rc, errors = main_with_errors(argv=[])
+    rc, errors = main_with_errors(argv=['--exclude', LEGACY])
     assert rc == 0, \
         'Found %d code style errors / warnings:\n' % len(errors) + \
         '\n'.join(errors)

@@ -4,14 +4,14 @@ import os
 import random
 import sys
 
-import pytest
-
-from usv_core import object_memory
-from usv_core.object_memory import CID_TO_COLOR, DEFAULT_CONFIG, ObjectMemoryManager
-
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'legacy'))
+
 import config as legacy_config  # noqa: E402
 import object_memory_extract as legacy  # noqa: E402
+import pytest  # noqa: E402
+from usv_core import object_memory  # noqa: E402
+from usv_core.object_memory import (  # noqa: E402
+    CID_TO_COLOR, DEFAULT_CONFIG, ObjectMemoryManager)
 
 BUOY = 3   # ProtoEnum.OBJECT_BUOY
 T1 = (40.8090735, 29.2622975)
@@ -45,9 +45,9 @@ def sighting_sequence(seed, n=400):
         if rng.random() < 0.05:
             cid = None
         dist = rng.uniform(1.0, 18.0) if rng.random() > 0.05 else None
-        seq.append(dict(t=t, lat=lat, lon=lon, color=CID_TO_COLOR.get(cid, 0), cid=cid,
-                        cx=rng.randint(0, 1279), cy=rng.randint(0, 719), dist=dist,
-                        area=rng.randint(100, 50000)))
+        seq.append({'t': t, 'lat': lat, 'lon': lon, 'color': CID_TO_COLOR.get(cid, 0),
+                    'cid': cid, 'cx': rng.randint(0, 1279), 'cy': rng.randint(0, 719),
+                    'dist': dist, 'area': rng.randint(100, 50000)})
     return seq
 
 

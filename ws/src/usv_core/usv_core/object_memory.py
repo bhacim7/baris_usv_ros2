@@ -1,4 +1,5 @@
-"""Buoy track memory, ported from legacy core/camera_process.py (commit 5df3f5b).
+"""
+Buoy track memory, ported from legacy core/camera_process.py (commit 5df3f5b).
 
 What changed in the port, and only this:
   * Settings come from ObjectMemoryConfig instead of the global `config` module. Defaults
@@ -11,9 +12,9 @@ The method body is otherwise unchanged. test/test_object_memory.py replays sight
 sequences through this class and the frozen legacy copy and requires identical results.
 """
 
+from dataclasses import dataclass
 import math
 import time
-from dataclasses import dataclass
 
 # Raw YOLO/data.yaml class id -> ProtoEnum colour. Single source of truth so the voted
 # class id and the reported colour can never drift apart.
@@ -61,8 +62,8 @@ class ObjectMemoryManager:
         self.vel_max_predict_s = float(cfg.vel_max_predict_s)
         self.map_max_range_m = float(cfg.map_max_range_m)
 
-    def update_and_get_id(self, lat, lon, obj_type, color, cid=None, cx=None, cy=None, obj_dist=None,
-                          area=None, now=None):
+    def update_and_get_id(self, lat, lon, obj_type, color, cid=None, cx=None, cy=None,
+                          obj_dist=None, area=None, now=None):
         """
         Match one sighting to a track (or open a new one). Returns (id, lat, lon).
 
@@ -101,8 +102,10 @@ class ObjectMemoryManager:
             # Velocity only over a long enough baseline to mean anything.
             dt = current_time - best_match['last_seen']
             if near and dt >= self.vel_min_dt_s:
-                best_match['v_lat'] = best_match['v_lat'] * 0.8 + ((lat - best_match['lat']) / dt) * 0.2
-                best_match['v_lon'] = best_match['v_lon'] * 0.8 + ((lon - best_match['lon']) / dt) * 0.2
+                best_match['v_lat'] = \
+                    best_match['v_lat'] * 0.8 + ((lat - best_match['lat']) / dt) * 0.2
+                best_match['v_lon'] = \
+                    best_match['v_lon'] * 0.8 + ((lon - best_match['lon']) / dt) * 0.2
 
             if near:
                 if best_match.get('pos_ok'):

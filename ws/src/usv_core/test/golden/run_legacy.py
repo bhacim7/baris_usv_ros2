@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Run golden scenarios through the legacy nav_worker and print what happened.
+"""
+Run golden scenarios through the legacy nav_worker and print what happened.
 
 Usage (inside the container):
     python3 /ws/src/usv_core/test/golden/run_legacy.py               # every scenario
@@ -42,7 +43,8 @@ def summary(name, records):
     for r in records:
         if r['task'] != last:
             e, n, h = r['boat']
-            print(f'   t={r["t"]:7.2f}s  {r["task"]:<24} boat ({e:6.1f} E, {n:6.1f} N, {h:5.1f} deg)')
+            print(f'   t={r["t"]:7.2f}s  {r["task"]:<24} '
+                  f'boat ({e:6.1f} E, {n:6.1f} N, {h:5.1f} deg)')
             last = r['task']
     pwms = sorted({r['pwm'] for r in records})
     print(f'   distinct PWM tuples: {len(pwms)}, last {records[-1]["pwm"] if records else None}')

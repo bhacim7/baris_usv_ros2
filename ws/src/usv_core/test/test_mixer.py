@@ -4,13 +4,12 @@ import os
 import random
 import sys
 
-import pytest
-
-from usv_core.mixer import DEFAULT_CONFIG, NEUTRAL, Mixer
-
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'legacy'))
+
 import config as legacy_config  # noqa: E402
 import mixer_extract as legacy  # noqa: E402
+import pytest  # noqa: E402
+from usv_core.mixer import DEFAULT_CONFIG, Mixer, NEUTRAL  # noqa: E402
 
 CHANNELS = (legacy.CH_REAR_LEFT, legacy.CH_REAR_RIGHT, legacy.CH_FRONT_LEFT,
             legacy.CH_FRONT_RIGHT, legacy.CH_STEER)
