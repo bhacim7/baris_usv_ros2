@@ -40,7 +40,7 @@ Bir şey tamamlandıkça buradan sil ya da üstünü çiz. Son güncelleme: 22 E
 Faz 4 (sim_bridge, fake_perception, sim launch) bitti. Faz 5 (navigator taşıma):
 
 1. ~~5.1 altın referans düzeneği~~, ~~5.2 Görev 1-2 navigator~~ (commit a0cb421), ~~5.3 Görev 3 araması~~.
-2. 5.4 acil durum kilidi, kalkış kontrolü, röle tekrarları (yazıldı, test bekliyor). Karar (31 Ekim): acil durum röleyi kesmez.
+2. ~~5.4 acil durum kilidi, kalkış kontrolü, röle tekrarları~~. Karar (31 Ekim): §9 geçerli; acil durum röleyi keser, çıkış = röle aç + görevi yeniden seç (röle açıkken gelen `set_task`).
 3. 5.5 ROS `navigator` node'u, servisler, NavStatus, `/usv/plan`, launch'a ekleme.
 4. 5.6 Gazebo'da tam Gölcük koşusu ve videoyla karşılaştırma.
 

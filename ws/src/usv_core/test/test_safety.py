@@ -60,6 +60,7 @@ def test_emergency_neutralises_in_the_same_cycle_and_holds():
     assert cmd.force                             # bypasses slew limiting and write thinning
     assert run.nav.status['emergency'] is True
     assert run.nav.status['emergency_reason'] == 'GCS emergency_stop'
+    run.nav.relay_on = 0                         # the bridge has switched the relay off
 
     # AUTO and task commands are still taken in, but nothing moves
     for c in ({'cmd': 'set_manual', 'value': False},
@@ -71,22 +72,52 @@ def test_emergency_neutralises_in_the_same_cycle_and_holds():
     assert run.nav.task == 'TASK2_START'
 
 
-def test_reset_comes_back_in_manual():
+def stopped_run():
+    """Return a run that was under way, got an emergency stop and had its relay switched off."""
     run = Run()
     for _ in range(10):
         run.step()
     run.step({'cmd': 'emergency_stop'})
-    run.nav.reset_emergency()
-    assert run.nav.manual is True
-    assert run.nav.status['emergency'] is True   # status refreshes on the next step
+    run.nav.relay_on = 0
+    run.step()
+    return run
 
-    cmd = run.step()
-    assert pwm(cmd) == NEUTRAL                   # manual: stays still
+
+def test_relay_on_alone_never_moves_the_boat():
+    run = stopped_run()
+    run.nav.relay_on = 1
+    for _ in range(50):
+        assert pwm(run.step()) == NEUTRAL
+    assert run.nav.emergency.active
+
+
+def test_task_chosen_before_the_relay_is_on_does_not_release():
+    run = stopped_run()
+    run.step({'cmd': 'set_task', 'task_name': 'TASK1_STATE_ENTER'})
+    run.nav.relay_on = 1                         # operator switches the relay on afterwards
+    for _ in range(50):
+        assert pwm(run.step()) == NEUTRAL
+    assert run.nav.emergency.active
+
+
+def test_relay_on_then_task_releases_and_resumes():
+    run = stopped_run()
+    run.nav.relay_on = 1
+    cmd = run.step({'cmd': 'set_task', 'task_name': 'TASK1_STATE_ENTER'})
+    assert not run.nav.emergency.active
     assert run.nav.status['emergency'] is False
+    assert run.nav.manual is False               # mode kept: AUTO resumes at once
+    assert pwm(cmd) != NEUTRAL                   # fresh initial alignment toward the gate
 
-    for _ in range(5):
-        cmd = run.step({'cmd': 'set_manual', 'value': False})
-    assert pwm(cmd) != NEUTRAL                   # auto again only on command
+
+def test_release_keeps_manual_mode():
+    run = stopped_run()
+    run.step({'cmd': 'set_manual', 'value': True})
+    run.nav.relay_on = 1
+    for _ in range(10):
+        cmd = run.step({'cmd': 'set_task', 'task_name': 'TASK1_STATE_ENTER'})
+    assert not run.nav.emergency.active
+    assert pwm(cmd) == NEUTRAL                   # manual: stays still
 
 
 def test_emergency_stop_resend_is_acked_once():
@@ -97,8 +128,9 @@ def test_emergency_stop_resend_is_acked_once():
     assert run.nav.emergency.active
 
 
-def test_reset_without_emergency_changes_nothing():
+def test_set_task_without_emergency_is_plain_legacy():
     run = Run()
-    run.step()
-    run.nav.reset_emergency()
-    assert run.nav.manual is False
+    run.nav.relay_on = 1
+    run.step({'cmd': 'set_task', 'task_name': 'TASK2_START'})
+    assert run.nav.task == 'TASK2_START'
+    assert not run.nav.emergency.active

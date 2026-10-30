@@ -6,8 +6,9 @@ legacy, emergency_stop set shared_state['shutdown']: that cycle still ran with n
 commands, then the loop ended, its `finally` neutralised and disarmed, and the orchestrator
 shut every process down - the program had to be restarted. Under ROS a node that exits can
 be respawned, so the stop is a latch instead: the navigator neutralises in the very cycle the
-command arrives and stays neutral until reset() is called explicitly. The relay (motor
-power) is not touched, as in legacy - it has its own GCS button and the RC channel.
+command arrives and stays neutral until it is released. fc_bridge / sim_bridge switch the
+motor relay off at the same time; the latch is released by a set_task received while the
+relay is on again (ARCHITECTURE.md section 9, see Navigator.set_task).
 
 preflight_ready() is legacy main_orchestrator.pre_flight_check unchanged: the mission may
 start once the GPS latitude and the heading are both non-zero. It does not check fix

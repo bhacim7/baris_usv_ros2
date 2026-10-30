@@ -15,10 +15,13 @@ cycle: commands (B), local frame (C), vision read at VISION_READ_HZ, costmap (D)
 router (E), guidance values (F), control (G). Any exception neutralises the thrusters and
 the loop carries on, as legacy did.
 
-Two things differ from legacy on purpose:
+Two things differ from legacy on purpose (ARCHITECTURE.md section 9):
   emergency_stop   latches (usv_core.safety.EmergencyLatch): neutral from the cycle the
-                   command arrives until reset_emergency(); commands are still taken in,
-                   nothing else runs. Legacy ended the program instead.
+                   command arrives; commands are still taken in, nothing else runs. Legacy
+                   ended the program instead. fc_bridge / sim_bridge also switch the relay
+                   off. The latch is released only by a set_task received while the relay
+                   reports on (relay_on, from RELAY_STATUS): relay on alone never makes the
+                   boat move, and a task chosen before the relay is on does not either.
   set_relay        is only recorded in relay_request; the retries live with whoever owns the
                    flight controller link (usv_core.relay.RelayRetry, used by fc_bridge).
 """
@@ -56,6 +59,7 @@ class Navigator:
         self.mission_started = mission_started
         self.drone_target_color = None
         self.emergency = EmergencyLatch()
+        self.relay_on = None                # 1/0 read back from RELAY_STATUS, None = unknown
         self.relay_request = None           # 1/0 from set_relay, for whoever owns the relay
         self.send_telemetry = False
 
@@ -81,9 +85,16 @@ class Navigator:
         self.commands.submit(cmd)
 
     def set_task(self, task):
-        if task:
-            self.task = task
-            self.log(f'Task updated to {task}')
+        if not task:
+            return
+        self.task = task
+        self.log(f'Task updated to {task}')
+        if self.emergency.active:
+            if self.relay_on == 1:
+                self.reset_emergency()
+            else:
+                self.log('Emergency stop stays latched: turn the relay on, then set the task '
+                         'again.')
 
     def set_manual(self, value):
         if value is True:
@@ -107,17 +118,16 @@ class Navigator:
 
     def reset_emergency(self):
         """
-        Release the emergency latch.
+        Release the emergency latch (set_task does this once the relay is on).
 
-        The boat comes back in MANUAL mode (auto needs a fresh command) with fresh guidance
-        state, as a restarted legacy program would have; the task and waypoints are kept.
+        Guidance starts from fresh state - initial alignment, PID, path - as a restarted
+        legacy program would have; task, waypoints and the manual/auto mode are kept.
         """
         if not self.emergency.active:
             return
         self.emergency.reset()
-        self.manual = True
         self.guidance = WaypointGuidance(self.cfg, self.mixer, self.log)
-        self.log('Emergency stop reset - MANUAL mode.')
+        self.log('Emergency stop released.')
 
     def mission_points(self):
         return {f'GPS{i}': (float(self.waypoints[n][0]), float(self.waypoints[n][1]))

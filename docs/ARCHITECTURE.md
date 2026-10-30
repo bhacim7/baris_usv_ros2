@@ -217,7 +217,7 @@ services and the 25 Hz timer.
 | Situation | Behaviour |
 |---|---|
 | `emergency_stop` | `fc_bridge`: thrusters to 1500 immediately (no slew) and relay off. `navigator`: latched `emergency` state, publishes neutral. Software keeps running; telemetry keeps flowing. The FC is **not** disarmed |
-| Leaving emergency | Operator turns the relay on (`set_relay`), then re-selects the task (`set_task`). Relay on alone never makes the boat move |
+| Leaving emergency | Operator turns the relay on (`set_relay`), then re-selects the task (`set_task`). Relay on alone never makes the boat move: the navigator releases its latch only on a `set_task` received while `/usv/relay_state` reports on; a task chosen before that is stored but does not release. Manual/auto mode is kept; guidance starts fresh |
 | Relay | Independent command; can be switched at any time without affecting the software |
 | `navigator` stalls or dies | `fc_bridge` neutralises after 0.5 s without `ThrusterPwm`; launch `respawn` restarts a dead node |
 | Node receives SIGTERM | Catches `ExternalShutdownException`; `navigator` publishes neutral before exiting |
@@ -344,7 +344,7 @@ Phase 4 progress (2026-10-30): **done criteria met** (boat driven in simulation 
 | Course `golcuk_2026_10_14` (provisional, from the video) + world generator | Written: `courses/*.yaml` is the single source; `make_course_world.py` builds the world (site origin, magnetic field, buoys) |
 | `fake_perception` | Done and tested: heading, attitude, FPS, buoys (simulated ZED + YOLO -> the boat's own detection code -> `/usv/buoys` at 30 Hz) |
 
-Phase 5 progress (2026-10-31): the navigator brain is ported to `usv_core` (`nav_config`, `costmap`, `guidance`, `mission`, `task3`, `commands`, `navigator`, `safety`, `relay`) and matches the legacy loop cycle for cycle on every golden scenario (`test/golden/`). Deliberate changes: the emergency stop latches (neutral from the same cycle until an explicit reset, then MANUAL) instead of ending the program; relay retries move to `fc_bridge`. Next: 5.5 ROS `navigator` node, 5.6 full Golcuk run in Gazebo.
+Phase 5 progress (2026-10-31): the navigator brain is ported to `usv_core` (`nav_config`, `costmap`, `guidance`, `mission`, `task3`, `commands`, `navigator`, `safety`, `relay`) and matches the legacy loop cycle for cycle on every golden scenario (`test/golden/`). Deliberate changes: the emergency stop latches as in section 9 (neutral from the same cycle; released by relay on + `set_task`) instead of ending the program; relay retries move to `fc_bridge`. Next: 5.5 ROS `navigator` node, 5.6 full Golcuk run in Gazebo.
 
 Remaining phases:
 
