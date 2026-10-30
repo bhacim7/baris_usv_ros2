@@ -15,7 +15,12 @@ cycle: commands (B), local frame (C), vision read at VISION_READ_HZ, costmap (D)
 router (E), guidance values (F), control (G). Any exception neutralises the thrusters and
 the loop carries on, as legacy did.
 
-Not here yet: the relay retries and the emergency stop latch (5.4).
+Two things differ from legacy on purpose:
+  emergency_stop   latches (usv_core.safety.EmergencyLatch): neutral from the cycle the
+                   command arrives until reset_emergency(); commands are still taken in,
+                   nothing else runs. Legacy ended the program instead.
+  set_relay        is only recorded in relay_request; the retries live with whoever owns the
+                   flight controller link (usv_core.relay.RelayRetry, used by fc_bridge).
 """
 
 from usv_core import mission as mission_mod
@@ -25,6 +30,7 @@ from usv_core.guidance import WaypointGuidance
 from usv_core.mission import Mission
 from usv_core.mixer import Mixer, MixerConfig
 from usv_core.nav_config import NavConfig, WAYPOINT_NAMES
+from usv_core.safety import EmergencyLatch
 
 TASK3_SEARCH = mission_mod.TASK3_SEARCH
 
@@ -49,10 +55,11 @@ class Navigator:
         self.manual = manual
         self.mission_started = mission_started
         self.drone_target_color = None
-        self.shutdown_requested = False     # emergency_stop received (latch: 5.4)
+        self.emergency = EmergencyLatch()
         self.relay_request = None           # 1/0 from set_relay, for whoever owns the relay
         self.send_telemetry = False
 
+        self.now = start_time
         self.speed_mps = 0.0
         self.last_loop_time = start_time
         self.vision_period = 1.0 / max(1.0, cfg.vision_read_hz)
@@ -98,6 +105,20 @@ class Navigator:
             self.drone_target_color = color
             self.log(f'Drone target color updated to {color}')
 
+    def reset_emergency(self):
+        """
+        Release the emergency latch.
+
+        The boat comes back in MANUAL mode (auto needs a fresh command) with fresh guidance
+        state, as a restarted legacy program would have; the task and waypoints are kept.
+        """
+        if not self.emergency.active:
+            return
+        self.emergency.reset()
+        self.manual = True
+        self.guidance = WaypointGuidance(self.cfg, self.mixer, self.log)
+        self.log('Emergency stop reset - MANUAL mode.')
+
     def mission_points(self):
         return {f'GPS{i}': (float(self.waypoints[n][0]), float(self.waypoints[n][1]))
                 for i, n in enumerate(WAYPOINT_NAMES, 1)}
@@ -109,7 +130,7 @@ class Navigator:
             self.log(f"Relay command received: {'ON' if self.relay_request else 'OFF'}")
         elif cmd_str == 'emergency_stop':
             self.log('Emergency Stop Received!')
-            self.shutdown_requested = True
+            self.emergency.trip('GCS emergency_stop', self.now)
         elif cmd_str == 'report_status':
             self.send_telemetry = True
         elif cmd_str == 'set_gps':
@@ -132,10 +153,13 @@ class Navigator:
         self.status.update(manual_mode=self.manual, mission_started=self.mission_started,
                            last_cmd_ack=self.commands.last_ack,
                            drone_target_color=self.drone_target_color,
-                           horizontal_speed=self.speed_mps)
+                           horizontal_speed=self.speed_mps,
+                           emergency=self.emergency.active,
+                           emergency_reason=self.emergency.reason)
         return self.mixer.last
 
     def _step(self, now, gps, speed, heading, vision_objects):
+        self.now = now
         loop_dt = min(0.5, max(0.001, now - self.last_loop_time))
         self.last_loop_time = now
 
@@ -146,6 +170,10 @@ class Navigator:
 
         # B. commands
         self.commands.drain(self._dispatch)
+
+        if self.emergency.active:
+            self.mixer.neutral()
+            return
 
         # C. local frame
         task = self.task

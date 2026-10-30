@@ -25,9 +25,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'golden'))
 from legacy_runner import run_legacy  # noqa: E402
 from new_runner import run_new  # noqa: E402
 import pytest  # noqa: E402
-from scenario import SCENARIOS  # noqa: E402
+from scenario import emergency_cycle, SCENARIOS  # noqa: E402
 
 FIELDS = ('task', 'pwm', 'target', 'angle_error', 'control_error', 'target_dist', 'boat')
+NEUTRAL_PWM = (1500, 1500, 1500, 1500, 1500)
 
 
 def first_difference(legacy, new):
@@ -63,9 +64,23 @@ def test_same_as_legacy(name):
         legacy = run_legacy(SCENARIOS[name])
     new = new_run(name)
 
+    stop = emergency_cycle(SCENARIOS[name])
+    if stop is not None:
+        # Legacy ran its emergency cycle with normal commands, then shut down; the new
+        # navigator is neutral from that very cycle on (latch). Equal up to it.
+        legacy, new = legacy[:stop], new[:stop]
     diff = first_difference(legacy, new)
     assert diff is None, describe(legacy, new, *diff)
     assert len(new) == len(legacy)
+
+
+def test_emergency_stop_latches_neutral_to_the_end():
+    sc = SCENARIOS['emergency_stop']
+    new = new_run('emergency_stop')
+    stop = emergency_cycle(sc)
+    assert new[stop - 1]['pwm'] != NEUTRAL_PWM          # it was under way
+    assert all(r['pwm'] == NEUTRAL_PWM for r in new[stop:])
+    assert len(new) == round(sc.duration_s / 0.04)      # and kept running, neutral
 
 
 def test_task3_locks_on_and_hits_the_target():

@@ -39,8 +39,8 @@ Bir şey tamamlandıkça buradan sil ya da üstünü çiz. Son güncelleme: 22 E
 
 Faz 4 (sim_bridge, fake_perception, sim launch) bitti. Faz 5 (navigator taşıma):
 
-1. ~~5.1 altın referans düzeneği~~, ~~5.2 Görev 1-2 navigator~~ (commit a0cb421), 5.3 Görev 3 araması (yazıldı, test bekliyor).
-2. 5.4 acil durum kilidi ve hazırlık kontrolleri.
+1. ~~5.1 altın referans düzeneği~~, ~~5.2 Görev 1-2 navigator~~ (commit a0cb421), ~~5.3 Görev 3 araması~~.
+2. 5.4 acil durum kilidi, kalkış kontrolü, röle tekrarları (yazıldı, test bekliyor). Karar (31 Ekim): acil durum röleyi kesmez.
 3. 5.5 ROS `navigator` node'u, servisler, NavStatus, `/usv/plan`, launch'a ekleme.
 4. 5.6 Gazebo'da tam Gölcük koşusu ve videoyla karşılaştırma.
 
@@ -55,4 +55,4 @@ Bu satırlar eski kodla döngü döngü karşılaştırılmadı; bir taşıma ha
 | Kısım | Neden kapsanmadı | Ne zaman bakılır |
 |---|---|---|
 | Görev 3 çapa + devriye (`task3.py`: GOTO_STANDOFF, PATROL_1/2) | TEKNOFEST'e özgü; RoboBoat'ta değişecek (31 Ekim kararı) | TEKNOFEST'e tekrar gidilirse `task3_anchor` senaryosu yazılır |
-| Röle tekrar denemeleri, acil durum | 5.4'te ayrıca test edilecek | 5.4 |
+| Röle tekrar denemeleri | Eski kodla karşılaştırmalı birim testi var (`test_relay.py`); gerçek uçuş kontrolcüsüyle değil | Faz 6, `fc_bridge` iskelede |

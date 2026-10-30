@@ -323,6 +323,7 @@ so every node sees the same values (the legacy `spawn` copy problem disappears).
 | Stuck-node detection | Before sea trials |
 | ZED SDK and YOLO/TensorRT on Jetson AGX Thor | Phase 6 |
 | Legacy issues to fix after parity, each measured in simulation first: ZED depth (distance along the optical axis) used as the range to a buoy, up to ~30 % short at 45 deg; small far boxes: the 5 x 5 depth window spills below the box onto the water, so a buoy ~20 m away is measured at 11-14 m and can even pass the 12 m trust gate; buoys placed from the GNSS antenna instead of the camera (0.9 m); HUD speed (VFR_HUD) reads ~half the GPS speed and feeds the Pure Pursuit lookahead; no guard against a GPS freeze + jump (1.9 s, 8 m in the 2026-10-14 video); late buoy avoidance (three contacts in that run); ZED magnetometer not calibrated on the boat (heading error ~4-8 deg, heading dependent); attitude from the ZED pose probably in the camera's IMAGE frame (CSV roll/pitch may be pitch/yaw) | After parity |
+| Legacy navigator quirks kept for parity (phase 5): pre-flight passes on GPS latitude != 0 and heading != 0 only (no fix quality, data age, waypoints or perception check; a silent heading source publishes 0.0); Task 3 servo assumes the image centre at 640 px; in some Task 3 transition cycles no thruster command is issued (the last one holds for a cycle); the Task 3 anchor accepts unconfirmed far positions | After parity |
 
 ## 15. Roadmap
 
@@ -342,6 +343,8 @@ Phase 4 progress (2026-10-30): **done criteria met** (boat driven in simulation 
 | `sim_bridge` | Done and tested: commands (relay, emergency stop, timeout) and FC-side sensors |
 | Course `golcuk_2026_10_14` (provisional, from the video) + world generator | Written: `courses/*.yaml` is the single source; `make_course_world.py` builds the world (site origin, magnetic field, buoys) |
 | `fake_perception` | Done and tested: heading, attitude, FPS, buoys (simulated ZED + YOLO -> the boat's own detection code -> `/usv/buoys` at 30 Hz) |
+
+Phase 5 progress (2026-10-31): the navigator brain is ported to `usv_core` (`nav_config`, `costmap`, `guidance`, `mission`, `task3`, `commands`, `navigator`, `safety`, `relay`) and matches the legacy loop cycle for cycle on every golden scenario (`test/golden/`). Deliberate changes: the emergency stop latches (neutral from the same cycle until an explicit reset, then MANUAL) instead of ending the program; relay retries move to `fc_bridge`. Next: 5.5 ROS `navigator` node, 5.6 full Golcuk run in Gazebo.
 
 Remaining phases:
 

@@ -280,7 +280,19 @@ def _scenarios():
         # at 6 m (inside the lock grace) and a longer one at 3.5 m (grace, then the hold)
         Scenario('task3_dropout', wp, (G_T3_START[0], G_T3_START[1], 150.0), 'T3_START', 60.0,
                  buoys=_golcuk_buoys(), dropouts=[(6.0, 0.4, 0), (3.5, 1.5, 0)]),
+        # Emergency stop in the middle of Task 2, at cruise
+        Scenario('emergency_stop', wp, G_START, 'TASK2_START', 25.0, buoys=_golcuk_buoys(),
+                 stop_when_finished=False,
+                 commands=[(15.0, {'cmd': 'emergency_stop', 'cq': 1})]),
     ]}
+
+
+def emergency_cycle(scenario, period=0.04):
+    """Cycle in which the scenario's emergency_stop is handled, or None."""
+    for t_cmd, cmd in scenario.commands:
+        if cmd.get('cmd') == 'emergency_stop':
+            return round(t_cmd / period)
+    return None
 
 
 SCENARIOS = _scenarios()

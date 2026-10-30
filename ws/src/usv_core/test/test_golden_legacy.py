@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'golden'))
 
 from legacy_runner import run_legacy  # noqa: E402
 import pytest  # noqa: E402
-from scenario import SCENARIOS  # noqa: E402
+from scenario import emergency_cycle, SCENARIOS  # noqa: E402
 
 PERIOD = 1.0 / 25.0
 
@@ -35,7 +35,10 @@ def test_scenario_runs_to_the_end(name, capsys):
     records = run(name, capsys)
     expected = round(sc.duration_s / PERIOD)
     finished = [r for r in records if r['task'] == 'FINISHED']
-    if sc.stop_when_finished and finished:
+    if emergency_cycle(sc) is not None:
+        # legacy shuts down after the cycle that handled the emergency stop
+        assert len(records) == emergency_cycle(sc) + 1
+    elif sc.stop_when_finished and finished:
         assert len(records) <= expected
     else:
         assert len(records) == expected

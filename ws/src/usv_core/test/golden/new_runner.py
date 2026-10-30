@@ -8,6 +8,9 @@ The world is the same (scenario.BoatModel, scenario.Perception, the same virtual
 arithmetic, commands injected at the same cycles). The settings are the legacy config module
 read through NavConfig.from_module(), with the overrides legacy_runner applies.
 
+An emergency_stop ends the legacy run (shutdown); the new navigator latches and keeps
+running, neutral, to the scenario's end.
+
 Each record also carries 't3', what the Task 3 search did in that cycle (servo, grace,
 hold, a pattern state, ...). Legacy records have no such field and the comparison ignores
 it; tests use it to check that a scenario really exercises the branch it was written for.
@@ -96,8 +99,6 @@ def run_new(scenario, log=None):
                          round(boat.s.heading, 4)),
                 't3': nav.mission.search.mode,
             })
-            if nav.shutdown_requested:
-                break
             cycle += 1
             boat.step({'rear_left': cmd.rear_left, 'rear_right': cmd.rear_right,
                        'front_left': cmd.front_left, 'front_right': cmd.front_right,
