@@ -175,7 +175,15 @@ for t in front_left front_right rear_left rear_right; do gz topic -t /usv_boat/t
 
 ### Parkurlu simülasyon (ROS 2 ile)
 
-Parkur dosyası (`usv_sim/courses/*.yaml`) değiştiyse önce dünyayı yeniden üret:
+Tek komut (dünyayı parkur dosyasından kendisi üretir, her şeyi açar; Ctrl+C hepsini kapatır):
+
+```bash
+ros2 launch usv_sim sim.launch.py
+```
+
+Seçenekler: `paused:=true` (duraklatılmış başlar, ▶'e bas), `gui:=false` (pencere yok, daha hızlı), `course:=<ad>` (başka parkur).
+
+Elle, tek tek açmak istersen (bir node'u ayrıca izlemek için): parkur dosyası değiştiyse önce dünyayı yeniden üret:
 
 ```bash
 python3 /ws/src/usv_sim/scripts/make_course_world.py /ws/src/usv_sim/courses/golcuk_2026_10_14.yaml /ws/src/usv_sim/worlds/golcuk_2026_10_14.sdf

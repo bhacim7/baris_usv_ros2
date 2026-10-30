@@ -322,7 +322,7 @@ so every node sees the same values (the legacy `spawn` copy problem disappears).
 | RoboBoat-specific tasks and reporting | Adaptation phase, from the RoboBoat rules |
 | Stuck-node detection | Before sea trials |
 | ZED SDK and YOLO/TensorRT on Jetson AGX Thor | Phase 6 |
-| Legacy issues to fix after parity, each measured in simulation first: ZED depth (distance along the optical axis) used as the range to a buoy, up to ~30 % short at 45 deg; buoys placed from the GNSS antenna instead of the camera (0.9 m); HUD speed (VFR_HUD) reads ~half the GPS speed and feeds the Pure Pursuit lookahead; no guard against a GPS freeze + jump (1.9 s, 8 m in the 2026-10-14 video); late buoy avoidance (three contacts in that run); ZED magnetometer not calibrated on the boat (heading error ~4-8 deg, heading dependent); attitude from the ZED pose probably in the camera's IMAGE frame (CSV roll/pitch may be pitch/yaw) | After parity |
+| Legacy issues to fix after parity, each measured in simulation first: ZED depth (distance along the optical axis) used as the range to a buoy, up to ~30 % short at 45 deg; small far boxes: the 5 x 5 depth window spills below the box onto the water, so a buoy ~20 m away is measured at 11-14 m and can even pass the 12 m trust gate; buoys placed from the GNSS antenna instead of the camera (0.9 m); HUD speed (VFR_HUD) reads ~half the GPS speed and feeds the Pure Pursuit lookahead; no guard against a GPS freeze + jump (1.9 s, 8 m in the 2026-10-14 video); late buoy avoidance (three contacts in that run); ZED magnetometer not calibrated on the boat (heading error ~4-8 deg, heading dependent); attitude from the ZED pose probably in the camera's IMAGE frame (CSV roll/pitch may be pitch/yaw) | After parity |
 
 ## 15. Roadmap
 
@@ -331,17 +331,17 @@ so every node sees the same values (the legacy `spawn` copy problem disappears).
 | 3 | This document | Approved |
 | 4 | `usv_interfaces`; `usv_core` (`navigation`, `planner`) with tests; boat model; `sim_bridge`; `fake_perception` | Boat driven manually in simulation; buoys on `/usv/buoys` |
 
-Phase 4 progress (2026-10-26):
+Phase 4 progress (2026-10-30): **done criteria met** (boat driven in simulation through ROS; buoys on `/usv/buoys`).
 
 | Item | State |
 |---|---|
 | `usv_interfaces` | Done |
-| `usv_core`: `navigation`, `planner`, `object_memory`, `mixer`, `heading` (ZED filter, declination as a parameter, source selection), `detection` (box + depth -> buoy position, whole camera frame -> object memory) | Done (frame step written: 522 tests) |
+| `usv_core`: `navigation`, `planner`, `object_memory`, `mixer`, `heading` (ZED filter, declination as a parameter, source selection), `detection` (box + depth -> buoy position, whole camera frame -> object memory) | Done, 522 equivalence and behaviour tests passing |
 | `usv_nodes`: `heading_source` | Done and tested: first node that runs on the boat and in simulation |
 | Boat model | Four thrusters, steerable front pair; buoyancy, yaw and surge drag calibrated (surge from the legacy video); hull mesh from the CAD STL |
 | `sim_bridge` | Done and tested: commands (relay, emergency stop, timeout) and FC-side sensors |
 | Course `golcuk_2026_10_14` (provisional, from the video) + world generator | Written: `courses/*.yaml` is the single source; `make_course_world.py` builds the world (site origin, magnetic field, buoys) |
-| `fake_perception` | Heading, attitude, FPS tested; buoys written (simulated ZED + YOLO -> the boat's own detection code -> `/usv/buoys`) |
+| `fake_perception` | Done and tested: heading, attitude, FPS, buoys (simulated ZED + YOLO -> the boat's own detection code -> `/usv/buoys` at 30 Hz) |
 
 Remaining phases:
 
