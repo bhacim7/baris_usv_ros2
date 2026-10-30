@@ -1,18 +1,21 @@
 """
-Step 5.2 of the navigator port: the new Navigator against the legacy loop, cycle by cycle.
+Steps 5.2-5.3 of the navigator port: the new Navigator against the legacy loop.
 
-Both run the same scenario in the same deterministic world. Every cycle's record (task,
-the five PWMs, target, angle and control error, target distance, boat pose) must be
-identical - not close, identical: the same arithmetic in the same order gives the same
-floats. A run stops at the first TASK3_SEARCH_KAMIKAZE cycle (the search is phase 5.3).
+Both run the same scenario in the same deterministic world, to the end. Every cycle's
+record (task, the five PWMs, target, angle and control error, target distance, boat pose)
+must be identical - not close, identical: the same arithmetic in the same order gives the
+same floats.
 
-On a mismatch the test prints the first differing cycle and the cycles around it.
+On a mismatch the test prints the first differing cycle and the cycles around it. The
+coverage tests below check that the Task 3 scenarios really reach the branches they were
+written for; if one of those fails, the scenario missed its branch - not a port error.
 
 Run: cd /ws/src/usv_core && python3 -m pytest test/test_golden_compare.py -v
-(about half a minute: every scenario runs through both loops)
+(about a minute: every scenario runs through both loops)
 """
 
 import contextlib
+import functools
 import io
 import os
 import sys
@@ -45,21 +48,34 @@ def describe(legacy, new, cycle, fields):
     return '\n'.join(lines)
 
 
+@functools.lru_cache(maxsize=None)
+def new_run(name):
+    return run_new(SCENARIOS[name])
+
+
+def t3_modes(name):
+    return {r['t3'] for r in new_run(name) if r['t3'] is not None}
+
+
 @pytest.mark.parametrize('name', sorted(SCENARIOS))
 def test_same_as_legacy(name):
-    sc = SCENARIOS[name]
     with contextlib.redirect_stdout(io.StringIO()):
-        legacy = run_legacy(sc)
-    new = run_new(sc)
+        legacy = run_legacy(SCENARIOS[name])
+    new = new_run(name)
 
-    assert len(new) <= len(legacy)
-    if new[-1]['task'] != 'TASK3_SEARCH_KAMIKAZE':
-        assert len(new) == len(legacy)
     diff = first_difference(legacy, new)
     assert diff is None, describe(legacy, new, *diff)
+    assert len(new) == len(legacy)
 
 
-def test_stops_where_the_task3_search_begins():
-    new = run_new(SCENARIOS['golcuk_task3'])
-    assert new[-1]['task'] == 'TASK3_SEARCH_KAMIKAZE'
-    assert all(r['task'] != 'TASK3_SEARCH_KAMIKAZE' for r in new[:-1])
+def test_task3_locks_on_and_hits_the_target():
+    assert {'servo', 'finished'} <= t3_modes('golcuk_task3')
+    assert new_run('golcuk_task3')[-1]['task'] == 'FINISHED'
+
+
+def test_task3_dropouts_exercise_grace_and_hold():
+    assert {'servo', 'grace', 'hold'} <= t3_modes('task3_dropout')
+
+
+def test_task3_search_flies_the_pattern():
+    assert {'PAN_A', 'PAN_B', 'PAN_C', 'V_LEG'} <= t3_modes('task3_search')

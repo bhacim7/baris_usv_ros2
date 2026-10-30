@@ -8,9 +8,9 @@ The world is the same (scenario.BoatModel, scenario.Perception, the same virtual
 arithmetic, commands injected at the same cycles). The settings are the legacy config module
 read through NavConfig.from_module(), with the overrides legacy_runner applies.
 
-The run stops after the first cycle whose task is TASK3_SEARCH_KAMIKAZE: the search is ported
-in phase 5.3 and Navigator.step() refuses to run it until then. Up to and including that
-cycle the comparison is complete.
+Each record also carries 't3', what the Task 3 search did in that cycle (servo, grace,
+hold, a pattern state, ...). Legacy records have no such field and the comparison ignores
+it; tests use it to check that a scenario really exercises the branch it was written for.
 """
 
 import dataclasses
@@ -26,7 +26,7 @@ from scenario import BoatModel, mavlink_deg, Perception  # noqa: E402
 
 from usv_core import planner  # noqa: E402
 from usv_core.nav_config import NavConfig  # noqa: E402
-from usv_core.navigator import Navigator, TASK3_SEARCH  # noqa: E402
+from usv_core.navigator import Navigator  # noqa: E402
 
 T0 = 1_000_000.0
 
@@ -57,7 +57,7 @@ def run_new(scenario, log=None):
     period = 1.0 / max(1.0, nc.loop_hz)
     origin = sc.waypoints['T2_ZONE_ENTRY']
     boat = BoatModel(origin[0], origin[1], *sc.start)
-    perception = Perception(sc.buoys)
+    perception = Perception(sc.buoys, sc.dropouts)
 
     def sense():
         lat, lon = boat.latlon()
@@ -79,6 +79,7 @@ def run_new(scenario, log=None):
         finished_cycles = 0
         while True:
             clock.t = t
+            nav.mission.search.mode = None
             cmd = nav.step(t, gps, abs(boat.s.surge), heading, vision)
             s = nav.status
             records.append({
@@ -93,8 +94,9 @@ def run_new(scenario, log=None):
                 'target_dist': s['target_dist'],
                 'boat': (round(boat.s.east, 4), round(boat.s.north, 4),
                          round(boat.s.heading, 4)),
+                't3': nav.mission.search.mode,
             })
-            if s['current_task'] == TASK3_SEARCH or nav.shutdown_requested:
+            if nav.shutdown_requested:
                 break
             cycle += 1
             boat.step({'rear_left': cmd.rear_left, 'rear_right': cmd.rear_right,

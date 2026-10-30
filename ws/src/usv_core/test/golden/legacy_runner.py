@@ -114,7 +114,7 @@ class LegacyHarness:
         self.period = 1.0 / max(1.0, getattr(self.cfg, 'NAV_LOOP_HZ', 25.0))
         origin = scenario.waypoints['T2_ZONE_ENTRY']
         self.boat = BoatModel(origin[0], origin[1], *scenario.start)
-        self.perception = Perception(scenario.buoys)
+        self.perception = Perception(scenario.buoys, scenario.dropouts)
         self.records = []
         self.controller = None
         self.cycle = 0

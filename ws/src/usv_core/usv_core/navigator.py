@@ -15,8 +15,7 @@ cycle: commands (B), local frame (C), vision read at VISION_READ_HZ, costmap (D)
 router (E), guidance values (F), control (G). Any exception neutralises the thrusters and
 the loop carries on, as legacy did.
 
-Not here yet: the relay retries and the emergency stop latch (5.4), the Task 3 search
-(5.3; step() raises NotImplementedError when it would have to run it).
+Not here yet: the relay retries and the emergency stop latch (5.4).
 """
 
 from usv_core import mission as mission_mod
@@ -127,8 +126,6 @@ class Navigator:
         """One control cycle. gps = (lat, lon), 0 = no fix; heading in compass degrees."""
         try:
             self._step(now, gps, speed, heading, vision_objects)
-        except NotImplementedError:
-            raise
         except Exception as e:
             self.log(f'Iteration failed: {e}')
             self.mixer.neutral()
@@ -166,7 +163,7 @@ class Navigator:
         # E. mission router
         mission_active = self.mission_active
         task, target, skip_default_nav = self.mission.route(
-            task, lat, lon, self.waypoints, mission_active, self.vision_objects,
+            task, lat, lon, heading, self.waypoints, mission_active, self.vision_objects,
             self.drone_target_color, now)
         self.task = task
         self.target = target

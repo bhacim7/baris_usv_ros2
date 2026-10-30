@@ -130,21 +130,39 @@ class Buoy:
 
 
 class Perception:
-    """A deterministic stand-in for the object memory list ('vision_detected_objects')."""
+    """
+    A deterministic stand-in for the object memory list ('vision_detected_objects').
 
-    def __init__(self, buoys):
+    dropouts: [(range_m, duration_s, cid), ...]. The first time a buoy of class cid comes
+    closer than range_m, every detection stops for duration_s (spray, glare) - the tracks
+    stay in memory but are not refreshed, exactly what the real memory does.
+    """
+
+    def __init__(self, buoys, dropouts=()):
         self.buoys = buoys
         self.tracks = {}
+        self.dropouts = list(dropouts)
+        self.fired = set()
+        self.blank_until = None
 
     def update(self, boat, now):
         lat, lon = boat.latlon()
         h = math.radians(boat.s.heading)
         cam_lat, cam_lon = offset(lat, lon, CAM_AHEAD_M * math.cos(h), CAM_AHEAD_M * math.sin(h))
-        for i, b in enumerate(self.buoys):
+        ranges = []
+        for b in self.buoys:
             e, n = local(b.lat, b.lon, cam_lat, cam_lon)
-            rng = math.hypot(e, n) - b.radius
+            ranges.append((e, n, math.hypot(e, n) - b.radius))
+        for k, (trigger_m, duration_s, cid) in enumerate(self.dropouts):
+            if k not in self.fired and any(
+                    b.cid == cid and r[2] < trigger_m for b, r in zip(self.buoys, ranges)):
+                self.fired.add(k)
+                self.blank_until = now + duration_s
+        blanked = self.blank_until is not None and now < self.blank_until
+        for i, b in enumerate(self.buoys):
+            e, n, rng = ranges[i]
             rel = (math.degrees(math.atan2(e, n)) - boat.s.heading + 180.0) % 360.0 - 180.0
-            if not (0.5 < rng < VALID_RANGE_M and abs(rel) <= VIEW_HALF_DEG):
+            if blanked or not (0.5 < rng < VALID_RANGE_M and abs(rel) <= VIEW_HALF_DEG):
                 continue
             t = self.tracks.setdefault(i + 1, {
                 'type': 3, 'color': CID_TO_COLOR[b.cid], 'lat': b.lat, 'lon': b.lon,
@@ -176,6 +194,7 @@ class Scenario:
     commands: list = field(default_factory=list)    # (time_s, command dict) as the GCS sends
     stop_when_finished: bool = True
     heading_offset_deg: float = 0.0                 # compass error added to every heading
+    dropouts: list = field(default_factory=list)    # Perception detection blackouts
 
 
 # Golcuk 2026-10-14 (HUD) and the provisional course of usv_sim/courses/golcuk_2026_10_14.yaml
@@ -257,6 +276,10 @@ def _scenarios():
                              'target_id': 99, 'cq': 4})]),
         Scenario('compass_error', wp, G_START, 'TASK2_START', 60.0, buoys=_golcuk_buoys(),
                  heading_offset_deg=8.0, stop_when_finished=False),
+        # golcuk_task3 with spray on the final approach to the red target: a short blackout
+        # at 6 m (inside the lock grace) and a longer one at 3.5 m (grace, then the hold)
+        Scenario('task3_dropout', wp, (G_T3_START[0], G_T3_START[1], 150.0), 'T3_START', 60.0,
+                 buoys=_golcuk_buoys(), dropouts=[(6.0, 0.4, 0), (3.5, 1.5, 0)]),
     ]}
 
 

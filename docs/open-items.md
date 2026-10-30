@@ -37,8 +37,22 @@ Bir şey tamamlandıkça buradan sil ya da üstünü çiz. Son güncelleme: 22 E
 
 ## 3. Sırada (Claude ile)
 
-1. `sim_bridge`: Gazebo topic'lerini ROS 2 topic'lerine bağlayan node. `/usv/thrusters/pwm` → dört itici ve ön itici açısı; teknenin GPS, IMU ve pruva bilgisi → `/usv/fix`, `/usv/heading`, `/usv/speed`. Tekneye GPS ve IMU sensörleri de bu adımda eklenecek.
-2. `fake_perception`: dünyaya şamandıralar koyup `/usv/buoys` yayınlamak.
-3. Faz 5: `navigator`'ın bölme planı (koddan önce sunulacak).
+Faz 4 (sim_bridge, fake_perception, sim launch) bitti. Faz 5 (navigator taşıma):
+
+1. ~~5.1 altın referans düzeneği~~, ~~5.2 Görev 1-2 navigator~~ (commit a0cb421), 5.3 Görev 3 araması (yazıldı, test bekliyor).
+2. 5.4 acil durum kilidi ve hazırlık kontrolleri.
+3. 5.5 ROS `navigator` node'u, servisler, NavStatus, `/usv/plan`, launch'a ekleme.
+4. 5.6 Gazebo'da tam Gölcük koşusu ve videoyla karşılaştırma.
 
 Mimari kararları ve tam yol haritası: `ARCHITECTURE.md`.
+
+---
+
+## 4. Altın testlerle kapsanmayan kısımlar
+
+Bu satırlar eski kodla döngü döngü karşılaştırılmadı; bir taşıma hatası olursa ancak o yol çalışınca görülür.
+
+| Kısım | Neden kapsanmadı | Ne zaman bakılır |
+|---|---|---|
+| Görev 3 çapa + devriye (`task3.py`: GOTO_STANDOFF, PATROL_1/2) | TEKNOFEST'e özgü; RoboBoat'ta değişecek (31 Ekim kararı) | TEKNOFEST'e tekrar gidilirse `task3_anchor` senaryosu yazılır |
+| Röle tekrar denemeleri, acil durum | 5.4'te ayrıca test edilecek | 5.4 |

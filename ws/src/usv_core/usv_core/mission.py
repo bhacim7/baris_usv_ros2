@@ -14,15 +14,14 @@ steers to:
 When the mission is not active (not started, or manual) any state change is rolled back but
 the target is still returned, so the GCS keeps seeing distance and bearing to the next point.
 
-The Task 3 search itself (pattern, lock, visual servo) is phase 5.3; route() raises
-NotImplementedError when it would have to run it.
+The Task 3 search itself (pattern, lock, visual servo, the collision that ends the run) is
+usv_core.task3.Task3Search, run only while the mission is active.
 """
 
 import math
 
 from usv_core import navigation as nav
-
-TASK3_SEARCH = 'TASK3_SEARCH_KAMIKAZE'
+from usv_core.task3 import TASK3_SEARCH, Task3Search
 COLOR_TO_CID = {'red': 0, 'yellow': 1, 'black': 2, 'orange': 3, 'green': 4}
 
 
@@ -34,6 +33,7 @@ class Mission:
         self.log = log or (lambda msg: None)
         self.t2_aligned = False         # Task 2 entrance alignment latch
         self.finished_printed = False
+        self.search = Task3Search(cfg, mixer, log)
 
     def target_cid(self, drone_target_color):
         """Return the colour Task 3 hunts: config, or the drone's report when active."""
@@ -42,7 +42,7 @@ class Mission:
             color = (color if drone_target_color is None else drone_target_color) or color
         return COLOR_TO_CID.get(str(color).lower(), 0)
 
-    def route(self, task, lat, lon, waypoints, mission_active, vision_objects,
+    def route(self, task, lat, lon, heading, waypoints, mission_active, vision_objects,
               drone_target_color, now):
         """Advance the task state; return (task, target (lat, lon) or None, skip_default_nav)."""
         target = None
@@ -66,7 +66,10 @@ class Mission:
                 # The search drives the thrusters itself; never while disarmed or in manual
                 skip_default_nav = True
             elif task == TASK3_SEARCH:
-                raise NotImplementedError('Task 3 search is ported in phase 5.3')
+                task, target = self.search.step(lat, lon, heading, vision_objects, waypoints,
+                                                self.target_cid(drone_target_color), now)
+                if target is None:
+                    skip_default_nav = True
             else:
                 task, target = self._task3(task, lat, lon, waypoints)
                 if task == 'T3_MID' and mission_active:
