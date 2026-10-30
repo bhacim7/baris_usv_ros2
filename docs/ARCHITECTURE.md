@@ -112,7 +112,8 @@ One service per GCS command. The GCS protocol itself does not change.
 | `/usv/set_manual` | `std_srvs/SetBool` | navigator | `set_manual` |
 | `/usv/set_target_color` | `usv_interfaces/SetTargetColor` | navigator | `set_target_color` |
 | `/usv/set_relay` | `std_srvs/SetBool` | fc_bridge | `set_relay` |
-| `/usv/emergency_stop` | `std_srvs/Trigger` | fc_bridge and navigator | `emergency_stop` |
+| `/usv/emergency_stop` | `std_srvs/Trigger` | fc_bridge (sim: sim_bridge) | `emergency_stop` |
+| `/usv/navigator/emergency_stop` | `std_srvs/Trigger` | navigator | `emergency_stop` (telemetry_bridge calls both; two servers cannot share one name) |
 
 `report_status` is not mapped: telemetry is broadcast on the boat's own clock.
 

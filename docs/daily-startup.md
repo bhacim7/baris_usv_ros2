@@ -199,7 +199,37 @@ Her biri ayrı terminalde, bu sırayla (Gazebo'da ▶'e basmayı unutma):
 | 4 | `ros2 run usv_sim fake_perception --ros-args --params-file /ws/src/usv_sim/config/fake_perception.yaml` | ZED tarafı: ZED pruvası, yalpa/baş-kıç, FPS |
 | 5 | `ros2 run usv_nodes heading_source --ros-args --params-file /ws/src/usv_nodes/config/heading_source.yaml` | `/usv/heading` |
 
-Elle sürmek: `ros2 topic pub -r 20 /usv/thrusters/pwm usv_interfaces/msg/ThrusterPwm "{rear_left: 1680, rear_right: 1680, front_left: 1680, front_right: 1680, steer: 1500}"` (Ctrl+C ile bırakınca 0,5 sn sonra durur).
+| 6 | `ros2 run usv_nodes navigator --ros-args --params-file /ws/src/usv_nodes/config/navigator.yaml` | Otonom sürüş (parkurun görev noktaları için launch'ı kullan) |
+
+Elle sürmek: `ros2 topic pub -r 20 /usv/thrusters/pwm usv_interfaces/msg/ThrusterPwm "{rear_left: 1680, rear_right: 1680, front_left: 1680, front_right: 1680, steer: 1500}"` (Ctrl+C ile bırakınca 0,5 sn sonra durur). Navigator açıkken bunu yapma: o da manuel modda saniyede 25 kez 1500 yayınlıyor, ikisi çakışır.
+
+### Otonom sürüş (navigator)
+
+Launch navigator'ı **MANUEL** modda başlatır (eski sistemdeki gibi). Görev durumu `/usv/nav_status`'ta:
+
+```bash
+ros2 topic echo /usv/nav_status --once
+```
+
+Otomatiğe almak, manuele dönmek, görev seçmek, acil durum (yer istasyonunun komutlarının ROS karşılıkları):
+
+```bash
+ros2 service call /usv/set_manual std_srvs/srv/SetBool "{data: false}"
+```
+
+```bash
+ros2 service call /usv/set_manual std_srvs/srv/SetBool "{data: true}"
+```
+
+```bash
+ros2 service call /usv/set_task usv_interfaces/srv/SetTask "{task: TASK2_START}"
+```
+
+```bash
+ros2 service call /usv/navigator/emergency_stop std_srvs/srv/Trigger
+```
+
+Acil durumdan çıkış (ARCHITECTURE §9): önce röleyi aç (`ros2 service call /usv/set_relay std_srvs/srv/SetBool "{data: true}"`), sonra görevi yeniden seç (`/usv/set_task`). Gerçek acil durumda `/usv/emergency_stop` da çağrılır (iticiler + röle).
 
 ### VRX'in hazır simülasyonu
 

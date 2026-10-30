@@ -30,6 +30,26 @@ magnetic_field: {declination_deg: 6.0, inclination_deg: 56.5, strength_uT: 46.5}
 # Where the boat starts: first HUD position (frame 0), pointing down the corridor
 boat: {lat: 40.724066, lon: 29.825080, heading_deg: 146.0}
 
+# What the navigator is given for this course (sim.launch.py overrides navigator.yaml with
+# it; on the boat the same values come from the GCS). Waypoints [lat, lon] are the run's own
+# (HUD): T2 entry = origin, T2 mid = end (as in that day's config), T3 start and mid. Task 1
+# was not filmed: three invented gates 8 m apart at bearing 326 deg leading to the T2 entry,
+# the same as the golden test scenarios (usv_core/test/golden/scenario.py).
+# There is no drone in the simulation, so the configured colour is used and engaged early.
+mission:
+  start_task: TASK2_START
+  task3_kamikaze_color: red
+  drone_active: false
+  waypoints:
+    T1_GATE_ENTER: [40.7242172, 29.8249431]
+    T1_GATE_MID: [40.7241574, 29.8249961]
+    T1_GATE_EXIT: [40.7240977, 29.8250490]
+    T2_ZONE_ENTRY: [40.724038, 29.825102]
+    T2_ZONE_MID: [40.723589, 29.825499]
+    T2_ZONE_END: [40.723589, 29.825499]
+    T3_START: [40.723576, 29.825515]
+    T3_MID: [40.723547, 29.825561]
+
 # Shapes of each buoy type. Sizes from the TEKNOFEST specification:
 #   boundary (orange, RAL 2003) and obstacle (yellow, RAL 1026): pear type, 30 cm wide,
 #     50 cm tall without the flag

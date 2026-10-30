@@ -9,8 +9,11 @@ What starts, in this order:
   1. make_course_world.py builds the world from the course file into /tmp, so the world
      can never be older than the course (no more "remember to regenerate").
   2. When that has finished: Gazebo (ros_gz_sim), ros_gz_bridge, sim_bridge,
-     fake_perception and heading_source, each with its YAML file from config/.
-     Our three nodes restart by themselves if they die (respawn), as on the boat.
+     fake_perception, heading_source and navigator, each with its YAML file from config/.
+     The navigator also gets the course file's `mission` section (start task, waypoints,
+     Task 3 colour). It starts in MANUAL, as on the boat:
+         ros2 service call /usv/set_manual std_srvs/srv/SetBool "{data: false}"
+     Our nodes restart by themselves if they die (respawn), as on the boat.
 
 Ctrl+C stops everything.
 """
@@ -18,6 +21,7 @@ Ctrl+C stops everything.
 import os
 
 from ament_index_python.packages import get_package_share_directory
+import yaml
 from launch import LaunchDescription
 from launch.actions import (AppendEnvironmentVariable, DeclareLaunchArgument, ExecuteProcess,
                             IncludeLaunchDescription, OpaqueFunction, RegisterEventHandler)
@@ -36,8 +40,16 @@ def setup(context):
     course_file = os.path.join(share, 'courses', course + '.yaml')
     world_file = os.path.join('/tmp', f'usv_sim_{course}.sdf')
     config = os.path.join(share, 'config')
-    heading_config = os.path.join(get_package_share_directory('usv_nodes'), 'config',
-                                  'heading_source.yaml')
+    nodes_config = os.path.join(get_package_share_directory('usv_nodes'), 'config')
+    heading_config = os.path.join(nodes_config, 'heading_source.yaml')
+    navigator_config = os.path.join(nodes_config, 'navigator.yaml')
+
+    # The course's mission section on top of navigator.yaml
+    with open(course_file) as f:
+        mission = yaml.safe_load(f).get('mission', {})
+    navigator_overrides = {k: v for k, v in mission.items() if k != 'waypoints'}
+    navigator_overrides.update({'waypoints.' + name: [float(x) for x in latlon]
+                                for name, latlon in mission.get('waypoints', {}).items()})
 
     make_world = ExecuteProcess(
         cmd=['python3', os.path.join(share, 'scripts', 'make_course_world.py'),
@@ -66,6 +78,9 @@ def setup(context):
              respawn=True, respawn_delay=2.0),
         Node(package='usv_nodes', executable='heading_source', output='screen',
              parameters=[heading_config],
+             respawn=True, respawn_delay=2.0),
+        Node(package='usv_nodes', executable='navigator', output='screen',
+             parameters=[navigator_config, navigator_overrides],
              respawn=True, respawn_delay=2.0),
     ]
 

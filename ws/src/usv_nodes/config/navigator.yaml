@@ -1,0 +1,95 @@
+# navigator parameters = legacy config.py at commit 5df3f5b (names in brackets).
+# test/test_navigator_io.py checks that this file gives exactly usv_core's NavConfig(), which
+# usv_core/test/test_nav_config.py checks against the frozen legacy config.py.
+# The simulation launch overrides start_task, the waypoints and the Task 3 colour per course.
+navigator:
+  ros__parameters:
+    # --- node ---
+    start_manual: true            # legacy main_orchestrator starts in MANUAL
+    status_hz: 10.0               # /usv/nav_status and /usv/plan (NAV_PUBLISH_HZ)
+
+    # --- loop ---
+    loop_hz: 25.0                 # [NAV_LOOP_HZ]
+    vision_read_hz: 10.0          # [VISION_READ_HZ]
+
+    # --- local costmap and A* ---
+    costmap_res_m_per_px: 0.1     # [COSTMAP_RES_M_PER_PX]
+    crop_radius_m: 20.0           # [A_STAR_CROP_RADIUS_M]
+    buoy_radius_m: 0.25           # [BUOY_RADIUS_M] physical footprint; margin is inflation
+    goal_projection_m: 10.0       # [A_STAR_GOAL_PROJECTION_M]
+    a_star_plan_divisor: 5        # [A_STAR_PLAN_DIVISOR] plan every 5th cycle (5 Hz)
+    a_star_heuristic_weight: 2.5  # [A_STAR_HEURISTIC_WEIGHT]
+    a_star_max_path_age_s: 0.6    # [A_STAR_MAX_PATH_AGE_S]
+
+    # --- Task 2 corridor ---
+    enable_task2_corridor: true   # [ENABLE_TASK2_CORRIDOR]
+    corridor_los_block_cost: 3.0  # [CORRIDOR_LOS_BLOCK_COST]
+    corridor_confirm_sightings: 3      # [CORRIDOR_CONFIRM_SIGHTINGS]
+    corridor_confirm_max_age_s: 6.0    # [CORRIDOR_CONFIRM_MAX_AGE_S]
+    task2_approach_offset_m: 5.0       # [TASK2_APPROACH_OFFSET_M]
+    task2_approach_reached_m: 2.0      # [TASK2_APPROACH_REACHED_M]
+    task2_approach_lateral_m: 8.0      # [TASK2_APPROACH_LATERAL_M]
+
+    # --- thrust ---
+    base_pwm: 1500                # [BASE_PWM]
+    cruise_pwm: 180               # [CRUISE_PWM] offset above base, Tasks 1-2
+    t3_speed_pwm: 200             # [T3_SPEED_PWM] offset above base, Task 3
+    spot_turn_pwm: 200            # [SPOT_TURN_PWM]
+    t3_spot_turn_pwm: 140         # [T3_SPOT_TURN_PWM]
+    spot_turn_threshold_deg: 30.0 # [SPOT_TURN_THRESHOLD] direct drive pivots above this
+    max_pwm_change: 60            # [MAX_PWM_CHANGE] mixer slew limit per cycle
+    steer_max_pwm: 1900           # [STEER_MAX_PWM]
+    steer_min_pwm: 1100           # [STEER_MIN_PWM]
+
+    # --- guidance ---
+    enable_los_guidance: true     # [ENABLE_LOS_GUIDANCE]
+    los_kp: 1.2                   # [LOS_KP]
+    pp_spot_turn_enter_deg: 60.0  # [PP_SPOT_TURN_ENTER_DEG]
+    pp_spot_turn_exit_deg: 35.0   # [PP_SPOT_TURN_EXIT_DEG]
+    pp_throttle_taper_min: 0.25   # [PP_THROTTLE_TAPER_MIN]
+    direct_drive_kp: 1.5          # [DIRECT_DRIVE_KP]
+    direct_drive_ki: 0.05         # [DIRECT_DRIVE_KI]
+    direct_drive_kd: 1.2          # [DIRECT_DRIVE_KD]
+    anti_windup_deg: 15.0         # [ANTI_WINDUP_DEG]
+    anti_windup_limit: 500.0      # [ANTI_WINDUP_LIMIT]
+    alignment_timeout_s: 12.0     # nav_process ALIGNMENT_TIMEOUT_S
+
+    # --- mission ---
+    start_task: TASK1_STATE_ENTER # [MEVCUT_GOREV]
+    vehicle_id: 1                 # [VEHICLE_ID] GCS commands for another vehicle are ignored
+
+    # --- Task 3 ---
+    enable_task3: true            # [ENABLE_TASK3]
+    task3_kamikaze_color: black   # [TASK3_KAMIKAZE_COLOR] red / green / black
+    drone_active: true            # [DRONE_ACTIVE] the drone's colour overrides; without a
+                                  # delivered colour there is no early engage
+    kp_pixel: 0.3                 # [Kp_PIXEL] steer per pixel off the image centre
+    task3_invert_steering: false  # [TASK3_INVERT_STEERING]
+    image_width: 1280             # Task 3 pixel error is cx - image_width / 2
+    t3_max_detection_age_s: 0.3   # nav_process T3_MAX_DETECTION_AGE_S
+    t3_lock_grace_s: 0.6          # [T3_LOCK_GRACE_S]
+    t3_hold_max_dist_m: 5.0       # [T3_HOLD_MAX_DIST_M]
+    t3_hold_s: 2.0                # [T3_HOLD_S]
+    t3_bound_lateral_m: 30.0      # [T3_BOUND_LATERAL_M]
+    t3_bound_forward_m: 20.0      # [T3_BOUND_FORWARD_M]
+    t3_anchor_enabled: true       # [T3_ANCHOR_ENABLED]
+    t3_standoff_m: 8.0            # [T3_STANDOFF_M]
+    t3_pan_wide_deg: 90.0         # [T3_PAN_WIDE_DEG]
+    t3_pan_tol_deg: 10.0          # [T3_PAN_TOL_DEG]
+    t3_v_round_deg: [45.0, 70.0, 100.0]   # [T3_V_ROUND_DEG]
+    t3_v_round_leg_m: [10.0, 20.0, 30.0]  # [T3_V_ROUND_LEG_M]
+    t3_v_probe_m: 8.0             # [T3_V_PROBE_M]
+    t3_v_tip_pan_deg: 45.0        # [T3_V_TIP_PAN_DEG]
+    t3_patrol_first_leg_m: 15.0   # [T3_PATROL_FIRST_LEG_M]
+    t3_patrol_second_leg_m: 30.0  # [T3_PATROL_SECOND_LEG_M]
+
+    # --- waypoints [lat, lon], GCS GPS1..GPS8 ([T1_GATE_ENTER_LAT/_LON] ...) ---
+    waypoints:
+      T1_GATE_ENTER: [40.8090735, 29.2622975]
+      T1_GATE_MID: [40.8089036, 29.2622449]
+      T1_GATE_EXIT: [40.8088117, 29.2624693]
+      T2_ZONE_ENTRY: [40.8090289, 29.262524]
+      T2_ZONE_MID: [40.8095851, 29.2622612]
+      T2_ZONE_END: [40.8095851, 29.2622612]
+      T3_START: [40.809666, 29.2622792]
+      T3_MID: [40.8096887, 29.2622795]

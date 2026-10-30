@@ -23,6 +23,7 @@ setup(
     entry_points={
         'console_scripts': [
             'heading_source = usv_nodes.heading_source:main',
+            'navigator = usv_nodes.navigator:main',
         ],
     },
 )
