@@ -27,7 +27,10 @@ import xml.etree.ElementTree as ET
 
 import yaml
 
-EARTH_RADIUS_M = 6378137.0
+# usv_sim.geo from the source tree, so the script also runs before a build
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+from usv_sim.geo import enu as geo_enu  # noqa: E402
+
 BASE_WORLD = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'worlds',
                           'nbpark.sdf')
 COLOURS = {   # ambient/diffuse RGB
@@ -42,11 +45,8 @@ SUBMERGED_M = 0.25          # body extends this far below the water line
 
 
 def enu(lat, lon, origin):
-    """Metres east and north of the origin (flat Earth, fine over a few hundred metres)."""
-    east = math.radians(lon - origin['lon']) * EARTH_RADIUS_M * math.cos(
-        math.radians(origin['lat']))
-    north = math.radians(lat - origin['lat']) * EARTH_RADIUS_M
-    return east, north
+    """Metres east and north of the origin (WGS84, as Gazebo's NavSat)."""
+    return geo_enu(lat, lon, origin['lat'], origin['lon'])
 
 
 def sub(parent, tag, text=None, **attrib):
@@ -77,6 +77,17 @@ def buoy_model(name, kind, spec, x, y):
         # Top of the ball at h; the rest under water
         sub(body, 'pose', f'0 0 {h - r:.3f} 0 0 0')
         sub(sub(sub(body, 'geometry'), 'sphere'), 'radius', f'{r:.3f}')
+    elif spec['shape'] == 'pear':
+        # Ball at the top, narrowing to the water (and below): the TEKNOFEST pear buoy
+        sub(body, 'pose', f'0 0 {h - r:.3f} 0 0 0')
+        sub(sub(sub(body, 'geometry'), 'sphere'), 'radius', f'{r:.3f}')
+        material(body, rgb)
+        body = sub(link, 'visual', name='neck')
+        neck = h - r + SUBMERGED_M
+        sub(body, 'pose', f'0 0 {h - r - neck / 2:.3f} 0 0 0')
+        cyl = sub(sub(body, 'geometry'), 'cylinder')
+        sub(cyl, 'radius', f'{0.6 * r:.3f}')
+        sub(cyl, 'length', f'{neck:.3f}')
     else:
         length = h + SUBMERGED_M
         sub(body, 'pose', f'0 0 {h - length / 2:.3f} 0 0 0')

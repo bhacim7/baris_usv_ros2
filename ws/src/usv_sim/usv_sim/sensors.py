@@ -17,7 +17,7 @@ import math
 import random
 from collections import deque
 
-EARTH_RADIUS_M = 6378137.0   # WGS84 equatorial radius; good to <1 % for local offsets
+from usv_sim.geo import latlon
 
 
 class GaussMarkov:
@@ -42,9 +42,7 @@ class GaussMarkov:
 
 
 def offset_latlon(lat_deg, lon_deg, north_m, east_m):
-    lat = lat_deg + math.degrees(north_m / EARTH_RADIUS_M)
-    lon = lon_deg + math.degrees(east_m / (EARTH_RADIUS_M * math.cos(math.radians(lat_deg))))
-    return lat, lon
+    return latlon(east_m, north_m, lat_deg, lon_deg)
 
 
 def quantize(value, step):

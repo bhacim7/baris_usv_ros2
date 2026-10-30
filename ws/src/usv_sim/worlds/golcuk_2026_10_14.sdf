@@ -280,7 +280,7 @@
     </include>
     <include>
       <name>usv_boat</name>
-      <pose>-1.856 3.117 0 0 0 -0.9774</pose>
+      <pose>-1.859 3.109 0 0 0 -0.9774</pose>
       <uri>usv_boat</uri>
     </include>
     <plugin filename="libPublisherPlugin.so" name="vrx::PublisherPlugin">
@@ -317,13 +317,13 @@
     </plugin>
     <model name="buoy_00_orange_flag">
       <static>true</static>
-      <pose>2.489 1.670 0 0 0 0</pose>
+      <pose>2.492 1.666 0 0 0 0</pose>
       <link name="link">
         <visual name="body">
-          <pose>0 0 0.175 0 0 0</pose>
+          <pose>0 0 0.280 0 0 0</pose>
           <geometry>
             <sphere>
-              <radius>0.225</radius>
+              <radius>0.150</radius>
             </sphere>
           </geometry>
           <material>
@@ -331,8 +331,21 @@
             <diffuse>1.0 0.42 0.0 1</diffuse>
           </material>
         </visual>
+        <visual name="neck">
+          <pose>0 0 0.015 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.090</radius>
+              <length>0.530</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 0.42 0.0 1</ambient>
+            <diffuse>1.0 0.42 0.0 1</diffuse>
+          </material>
+        </visual>
         <visual name="pole">
-          <pose>0 0 0.800 0 0 0</pose>
+          <pose>0 0 0.830 0 0 0</pose>
           <geometry>
             <cylinder>
               <radius>0.012</radius>
@@ -345,7 +358,7 @@
           </material>
         </visual>
         <visual name="flag">
-          <pose>0.16 0 1.080 0 0 0</pose>
+          <pose>0.16 0 1.110 0 0 0</pose>
           <geometry>
             <box>
               <size>0.30 0.005 0.20</size>
@@ -357,11 +370,11 @@
           </material>
         </visual>
         <collision name="collision">
-          <pose>0 0 0.075 0 0 0</pose>
+          <pose>0 0 0.090 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.225</radius>
-              <length>0.650</length>
+              <radius>0.150</radius>
+              <length>0.680</length>
             </cylinder>
           </geometry>
         </collision>
@@ -369,13 +382,13 @@
     </model>
     <model name="buoy_01_orange_flag">
       <static>true</static>
-      <pose>7.500 -5.811 0 0 0 0</pose>
+      <pose>7.511 -5.797 0 0 0 0</pose>
       <link name="link">
         <visual name="body">
-          <pose>0 0 0.175 0 0 0</pose>
+          <pose>0 0 0.280 0 0 0</pose>
           <geometry>
             <sphere>
-              <radius>0.225</radius>
+              <radius>0.150</radius>
             </sphere>
           </geometry>
           <material>
@@ -383,8 +396,21 @@
             <diffuse>1.0 0.42 0.0 1</diffuse>
           </material>
         </visual>
+        <visual name="neck">
+          <pose>0 0 0.015 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.090</radius>
+              <length>0.530</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 0.42 0.0 1</ambient>
+            <diffuse>1.0 0.42 0.0 1</diffuse>
+          </material>
+        </visual>
         <visual name="pole">
-          <pose>0 0 0.800 0 0 0</pose>
+          <pose>0 0 0.830 0 0 0</pose>
           <geometry>
             <cylinder>
               <radius>0.012</radius>
@@ -397,7 +423,7 @@
           </material>
         </visual>
         <visual name="flag">
-          <pose>0.16 0 1.080 0 0 0</pose>
+          <pose>0.16 0 1.110 0 0 0</pose>
           <geometry>
             <box>
               <size>0.30 0.005 0.20</size>
@@ -409,11 +435,11 @@
           </material>
         </visual>
         <collision name="collision">
-          <pose>0 0 0.075 0 0 0</pose>
+          <pose>0 0 0.090 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.225</radius>
-              <length>0.650</length>
+              <radius>0.150</radius>
+              <length>0.680</length>
             </cylinder>
           </geometry>
         </collision>
@@ -421,13 +447,13 @@
     </model>
     <model name="buoy_02_orange_flag">
       <static>true</static>
-      <pose>12.511 -13.280 0 0 0 0</pose>
+      <pose>12.529 -13.248 0 0 0 0</pose>
       <link name="link">
         <visual name="body">
-          <pose>0 0 0.175 0 0 0</pose>
+          <pose>0 0 0.280 0 0 0</pose>
           <geometry>
             <sphere>
-              <radius>0.225</radius>
+              <radius>0.150</radius>
             </sphere>
           </geometry>
           <material>
@@ -435,8 +461,21 @@
             <diffuse>1.0 0.42 0.0 1</diffuse>
           </material>
         </visual>
+        <visual name="neck">
+          <pose>0 0 0.015 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.090</radius>
+              <length>0.530</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 0.42 0.0 1</ambient>
+            <diffuse>1.0 0.42 0.0 1</diffuse>
+          </material>
+        </visual>
         <visual name="pole">
-          <pose>0 0 0.800 0 0 0</pose>
+          <pose>0 0 0.830 0 0 0</pose>
           <geometry>
             <cylinder>
               <radius>0.012</radius>
@@ -449,7 +488,7 @@
           </material>
         </visual>
         <visual name="flag">
-          <pose>0.16 0 1.080 0 0 0</pose>
+          <pose>0.16 0 1.110 0 0 0</pose>
           <geometry>
             <box>
               <size>0.30 0.005 0.20</size>
@@ -461,11 +500,11 @@
           </material>
         </visual>
         <collision name="collision">
-          <pose>0 0 0.075 0 0 0</pose>
+          <pose>0 0 0.090 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.225</radius>
-              <length>0.650</length>
+              <radius>0.150</radius>
+              <length>0.680</length>
             </cylinder>
           </geometry>
         </collision>
@@ -473,13 +512,13 @@
     </model>
     <model name="buoy_03_orange_flag">
       <static>true</static>
-      <pose>17.244 -20.349 0 0 0 0</pose>
+      <pose>17.269 -20.300 0 0 0 0</pose>
       <link name="link">
         <visual name="body">
-          <pose>0 0 0.175 0 0 0</pose>
+          <pose>0 0 0.280 0 0 0</pose>
           <geometry>
             <sphere>
-              <radius>0.225</radius>
+              <radius>0.150</radius>
             </sphere>
           </geometry>
           <material>
@@ -487,8 +526,21 @@
             <diffuse>1.0 0.42 0.0 1</diffuse>
           </material>
         </visual>
+        <visual name="neck">
+          <pose>0 0 0.015 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.090</radius>
+              <length>0.530</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 0.42 0.0 1</ambient>
+            <diffuse>1.0 0.42 0.0 1</diffuse>
+          </material>
+        </visual>
         <visual name="pole">
-          <pose>0 0 0.800 0 0 0</pose>
+          <pose>0 0 0.830 0 0 0</pose>
           <geometry>
             <cylinder>
               <radius>0.012</radius>
@@ -501,7 +553,7 @@
           </material>
         </visual>
         <visual name="flag">
-          <pose>0.16 0 1.080 0 0 0</pose>
+          <pose>0.16 0 1.110 0 0 0</pose>
           <geometry>
             <box>
               <size>0.30 0.005 0.20</size>
@@ -513,11 +565,11 @@
           </material>
         </visual>
         <collision name="collision">
-          <pose>0 0 0.075 0 0 0</pose>
+          <pose>0 0 0.090 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.225</radius>
-              <length>0.650</length>
+              <radius>0.150</radius>
+              <length>0.680</length>
             </cylinder>
           </geometry>
         </collision>
@@ -525,13 +577,13 @@
     </model>
     <model name="buoy_04_orange_flag">
       <static>true</static>
-      <pose>21.977 -27.407 0 0 0 0</pose>
+      <pose>22.008 -27.340 0 0 0 0</pose>
       <link name="link">
         <visual name="body">
-          <pose>0 0 0.175 0 0 0</pose>
+          <pose>0 0 0.280 0 0 0</pose>
           <geometry>
             <sphere>
-              <radius>0.225</radius>
+              <radius>0.150</radius>
             </sphere>
           </geometry>
           <material>
@@ -539,8 +591,21 @@
             <diffuse>1.0 0.42 0.0 1</diffuse>
           </material>
         </visual>
+        <visual name="neck">
+          <pose>0 0 0.015 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.090</radius>
+              <length>0.530</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 0.42 0.0 1</ambient>
+            <diffuse>1.0 0.42 0.0 1</diffuse>
+          </material>
+        </visual>
         <visual name="pole">
-          <pose>0 0 0.800 0 0 0</pose>
+          <pose>0 0 0.830 0 0 0</pose>
           <geometry>
             <cylinder>
               <radius>0.012</radius>
@@ -553,7 +618,7 @@
           </material>
         </visual>
         <visual name="flag">
-          <pose>0.16 0 1.080 0 0 0</pose>
+          <pose>0.16 0 1.110 0 0 0</pose>
           <geometry>
             <box>
               <size>0.30 0.005 0.20</size>
@@ -565,11 +630,11 @@
           </material>
         </visual>
         <collision name="collision">
-          <pose>0 0 0.075 0 0 0</pose>
+          <pose>0 0 0.090 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.225</radius>
-              <length>0.650</length>
+              <radius>0.150</radius>
+              <length>0.680</length>
             </cylinder>
           </geometry>
         </collision>
@@ -577,13 +642,13 @@
     </model>
     <model name="buoy_05_orange_flag">
       <static>true</static>
-      <pose>26.988 -34.888 0 0 0 0</pose>
+      <pose>27.027 -34.803 0 0 0 0</pose>
       <link name="link">
         <visual name="body">
-          <pose>0 0 0.175 0 0 0</pose>
+          <pose>0 0 0.280 0 0 0</pose>
           <geometry>
             <sphere>
-              <radius>0.225</radius>
+              <radius>0.150</radius>
             </sphere>
           </geometry>
           <material>
@@ -591,8 +656,21 @@
             <diffuse>1.0 0.42 0.0 1</diffuse>
           </material>
         </visual>
+        <visual name="neck">
+          <pose>0 0 0.015 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.090</radius>
+              <length>0.530</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 0.42 0.0 1</ambient>
+            <diffuse>1.0 0.42 0.0 1</diffuse>
+          </material>
+        </visual>
         <visual name="pole">
-          <pose>0 0 0.800 0 0 0</pose>
+          <pose>0 0 0.830 0 0 0</pose>
           <geometry>
             <cylinder>
               <radius>0.012</radius>
@@ -605,7 +683,7 @@
           </material>
         </visual>
         <visual name="flag">
-          <pose>0.16 0 1.080 0 0 0</pose>
+          <pose>0.16 0 1.110 0 0 0</pose>
           <geometry>
             <box>
               <size>0.30 0.005 0.20</size>
@@ -617,11 +695,11 @@
           </material>
         </visual>
         <collision name="collision">
-          <pose>0 0 0.075 0 0 0</pose>
+          <pose>0 0 0.090 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.225</radius>
-              <length>0.650</length>
+              <radius>0.150</radius>
+              <length>0.680</length>
             </cylinder>
           </geometry>
         </collision>
@@ -629,13 +707,13 @@
     </model>
     <model name="buoy_06_orange_flag">
       <static>true</static>
-      <pose>31.443 -41.533 0 0 0 0</pose>
+      <pose>31.488 -41.432 0 0 0 0</pose>
       <link name="link">
         <visual name="body">
-          <pose>0 0 0.175 0 0 0</pose>
+          <pose>0 0 0.280 0 0 0</pose>
           <geometry>
             <sphere>
-              <radius>0.225</radius>
+              <radius>0.150</radius>
             </sphere>
           </geometry>
           <material>
@@ -643,8 +721,21 @@
             <diffuse>1.0 0.42 0.0 1</diffuse>
           </material>
         </visual>
+        <visual name="neck">
+          <pose>0 0 0.015 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.090</radius>
+              <length>0.530</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 0.42 0.0 1</ambient>
+            <diffuse>1.0 0.42 0.0 1</diffuse>
+          </material>
+        </visual>
         <visual name="pole">
-          <pose>0 0 0.800 0 0 0</pose>
+          <pose>0 0 0.830 0 0 0</pose>
           <geometry>
             <cylinder>
               <radius>0.012</radius>
@@ -657,7 +748,7 @@
           </material>
         </visual>
         <visual name="flag">
-          <pose>0.16 0 1.080 0 0 0</pose>
+          <pose>0.16 0 1.110 0 0 0</pose>
           <geometry>
             <box>
               <size>0.30 0.005 0.20</size>
@@ -669,11 +760,11 @@
           </material>
         </visual>
         <collision name="collision">
-          <pose>0 0 0.075 0 0 0</pose>
+          <pose>0 0 0.090 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.225</radius>
-              <length>0.650</length>
+              <radius>0.150</radius>
+              <length>0.680</length>
             </cylinder>
           </geometry>
         </collision>
@@ -681,13 +772,13 @@
     </model>
     <model name="buoy_07_orange_flag">
       <static>true</static>
-      <pose>35.889 -48.179 0 0 0 0</pose>
+      <pose>35.940 -48.062 0 0 0 0</pose>
       <link name="link">
         <visual name="body">
-          <pose>0 0 0.175 0 0 0</pose>
+          <pose>0 0 0.280 0 0 0</pose>
           <geometry>
             <sphere>
-              <radius>0.225</radius>
+              <radius>0.150</radius>
             </sphere>
           </geometry>
           <material>
@@ -695,8 +786,21 @@
             <diffuse>1.0 0.42 0.0 1</diffuse>
           </material>
         </visual>
+        <visual name="neck">
+          <pose>0 0 0.015 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.090</radius>
+              <length>0.530</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 0.42 0.0 1</ambient>
+            <diffuse>1.0 0.42 0.0 1</diffuse>
+          </material>
+        </visual>
         <visual name="pole">
-          <pose>0 0 0.800 0 0 0</pose>
+          <pose>0 0 0.830 0 0 0</pose>
           <geometry>
             <cylinder>
               <radius>0.012</radius>
@@ -709,7 +813,7 @@
           </material>
         </visual>
         <visual name="flag">
-          <pose>0.16 0 1.080 0 0 0</pose>
+          <pose>0.16 0 1.110 0 0 0</pose>
           <geometry>
             <box>
               <size>0.30 0.005 0.20</size>
@@ -721,11 +825,11 @@
           </material>
         </visual>
         <collision name="collision">
-          <pose>0 0 0.075 0 0 0</pose>
+          <pose>0 0 0.090 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.225</radius>
-              <length>0.650</length>
+              <radius>0.150</radius>
+              <length>0.680</length>
             </cylinder>
           </geometry>
         </collision>
@@ -733,13 +837,13 @@
     </model>
     <model name="buoy_08_orange_flag">
       <static>true</static>
-      <pose>-5.247 -8.338 0 0 0 0</pose>
+      <pose>-5.255 -8.318 0 0 0 0</pose>
       <link name="link">
         <visual name="body">
-          <pose>0 0 0.175 0 0 0</pose>
+          <pose>0 0 0.280 0 0 0</pose>
           <geometry>
             <sphere>
-              <radius>0.225</radius>
+              <radius>0.150</radius>
             </sphere>
           </geometry>
           <material>
@@ -747,8 +851,21 @@
             <diffuse>1.0 0.42 0.0 1</diffuse>
           </material>
         </visual>
+        <visual name="neck">
+          <pose>0 0 0.015 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.090</radius>
+              <length>0.530</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 0.42 0.0 1</ambient>
+            <diffuse>1.0 0.42 0.0 1</diffuse>
+          </material>
+        </visual>
         <visual name="pole">
-          <pose>0 0 0.800 0 0 0</pose>
+          <pose>0 0 0.830 0 0 0</pose>
           <geometry>
             <cylinder>
               <radius>0.012</radius>
@@ -761,7 +878,7 @@
           </material>
         </visual>
         <visual name="flag">
-          <pose>0.16 0 1.080 0 0 0</pose>
+          <pose>0.16 0 1.110 0 0 0</pose>
           <geometry>
             <box>
               <size>0.30 0.005 0.20</size>
@@ -773,11 +890,11 @@
           </material>
         </visual>
         <collision name="collision">
-          <pose>0 0 0.075 0 0 0</pose>
+          <pose>0 0 0.090 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.225</radius>
-              <length>0.650</length>
+              <radius>0.150</radius>
+              <length>0.680</length>
             </cylinder>
           </geometry>
         </collision>
@@ -785,13 +902,13 @@
     </model>
     <model name="buoy_09_orange_flag">
       <static>true</static>
-      <pose>-0.236 -15.807 0 0 0 0</pose>
+      <pose>-0.237 -15.769 0 0 0 0</pose>
       <link name="link">
         <visual name="body">
-          <pose>0 0 0.175 0 0 0</pose>
+          <pose>0 0 0.280 0 0 0</pose>
           <geometry>
             <sphere>
-              <radius>0.225</radius>
+              <radius>0.150</radius>
             </sphere>
           </geometry>
           <material>
@@ -799,8 +916,21 @@
             <diffuse>1.0 0.42 0.0 1</diffuse>
           </material>
         </visual>
+        <visual name="neck">
+          <pose>0 0 0.015 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.090</radius>
+              <length>0.530</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 0.42 0.0 1</ambient>
+            <diffuse>1.0 0.42 0.0 1</diffuse>
+          </material>
+        </visual>
         <visual name="pole">
-          <pose>0 0 0.800 0 0 0</pose>
+          <pose>0 0 0.830 0 0 0</pose>
           <geometry>
             <cylinder>
               <radius>0.012</radius>
@@ -813,7 +943,7 @@
           </material>
         </visual>
         <visual name="flag">
-          <pose>0.16 0 1.080 0 0 0</pose>
+          <pose>0.16 0 1.110 0 0 0</pose>
           <geometry>
             <box>
               <size>0.30 0.005 0.20</size>
@@ -825,11 +955,11 @@
           </material>
         </visual>
         <collision name="collision">
-          <pose>0 0 0.075 0 0 0</pose>
+          <pose>0 0 0.090 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.225</radius>
-              <length>0.650</length>
+              <radius>0.150</radius>
+              <length>0.680</length>
             </cylinder>
           </geometry>
         </collision>
@@ -837,13 +967,13 @@
     </model>
     <model name="buoy_10_orange_flag">
       <static>true</static>
-      <pose>4.767 -23.288 0 0 0 0</pose>
+      <pose>4.773 -23.231 0 0 0 0</pose>
       <link name="link">
         <visual name="body">
-          <pose>0 0 0.175 0 0 0</pose>
+          <pose>0 0 0.280 0 0 0</pose>
           <geometry>
             <sphere>
-              <radius>0.225</radius>
+              <radius>0.150</radius>
             </sphere>
           </geometry>
           <material>
@@ -851,8 +981,21 @@
             <diffuse>1.0 0.42 0.0 1</diffuse>
           </material>
         </visual>
+        <visual name="neck">
+          <pose>0 0 0.015 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.090</radius>
+              <length>0.530</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 0.42 0.0 1</ambient>
+            <diffuse>1.0 0.42 0.0 1</diffuse>
+          </material>
+        </visual>
         <visual name="pole">
-          <pose>0 0 0.800 0 0 0</pose>
+          <pose>0 0 0.830 0 0 0</pose>
           <geometry>
             <cylinder>
               <radius>0.012</radius>
@@ -865,7 +1008,7 @@
           </material>
         </visual>
         <visual name="flag">
-          <pose>0.16 0 1.080 0 0 0</pose>
+          <pose>0.16 0 1.110 0 0 0</pose>
           <geometry>
             <box>
               <size>0.30 0.005 0.20</size>
@@ -877,11 +1020,11 @@
           </material>
         </visual>
         <collision name="collision">
-          <pose>0 0 0.075 0 0 0</pose>
+          <pose>0 0 0.090 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.225</radius>
-              <length>0.650</length>
+              <radius>0.150</radius>
+              <length>0.680</length>
             </cylinder>
           </geometry>
         </collision>
@@ -889,13 +1032,13 @@
     </model>
     <model name="buoy_11_orange_flag">
       <static>true</static>
-      <pose>9.778 -30.758 0 0 0 0</pose>
+      <pose>9.792 -30.683 0 0 0 0</pose>
       <link name="link">
         <visual name="body">
-          <pose>0 0 0.175 0 0 0</pose>
+          <pose>0 0 0.280 0 0 0</pose>
           <geometry>
             <sphere>
-              <radius>0.225</radius>
+              <radius>0.150</radius>
             </sphere>
           </geometry>
           <material>
@@ -903,8 +1046,21 @@
             <diffuse>1.0 0.42 0.0 1</diffuse>
           </material>
         </visual>
+        <visual name="neck">
+          <pose>0 0 0.015 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.090</radius>
+              <length>0.530</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 0.42 0.0 1</ambient>
+            <diffuse>1.0 0.42 0.0 1</diffuse>
+          </material>
+        </visual>
         <visual name="pole">
-          <pose>0 0 0.800 0 0 0</pose>
+          <pose>0 0 0.830 0 0 0</pose>
           <geometry>
             <cylinder>
               <radius>0.012</radius>
@@ -917,7 +1073,7 @@
           </material>
         </visual>
         <visual name="flag">
-          <pose>0.16 0 1.080 0 0 0</pose>
+          <pose>0.16 0 1.110 0 0 0</pose>
           <geometry>
             <box>
               <size>0.30 0.005 0.20</size>
@@ -929,11 +1085,11 @@
           </material>
         </visual>
         <collision name="collision">
-          <pose>0 0 0.075 0 0 0</pose>
+          <pose>0 0 0.090 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.225</radius>
-              <length>0.650</length>
+              <radius>0.150</radius>
+              <length>0.680</length>
             </cylinder>
           </geometry>
         </collision>
@@ -941,13 +1097,13 @@
     </model>
     <model name="buoy_12_orange_flag">
       <static>true</static>
-      <pose>14.789 -38.238 0 0 0 0</pose>
+      <pose>14.810 -38.145 0 0 0 0</pose>
       <link name="link">
         <visual name="body">
-          <pose>0 0 0.175 0 0 0</pose>
+          <pose>0 0 0.280 0 0 0</pose>
           <geometry>
             <sphere>
-              <radius>0.225</radius>
+              <radius>0.150</radius>
             </sphere>
           </geometry>
           <material>
@@ -955,8 +1111,21 @@
             <diffuse>1.0 0.42 0.0 1</diffuse>
           </material>
         </visual>
+        <visual name="neck">
+          <pose>0 0 0.015 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.090</radius>
+              <length>0.530</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 0.42 0.0 1</ambient>
+            <diffuse>1.0 0.42 0.0 1</diffuse>
+          </material>
+        </visual>
         <visual name="pole">
-          <pose>0 0 0.800 0 0 0</pose>
+          <pose>0 0 0.830 0 0 0</pose>
           <geometry>
             <cylinder>
               <radius>0.012</radius>
@@ -969,7 +1138,7 @@
           </material>
         </visual>
         <visual name="flag">
-          <pose>0.16 0 1.080 0 0 0</pose>
+          <pose>0.16 0 1.110 0 0 0</pose>
           <geometry>
             <box>
               <size>0.30 0.005 0.20</size>
@@ -981,11 +1150,11 @@
           </material>
         </visual>
         <collision name="collision">
-          <pose>0 0 0.075 0 0 0</pose>
+          <pose>0 0 0.090 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.225</radius>
-              <length>0.650</length>
+              <radius>0.150</radius>
+              <length>0.680</length>
             </cylinder>
           </geometry>
         </collision>
@@ -993,13 +1162,13 @@
     </model>
     <model name="buoy_13_orange_flag">
       <static>true</static>
-      <pose>19.800 -45.719 0 0 0 0</pose>
+      <pose>19.829 -45.608 0 0 0 0</pose>
       <link name="link">
         <visual name="body">
-          <pose>0 0 0.175 0 0 0</pose>
+          <pose>0 0 0.280 0 0 0</pose>
           <geometry>
             <sphere>
-              <radius>0.225</radius>
+              <radius>0.150</radius>
             </sphere>
           </geometry>
           <material>
@@ -1007,8 +1176,21 @@
             <diffuse>1.0 0.42 0.0 1</diffuse>
           </material>
         </visual>
+        <visual name="neck">
+          <pose>0 0 0.015 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.090</radius>
+              <length>0.530</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 0.42 0.0 1</ambient>
+            <diffuse>1.0 0.42 0.0 1</diffuse>
+          </material>
+        </visual>
         <visual name="pole">
-          <pose>0 0 0.800 0 0 0</pose>
+          <pose>0 0 0.830 0 0 0</pose>
           <geometry>
             <cylinder>
               <radius>0.012</radius>
@@ -1021,7 +1203,7 @@
           </material>
         </visual>
         <visual name="flag">
-          <pose>0.16 0 1.080 0 0 0</pose>
+          <pose>0.16 0 1.110 0 0 0</pose>
           <geometry>
             <box>
               <size>0.30 0.005 0.20</size>
@@ -1033,11 +1215,11 @@
           </material>
         </visual>
         <collision name="collision">
-          <pose>0 0 0.075 0 0 0</pose>
+          <pose>0 0 0.090 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.225</radius>
-              <length>0.650</length>
+              <radius>0.150</radius>
+              <length>0.680</length>
             </cylinder>
           </geometry>
         </collision>
@@ -1045,13 +1227,13 @@
     </model>
     <model name="buoy_14_orange_flag">
       <static>true</static>
-      <pose>24.812 -53.188 0 0 0 0</pose>
+      <pose>24.847 -53.059 0 0 0 0</pose>
       <link name="link">
         <visual name="body">
-          <pose>0 0 0.175 0 0 0</pose>
+          <pose>0 0 0.280 0 0 0</pose>
           <geometry>
             <sphere>
-              <radius>0.225</radius>
+              <radius>0.150</radius>
             </sphere>
           </geometry>
           <material>
@@ -1059,8 +1241,21 @@
             <diffuse>1.0 0.42 0.0 1</diffuse>
           </material>
         </visual>
+        <visual name="neck">
+          <pose>0 0 0.015 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.090</radius>
+              <length>0.530</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 0.42 0.0 1</ambient>
+            <diffuse>1.0 0.42 0.0 1</diffuse>
+          </material>
+        </visual>
         <visual name="pole">
-          <pose>0 0 0.800 0 0 0</pose>
+          <pose>0 0 0.830 0 0 0</pose>
           <geometry>
             <cylinder>
               <radius>0.012</radius>
@@ -1073,7 +1268,7 @@
           </material>
         </visual>
         <visual name="flag">
-          <pose>0.16 0 1.080 0 0 0</pose>
+          <pose>0.16 0 1.110 0 0 0</pose>
           <geometry>
             <box>
               <size>0.30 0.005 0.20</size>
@@ -1085,11 +1280,11 @@
           </material>
         </visual>
         <collision name="collision">
-          <pose>0 0 0.075 0 0 0</pose>
+          <pose>0 0 0.090 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.225</radius>
-              <length>0.650</length>
+              <radius>0.150</radius>
+              <length>0.680</length>
             </cylinder>
           </geometry>
         </collision>
@@ -1097,13 +1292,13 @@
     </model>
     <model name="buoy_15_yellow_flag">
       <static>true</static>
-      <pose>7.660 -14.126 0 0 0 0</pose>
+      <pose>7.671 -14.092 0 0 0 0</pose>
       <link name="link">
         <visual name="body">
-          <pose>0 0 0.200 0 0 0</pose>
+          <pose>0 0 0.280 0 0 0</pose>
           <geometry>
             <sphere>
-              <radius>0.250</radius>
+              <radius>0.150</radius>
             </sphere>
           </geometry>
           <material>
@@ -1111,8 +1306,21 @@
             <diffuse>1.0 0.82 0.0 1</diffuse>
           </material>
         </visual>
+        <visual name="neck">
+          <pose>0 0 0.015 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.090</radius>
+              <length>0.530</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 0.82 0.0 1</ambient>
+            <diffuse>1.0 0.82 0.0 1</diffuse>
+          </material>
+        </visual>
         <visual name="pole">
-          <pose>0 0 0.850 0 0 0</pose>
+          <pose>0 0 0.830 0 0 0</pose>
           <geometry>
             <cylinder>
               <radius>0.012</radius>
@@ -1125,7 +1333,7 @@
           </material>
         </visual>
         <visual name="flag">
-          <pose>0.16 0 1.130 0 0 0</pose>
+          <pose>0.16 0 1.110 0 0 0</pose>
           <geometry>
             <box>
               <size>0.30 0.005 0.20</size>
@@ -1137,11 +1345,11 @@
           </material>
         </visual>
         <collision name="collision">
-          <pose>0 0 0.100 0 0 0</pose>
+          <pose>0 0 0.090 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.250</radius>
-              <length>0.700</length>
+              <radius>0.150</radius>
+              <length>0.680</length>
             </cylinder>
           </geometry>
         </collision>
@@ -1149,13 +1357,13 @@
     </model>
     <model name="buoy_16_yellow_flag">
       <static>true</static>
-      <pose>11.305 -20.104 0 0 0 0</pose>
+      <pose>11.321 -20.055 0 0 0 0</pose>
       <link name="link">
         <visual name="body">
-          <pose>0 0 0.200 0 0 0</pose>
+          <pose>0 0 0.280 0 0 0</pose>
           <geometry>
             <sphere>
-              <radius>0.250</radius>
+              <radius>0.150</radius>
             </sphere>
           </geometry>
           <material>
@@ -1163,8 +1371,21 @@
             <diffuse>1.0 0.82 0.0 1</diffuse>
           </material>
         </visual>
+        <visual name="neck">
+          <pose>0 0 0.015 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.090</radius>
+              <length>0.530</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 0.82 0.0 1</ambient>
+            <diffuse>1.0 0.82 0.0 1</diffuse>
+          </material>
+        </visual>
         <visual name="pole">
-          <pose>0 0 0.850 0 0 0</pose>
+          <pose>0 0 0.830 0 0 0</pose>
           <geometry>
             <cylinder>
               <radius>0.012</radius>
@@ -1177,7 +1398,7 @@
           </material>
         </visual>
         <visual name="flag">
-          <pose>0.16 0 1.130 0 0 0</pose>
+          <pose>0.16 0 1.110 0 0 0</pose>
           <geometry>
             <box>
               <size>0.30 0.005 0.20</size>
@@ -1189,11 +1410,11 @@
           </material>
         </visual>
         <collision name="collision">
-          <pose>0 0 0.100 0 0 0</pose>
+          <pose>0 0 0.090 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.250</radius>
-              <length>0.700</length>
+              <radius>0.150</radius>
+              <length>0.680</length>
             </cylinder>
           </geometry>
         </collision>
@@ -1201,13 +1422,13 @@
     </model>
     <model name="buoy_17_yellow_flag">
       <static>true</static>
-      <pose>11.431 -24.245 0 0 0 0</pose>
+      <pose>11.448 -24.186 0 0 0 0</pose>
       <link name="link">
         <visual name="body">
-          <pose>0 0 0.200 0 0 0</pose>
+          <pose>0 0 0.280 0 0 0</pose>
           <geometry>
             <sphere>
-              <radius>0.250</radius>
+              <radius>0.150</radius>
             </sphere>
           </geometry>
           <material>
@@ -1215,8 +1436,21 @@
             <diffuse>1.0 0.82 0.0 1</diffuse>
           </material>
         </visual>
+        <visual name="neck">
+          <pose>0 0 0.015 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.090</radius>
+              <length>0.530</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 0.82 0.0 1</ambient>
+            <diffuse>1.0 0.82 0.0 1</diffuse>
+          </material>
+        </visual>
         <visual name="pole">
-          <pose>0 0 0.850 0 0 0</pose>
+          <pose>0 0 0.830 0 0 0</pose>
           <geometry>
             <cylinder>
               <radius>0.012</radius>
@@ -1229,7 +1463,7 @@
           </material>
         </visual>
         <visual name="flag">
-          <pose>0.16 0 1.130 0 0 0</pose>
+          <pose>0.16 0 1.110 0 0 0</pose>
           <geometry>
             <box>
               <size>0.30 0.005 0.20</size>
@@ -1241,11 +1475,11 @@
           </material>
         </visual>
         <collision name="collision">
-          <pose>0 0 0.100 0 0 0</pose>
+          <pose>0 0 0.090 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.250</radius>
-              <length>0.700</length>
+              <radius>0.150</radius>
+              <length>0.680</length>
             </cylinder>
           </geometry>
         </collision>
@@ -1253,13 +1487,13 @@
     </model>
     <model name="buoy_18_yellow_flag">
       <static>true</static>
-      <pose>17.953 -27.696 0 0 0 0</pose>
+      <pose>17.978 -27.629 0 0 0 0</pose>
       <link name="link">
         <visual name="body">
-          <pose>0 0 0.200 0 0 0</pose>
+          <pose>0 0 0.280 0 0 0</pose>
           <geometry>
             <sphere>
-              <radius>0.250</radius>
+              <radius>0.150</radius>
             </sphere>
           </geometry>
           <material>
@@ -1267,8 +1501,21 @@
             <diffuse>1.0 0.82 0.0 1</diffuse>
           </material>
         </visual>
+        <visual name="neck">
+          <pose>0 0 0.015 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.090</radius>
+              <length>0.530</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 0.82 0.0 1</ambient>
+            <diffuse>1.0 0.82 0.0 1</diffuse>
+          </material>
+        </visual>
         <visual name="pole">
-          <pose>0 0 0.850 0 0 0</pose>
+          <pose>0 0 0.830 0 0 0</pose>
           <geometry>
             <cylinder>
               <radius>0.012</radius>
@@ -1281,7 +1528,7 @@
           </material>
         </visual>
         <visual name="flag">
-          <pose>0.16 0 1.130 0 0 0</pose>
+          <pose>0.16 0 1.110 0 0 0</pose>
           <geometry>
             <box>
               <size>0.30 0.005 0.20</size>
@@ -1293,11 +1540,11 @@
           </material>
         </visual>
         <collision name="collision">
-          <pose>0 0 0.100 0 0 0</pose>
+          <pose>0 0 0.090 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.250</radius>
-              <length>0.700</length>
+              <radius>0.150</radius>
+              <length>0.680</length>
             </cylinder>
           </geometry>
         </collision>
@@ -1305,13 +1552,13 @@
     </model>
     <model name="buoy_19_yellow_flag">
       <static>true</static>
-      <pose>19.885 -33.618 0 0 0 0</pose>
+      <pose>19.913 -33.537 0 0 0 0</pose>
       <link name="link">
         <visual name="body">
-          <pose>0 0 0.200 0 0 0</pose>
+          <pose>0 0 0.280 0 0 0</pose>
           <geometry>
             <sphere>
-              <radius>0.250</radius>
+              <radius>0.150</radius>
             </sphere>
           </geometry>
           <material>
@@ -1319,8 +1566,21 @@
             <diffuse>1.0 0.82 0.0 1</diffuse>
           </material>
         </visual>
+        <visual name="neck">
+          <pose>0 0 0.015 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.090</radius>
+              <length>0.530</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 0.82 0.0 1</ambient>
+            <diffuse>1.0 0.82 0.0 1</diffuse>
+          </material>
+        </visual>
         <visual name="pole">
-          <pose>0 0 0.850 0 0 0</pose>
+          <pose>0 0 0.830 0 0 0</pose>
           <geometry>
             <cylinder>
               <radius>0.012</radius>
@@ -1333,7 +1593,7 @@
           </material>
         </visual>
         <visual name="flag">
-          <pose>0.16 0 1.130 0 0 0</pose>
+          <pose>0.16 0 1.110 0 0 0</pose>
           <geometry>
             <box>
               <size>0.30 0.005 0.20</size>
@@ -1345,11 +1605,11 @@
           </material>
         </visual>
         <collision name="collision">
-          <pose>0 0 0.100 0 0 0</pose>
+          <pose>0 0 0.090 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.250</radius>
-              <length>0.700</length>
+              <radius>0.150</radius>
+              <length>0.680</length>
             </cylinder>
           </geometry>
         </collision>
@@ -1357,13 +1617,13 @@
     </model>
     <model name="buoy_20_yellow_flag">
       <static>true</static>
-      <pose>21.867 -40.721 0 0 0 0</pose>
+      <pose>21.899 -40.622 0 0 0 0</pose>
       <link name="link">
         <visual name="body">
-          <pose>0 0 0.200 0 0 0</pose>
+          <pose>0 0 0.280 0 0 0</pose>
           <geometry>
             <sphere>
-              <radius>0.250</radius>
+              <radius>0.150</radius>
             </sphere>
           </geometry>
           <material>
@@ -1371,8 +1631,21 @@
             <diffuse>1.0 0.82 0.0 1</diffuse>
           </material>
         </visual>
+        <visual name="neck">
+          <pose>0 0 0.015 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.090</radius>
+              <length>0.530</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 0.82 0.0 1</ambient>
+            <diffuse>1.0 0.82 0.0 1</diffuse>
+          </material>
+        </visual>
         <visual name="pole">
-          <pose>0 0 0.850 0 0 0</pose>
+          <pose>0 0 0.830 0 0 0</pose>
           <geometry>
             <cylinder>
               <radius>0.012</radius>
@@ -1385,7 +1658,7 @@
           </material>
         </visual>
         <visual name="flag">
-          <pose>0.16 0 1.130 0 0 0</pose>
+          <pose>0.16 0 1.110 0 0 0</pose>
           <geometry>
             <box>
               <size>0.30 0.005 0.20</size>
@@ -1397,11 +1670,11 @@
           </material>
         </visual>
         <collision name="collision">
-          <pose>0 0 0.100 0 0 0</pose>
+          <pose>0 0 0.090 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.250</radius>
-              <length>0.700</length>
+              <radius>0.150</radius>
+              <length>0.680</length>
             </cylinder>
           </geometry>
         </collision>
@@ -1409,13 +1682,13 @@
     </model>
     <model name="buoy_21_yellow_flag">
       <static>true</static>
-      <pose>29.393 -45.307 0 0 0 0</pose>
+      <pose>29.435 -45.197 0 0 0 0</pose>
       <link name="link">
         <visual name="body">
-          <pose>0 0 0.200 0 0 0</pose>
+          <pose>0 0 0.280 0 0 0</pose>
           <geometry>
             <sphere>
-              <radius>0.250</radius>
+              <radius>0.150</radius>
             </sphere>
           </geometry>
           <material>
@@ -1423,8 +1696,21 @@
             <diffuse>1.0 0.82 0.0 1</diffuse>
           </material>
         </visual>
+        <visual name="neck">
+          <pose>0 0 0.015 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.090</radius>
+              <length>0.530</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 0.82 0.0 1</ambient>
+            <diffuse>1.0 0.82 0.0 1</diffuse>
+          </material>
+        </visual>
         <visual name="pole">
-          <pose>0 0 0.850 0 0 0</pose>
+          <pose>0 0 0.830 0 0 0</pose>
           <geometry>
             <cylinder>
               <radius>0.012</radius>
@@ -1437,7 +1723,7 @@
           </material>
         </visual>
         <visual name="flag">
-          <pose>0.16 0 1.130 0 0 0</pose>
+          <pose>0.16 0 1.110 0 0 0</pose>
           <geometry>
             <box>
               <size>0.30 0.005 0.20</size>
@@ -1449,11 +1735,11 @@
           </material>
         </visual>
         <collision name="collision">
-          <pose>0 0 0.100 0 0 0</pose>
+          <pose>0 0 0.090 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.250</radius>
-              <length>0.700</length>
+              <radius>0.150</radius>
+              <length>0.680</length>
             </cylinder>
           </geometry>
         </collision>
@@ -1461,14 +1747,14 @@
     </model>
     <model name="buoy_22_red_target">
       <static>true</static>
-      <pose>42.376 -63.007 0 0 0 0</pose>
+      <pose>42.454 -62.931 0 0 0 0</pose>
       <link name="link">
         <visual name="body">
-          <pose>0 0 0.250 0 0 0</pose>
+          <pose>0 0 0.300 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.225</radius>
-              <length>1.000</length>
+              <radius>0.320</radius>
+              <length>1.100</length>
             </cylinder>
           </geometry>
           <material>
@@ -1477,11 +1763,11 @@
           </material>
         </visual>
         <collision name="collision">
-          <pose>0 0 0.250 0 0 0</pose>
+          <pose>0 0 0.300 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.225</radius>
-              <length>1.000</length>
+              <radius>0.320</radius>
+              <length>1.100</length>
             </cylinder>
           </geometry>
         </collision>
@@ -1489,14 +1775,14 @@
     </model>
     <model name="buoy_23_green_target">
       <static>true</static>
-      <pose>37.956 -60.792 0 0 0 0</pose>
+      <pose>36.785 -62.576 0 0 0 0</pose>
       <link name="link">
         <visual name="body">
-          <pose>0 0 0.250 0 0 0</pose>
+          <pose>0 0 0.300 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.225</radius>
-              <length>1.000</length>
+              <radius>0.320</radius>
+              <length>1.100</length>
             </cylinder>
           </geometry>
           <material>
@@ -1505,11 +1791,11 @@
           </material>
         </visual>
         <collision name="collision">
-          <pose>0 0 0.250 0 0 0</pose>
+          <pose>0 0 0.300 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.225</radius>
-              <length>1.000</length>
+              <radius>0.320</radius>
+              <length>1.100</length>
             </cylinder>
           </geometry>
         </collision>
@@ -1517,14 +1803,14 @@
     </model>
     <model name="buoy_24_black_target">
       <static>true</static>
-      <pose>45.388 -57.986 0 0 0 0</pose>
+      <pose>46.391 -58.456 0 0 0 0</pose>
       <link name="link">
         <visual name="body">
-          <pose>0 0 0.250 0 0 0</pose>
+          <pose>0 0 0.300 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.225</radius>
-              <length>1.000</length>
+              <radius>0.320</radius>
+              <length>1.100</length>
             </cylinder>
           </geometry>
           <material>
@@ -1533,11 +1819,11 @@
           </material>
         </visual>
         <collision name="collision">
-          <pose>0 0 0.250 0 0 0</pose>
+          <pose>0 0 0.300 0 0 0</pose>
           <geometry>
             <cylinder>
-              <radius>0.225</radius>
-              <length>1.000</length>
+              <radius>0.320</radius>
+              <length>1.100</length>
             </cylinder>
           </geometry>
         </collision>

@@ -74,7 +74,7 @@
   Gazebo topics (gz.msgs.Double):
     /usv_boat/thrusters/{rear_left,rear_right,front_left,front_right}/thrust   N
     /usv_boat/thrusters/{front_left,front_right}/pos                             rad, + = CCW seen from above
-    /usv_boat/navsat     gz.msgs.NavSat    GNSS antenna on the mast, 10 Hz, exact
+    /usv_boat/navsat     gz.msgs.NavSat    GNSS antenna on the mast, 50 Hz, exact
     /usv_boat/imu        gz.msgs.IMU       orientation in ENU, 50 Hz, exact
     /usv_boat/odometry   gz.msgs.Odometry  velocity for the ground speed, 50 Hz, exact
     (No magnetometer: gz-sim gets the field wrong with spherical coordinates;
@@ -222,7 +222,9 @@
       <sensor name="navsat" type="navsat">
         <pose>-0.60 0 0.75 0 0 0</pose>
         <always_on>1</always_on>
-        <update_rate>10</update_rate>
+        <!-- 50 Hz exact: fake_perception places the camera from it every frame; the GPS
+             the software sees (/usv/fix, 2 Hz, with errors) comes from sim_bridge -->
+        <update_rate>50</update_rate>
         <topic>/usv_boat/navsat</topic>
       </sensor>
       <!-- Attitude and heading reference (the Orange Cube sits in the box) -->

@@ -8,6 +8,8 @@
 # distance labels: the Task 2 corridor follows the TEKNOFEST course diagram (orange flagged
 # boundary buoys, yellow obstacles inside) with spacings and side offsets taken from where
 # the boat passed buoys in the video; the three Task 3 targets from single sightings.
+# The ZED's depth is the distance along the optical axis, so a label of d metres at an angle
+# a off the axis is a range of d / cos(a) (used for the green and black targets).
 # Replace with final_costmap.npz from a real run when one is found.
 #
 # Generate the Gazebo world from this file:
@@ -28,13 +30,18 @@ magnetic_field: {declination_deg: 6.0, inclination_deg: 56.5, strength_uT: 46.5}
 # Where the boat starts: first HUD position (frame 0), pointing down the corridor
 boat: {lat: 40.724066, lon: 29.825080, heading_deg: 146.0}
 
-# Shapes of each buoy type (metres above the water). From the photos and the video.
+# Shapes of each buoy type. Sizes from the TEKNOFEST specification:
+#   boundary (orange, RAL 2003) and obstacle (yellow, RAL 1026): pear type, 30 cm wide,
+#     50 cm tall without the flag
+#   targets (RAL 3026 red, RAL 6037 green, RAL 9005 black): 200 L float, 640 mm wide,
+#     950 mm tall
+# height = above the water. ASSUMED: light floats, ~85-90 % of the body above the water.
 buoy_types:
-  orange_flag: {class_id: 3, shape: sphere,   diameter: 0.45, height: 0.40, flag: true}
-  yellow_flag: {class_id: 1, shape: sphere,   diameter: 0.50, height: 0.45, flag: true}
-  red_target:  {class_id: 0, shape: cylinder, diameter: 0.45, height: 0.75, flag: false}
-  green_target: {class_id: 4, shape: cylinder, diameter: 0.45, height: 0.75, flag: false}
-  black_target: {class_id: 2, shape: cylinder, diameter: 0.45, height: 0.75, flag: false}
+  orange_flag:  {class_id: 3, shape: pear,     diameter: 0.30, height: 0.43, flag: true}
+  yellow_flag:  {class_id: 1, shape: pear,     diameter: 0.30, height: 0.43, flag: true}
+  red_target:   {class_id: 0, shape: cylinder, diameter: 0.64, height: 0.85, flag: false}
+  green_target: {class_id: 4, shape: cylinder, diameter: 0.64, height: 0.85, flag: false}
+  black_target: {class_id: 2, shape: cylinder, diameter: 0.64, height: 0.85, flag: false}
 
 buoys:
   # Task 2 corridor, 60.2 m from the origin at 146.2 deg; left boundary 3 m left of that line
@@ -63,6 +70,6 @@ buoys:
   - {type: yellow_flag, lat: 40.7236722, lon: 29.8253612}   # 46 m, 4.5 m right
   - {type: yellow_flag, lat: 40.7236310, lon: 29.8254504}   # 54 m, 0.8 m right (hit, frame ~1500)
   # Task 3 targets
-  - {type: red_target,   lat: 40.7234720, lon: 29.8256043}  # hit by the kamikaze, frame ~2046
-  - {type: green_target, lat: 40.7234919, lon: 29.8255519}  # frame 1920: 4.3 m, 49 deg right
-  - {type: black_target, lat: 40.7235171, lon: 29.8256400}  # frame 1812: 7.3 m, 29 deg left
+  - {type: red_target,   lat: 40.7234713, lon: 29.8256045}  # hit by the kamikaze, frame ~2046
+  - {type: green_target, lat: 40.7234745, lon: 29.8255374}  # frame 1920: depth 4.3 m, 49 deg right
+  - {type: black_target, lat: 40.7235116, lon: 29.8256511}  # frame 1812: depth 7.3 m, 29 deg left
