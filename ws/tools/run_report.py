@@ -159,10 +159,11 @@ def main():
         sys.exit('no nav_status or no ground truth in the bag')
 
     changes = timeline(status)
-    auto = [t for t, task, manual, emerg in changes if not manual]
-    t0 = auto[0] if auto else changes[0][0]
+    active = [t for t, m in status if m.mission_active]
+    t0 = active[0] if active else changes[0][0]
     print(f'== {args.bag}')
-    print(f'   t = 0 at the first AUTO cycle; run length {track[-1][0] - t0:.1f} s after it')
+    print(f'   t = 0 when the mission became active (AUTO, pre-flight passed); '
+          f'run length {track[-1][0] - t0:.1f} s after it')
 
     # --- task timeline
     print('\n-- task timeline')

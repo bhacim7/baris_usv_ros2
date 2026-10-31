@@ -1,0 +1,17 @@
+# What the legacy boat did on 2026-10-14 (Golcuk), read from the HUD video
+# (ws/bags/video/run_2026-10-14.mp4), for run_report.py --reference.
+# Times: seconds from the video's first frame = TASK2_START, assuming 30 frames per second.
+# The WhatsApp copy is low resolution: only what could be read is here.
+metrics:
+  straight_leg_speed_mps: 1.25-1.31 (GPS track; the HUD speed read lower)
+  spot_turn_deg_s: 33-43 at PWM offset +/-156 (35-57 at 200 in the legacy field notes)
+  steering_oscillation: left/right differential flips roughly every second in Task 2
+  corridor_contacts: 3 (two yellow obstacles identified below)
+  task2_start_to_red_hit_s: 68
+events:
+  - {t: 1.6, what: TASK2_GO_TO_MID (frame 49)}
+  - {t: 31.7, what: 'contact: yellow 33 m down the corridor, 0.5 m right of the line (course #18, frame ~950)'}
+  - {t: 50.0, what: 'contact: yellow 54 m down the corridor, 0.8 m right of the line (course #21, frame ~1500)'}
+  - {t: 60.4, what: 'black target seen: depth 7.3 m, 29 deg left (frame 1812)'}
+  - {t: 64.0, what: 'green target seen: depth 4.3 m, 49 deg right (frame 1920)'}
+  - {t: 68.2, what: 'red target hit by the kamikaze run (frame ~2046)'}

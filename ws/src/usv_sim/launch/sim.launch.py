@@ -7,6 +7,15 @@
     ros2 launch usv_sim sim.launch.py start_task:=TASK1_STATE_ENTER   # not the course's own
     ros2 launch usv_sim sim.launch.py navigator:=false     # drive by hand (ros2 topic pub)
 
+Experiments (phase 5.6), one command each:
+    auto:=true                 navigator starts in AUTO (no set_manual call needed)
+    record:=<name>             ros2 bag record into /ws/bags/<name> (the topics run_report
+                               needs); the name must not exist yet
+    compass_offset_deg:=8.0    fake_perception: ZED compass reads 8 deg too high
+    detect_prob:=0.5           fake_perception: YOLO finds a buoy in half of the frames
+    max_range_m:=10.0          fake_perception: no detections beyond 10 m
+  e.g.  ros2 launch usv_sim sim.launch.py auto:=true record:=exp_compass8 compass_offset_deg:=8.0
+
 What starts, in this order:
   1. make_course_world.py builds the world from the course file into /tmp, so the world
      can never be older than the course (no more "remember to regenerate").
@@ -32,6 +41,11 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
+PERCEPTION_KNOBS = ('compass_offset_deg', 'detect_prob', 'max_range_m')
+# What ws/tools/run_report.py reads, plus what is handy to replay
+RECORD_TOPICS = ('/usv/nav_status', '/usv/thrusters/pwm', '/usv/sim/navsat', '/usv/sim/imu',
+                 '/usv/fix', '/usv/heading', '/usv/buoys')
+
 
 def setup(context):
     share = get_package_share_directory('usv_sim')
@@ -56,6 +70,16 @@ def setup(context):
     if start_task:
         navigator_overrides['start_task'] = start_task
     with_navigator = LaunchConfiguration('navigator').perform(context).lower() == 'true'
+    navigator_overrides['start_manual'] = \
+        LaunchConfiguration('auto').perform(context).lower() != 'true'
+
+    # Experiment knobs: a value given on the command line replaces fake_perception.yaml
+    perception_overrides = {'course': course}
+    for name in PERCEPTION_KNOBS:
+        value = LaunchConfiguration(name).perform(context)
+        if value:
+            perception_overrides[name] = float(value)
+    record = LaunchConfiguration('record').perform(context)
 
     make_world = ExecuteProcess(
         cmd=['python3', os.path.join(share, 'scripts', 'make_course_world.py'),
@@ -80,7 +104,7 @@ def setup(context):
              parameters=[os.path.join(config, 'sim_bridge.yaml')],
              respawn=True, respawn_delay=2.0),
         Node(package='usv_sim', executable='fake_perception', output='screen',
-             parameters=[os.path.join(config, 'fake_perception.yaml'), {'course': course}],
+             parameters=[os.path.join(config, 'fake_perception.yaml'), perception_overrides],
              respawn=True, respawn_delay=2.0),
         Node(package='usv_nodes', executable='heading_source', output='screen',
              parameters=[heading_config],
@@ -90,6 +114,11 @@ def setup(context):
         ours.append(Node(package='usv_nodes', executable='navigator', output='screen',
                          parameters=[navigator_config, navigator_overrides],
                          respawn=True, respawn_delay=2.0))
+    if record:
+        ours.append(ExecuteProcess(
+            cmd=['ros2', 'bag', 'record', '-o', os.path.join('/ws/bags', record)]
+            + list(RECORD_TOPICS),
+            output='screen'))
 
     start_rest = RegisterEventHandler(OnProcessExit(
         target_action=make_world, on_exit=[gazebo, bridge] + ours))
@@ -115,5 +144,14 @@ def generate_launch_description():
                               description="navigator start task; empty = the course's own"),
         DeclareLaunchArgument('navigator', default_value='true',
                               description='false = no navigator, drive with ros2 topic pub'),
+        DeclareLaunchArgument('auto', default_value='false',
+                              description='true = navigator starts in AUTO'),
+        DeclareLaunchArgument('record', default_value='',
+                              description='bag name under /ws/bags; empty = no recording'),
+    ] + [
+        DeclareLaunchArgument(name, default_value='',
+                              description='fake_perception override; empty = YAML value')
+        for name in PERCEPTION_KNOBS
+    ] + [
         OpaqueFunction(function=setup),
     ])
