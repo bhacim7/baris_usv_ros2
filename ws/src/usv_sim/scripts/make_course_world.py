@@ -5,7 +5,8 @@ The course file is the single source of truth: this script builds the world from
 fake_perception reads the same file for the buoy positions. Base: worlds/nbpark.sdf (VRX
 physics, sensors, water, waves and our boat), with these changes:
 
-  * the Nathan Benderson Park land model is left out: open water only
+  * the Nathan Benderson Park land model is kept only for courses at that venue
+    (`venue: nbpark`); elsewhere (e.g. Golcuk) open water only
   * the VRX wind plugin is left out (it only acts on the WAM-V)
   * spherical_coordinates: the course origin, so /usv/fix reads the course's lat/lon
   * NO magnetic field: with spherical coordinates gz-sim ignores <magnetic_field> and
@@ -192,7 +193,8 @@ def main():
     for inc in list(world.findall('include')):
         uri = inc.findtext('uri', '')
         if 'nathan_benderson_park' in uri:
-            world.remove(inc)
+            if course.venue != 'nbpark':
+                world.remove(inc)
         elif inc.findtext('name') == 'usv_boat':
             inc.find('pose').text = f'{bx:.3f} {by:.3f} 0 0 0 {yaw:.4f}'
 

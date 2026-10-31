@@ -5,6 +5,11 @@ camera sees cannot drift apart. ROS-free, unit tested (test/test_course.py).
 
 A course file has:
   name, origin {lat, lon}, magnetic_field, boat {lat/lon or east/north, heading_deg}
+  venue          optional: 'nbpark' keeps the Nathan Benderson Park land model in the world
+  anchor         optional {east, north, rotation_deg}: east/north positions in the file are
+                 laid out around this point of the world, turned by rotation_deg
+                 (counter-clockwise), so a course drawn north-up can be fitted into the lake;
+                 headings in the file turn with it
   classes        'teknofest' (default) or 'roboboat': the class list (usv_core.classes)
   mission        optional, navigator overrides (see sim.launch.py)
   buoy_types     shapes: sphere, pear, cylinder (legacy), pole, indicator; class by name
@@ -80,6 +85,7 @@ class Course:
     profile: str
     class_names: tuple
     mission: dict
+    venue: str                    # '' = open water only
     buoys: list                   # (name, type, spec, east, north) for the world generator
     models: list                  # Model, for vessels and docks
     targets: list                 # Buoy / Panel: what the camera can report
@@ -92,10 +98,21 @@ def compass_to_yaw(heading_deg):
     return math.radians(90.0 - heading_deg)
 
 
-def position(item, origin):
+def position(item, origin, anchor=None):
+    """World ENU metres of an item: lat/lon as they are, east/north around the anchor."""
     if 'east' in item:
-        return float(item['east']), float(item['north'])
+        e, n = float(item['east']), float(item['north'])
+        if anchor:
+            r = math.radians(anchor.get('rotation_deg', 0.0))
+            e, n = (anchor['east'] + e * math.cos(r) - n * math.sin(r),
+                    anchor['north'] + e * math.sin(r) + n * math.cos(r))
+        return e, n
     return enu(item['lat'], item['lon'], origin['lat'], origin['lon'])
+
+
+def heading(item, anchor=None):
+    """Compass heading of an item, turned with the anchor (counter-clockwise = smaller)."""
+    return float(item['heading_deg']) - (anchor or {}).get('rotation_deg', 0.0)
 
 
 def local_to_enu(x0, y0, yaw, lx, ly):
@@ -106,6 +123,7 @@ def local_to_enu(x0, y0, yaw, lx, ly):
 def load(data):
     """Build a Course from a parsed course file (dict)."""
     origin = data['origin']
+    anchor = data.get('anchor')
     profile = data.get('classes', 'teknofest')
     names = class_names(profile)
 
@@ -116,14 +134,14 @@ def load(data):
             return names.index(spec_or_name['class'])
         return int(spec_or_name['class_id'])
 
-    bx, by = position(data['boat'], origin)
-    boat = {'east': bx, 'north': by, 'heading_deg': float(data['boat']['heading_deg'])}
+    bx, by = position(data['boat'], origin, anchor)
+    boat = {'east': bx, 'north': by, 'heading_deg': heading(data['boat'], anchor)}
 
     buoys, targets, models = [], [], []
     types = data.get('buoy_types', {})
     for i, b in enumerate(data.get('buoys', [])):
         spec = types[b['type']]
-        x, y = position(b, origin)
+        x, y = position(b, origin, anchor)
         buoys.append((f"buoy_{i:02d}_{b['type']}", b['type'], spec, x, y))
         if spec['shape'] == 'indicator':
             top = spec['height']
@@ -133,22 +151,22 @@ def load(data):
             targets.append(Buoy(x, y, spec['diameter'] / 2.0, spec['height'], cid(spec)))
 
     for i, v in enumerate(data.get('vessels', [])):
-        x, y = position(v, origin)
+        x, y = position(v, origin, anchor)
         model, panels = vessel(f'vessel_{i:02d}_{v["color"]}', v['color'], x, y,
-                               compass_to_yaw(v['heading_deg']), names)
+                               compass_to_yaw(heading(v, anchor)), names)
         models.append(model)
         targets.extend(panels)
 
     for d in data.get('docks', []):
-        x, y = position(d, origin)
-        dock_models, dock_targets = dock(d, x, y, names)
+        x, y = position(d, origin, anchor)
+        dock_models, dock_targets = dock(d, x, y, heading(d, anchor), names)
         models.extend(dock_models)
         targets.extend(dock_targets)
 
     return Course(name=data['name'], origin=origin, magnetic_field=data['magnetic_field'],
                   boat=boat, profile=profile, class_names=names,
-                  mission=data.get('mission', {}), buoys=buoys, models=models,
-                  targets=targets)
+                  mission=data.get('mission', {}), venue=data.get('venue', ''),
+                  buoys=buoys, models=models, targets=targets)
 
 
 def vessel(name, color, x, y, yaw, names):
@@ -192,9 +210,9 @@ def mark_parts(mark, y, zc, white_back):
     return parts
 
 
-def dock(d, x0, y0, names):
+def dock(d, x0, y0, heading_deg, names):
     """A floating dock: spine, four tines making three slips, banners, indicators."""
-    yaw = compass_to_yaw(d['heading_deg'])
+    yaw = compass_to_yaw(heading_deg)
     s = 1 if d.get('tines', 'left') == 'left' else -1
     model = Model(f"dock_{d['name']}", x0, y0, yaw)
     h = DOCK_FREEBOARD

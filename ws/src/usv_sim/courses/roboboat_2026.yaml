@@ -5,7 +5,7 @@
 # The LAYOUT is ASSUMED: the handbook gives a sketch, not coordinates. Distances it does give
 # are kept: channel gates 6-10 ft wide (2.5 m used), Task 3 yellow buoy 40-100 ft past its
 # gate (20 m used), start at least 6 ft before the first Task 1 gate (8 m used), docks
-# 340 in long with 60 in slips. Positions are east/north metres from the origin.
+# 340 in long with 60 in slips. Positions are east/north metres from the anchor below.
 #
 # What a run should find here (for the mission work, phase 6 R3):
 #   Task 1  two pole gates heading north, red on the port (west) side
@@ -21,8 +21,14 @@
 name: roboboat_2026
 classes: roboboat
 
-# VRX nbpark world origin (Nathan Benderson Park, Sarasota, Florida)
+# VRX nbpark world origin (Nathan Benderson Park, Sarasota, Florida). The park's land model
+# stays in the world (venue), so the reported lat/lon are the real park's.
 origin: {lat: 27.367256, lon: -82.451120}
+venue: nbpark
+# Where the course sits in the park: east/north positions below are metres from this point.
+# (-185, 1088) is in the lake, where the VRX RoboBoat tutorial puts its boat. rotation_deg
+# turns the whole layout (counter-clockwise) if it has to be fitted to the shore.
+anchor: {east: -185.0, north: 1088.0, rotation_deg: 0.0}
 
 # Declination -6 deg as the team used in 2026 (legacy notes); inclination and strength are
 # rounded WMM values for Sarasota (ASSUMED)

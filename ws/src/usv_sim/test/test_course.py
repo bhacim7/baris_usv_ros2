@@ -26,6 +26,25 @@ def by_class(course):
     return Counter(course.class_names[t.class_id] for t in course.targets)
 
 
+def roboboat_local():
+    """The RoboBoat course as laid out in the file, before the anchor moves it."""
+    data = read('roboboat_2026')
+    del data['anchor']
+    return course_mod.load(data)
+
+
+def test_anchor_moves_and_turns_the_layout():
+    origin = {'lat': 27.367256, 'lon': -82.451120}
+    anchor = {'east': -185.0, 'north': 1088.0, 'rotation_deg': 90.0}
+    e, n = course_mod.position({'east': 10.0, 'north': 0.0}, origin, anchor)
+    assert (e, n) == (pytest.approx(-185.0), pytest.approx(1098.0))   # east turned to north
+    assert course_mod.heading({'heading_deg': 90.0}, anchor) == 0.0
+    c = course_mod.load(read('roboboat_2026'))
+    assert c.venue == 'nbpark'
+    assert c.boat['east'] == pytest.approx(-185.0 + 2.0)
+    assert c.boat['north'] == pytest.approx(1088.0 - 8.0)
+
+
 def test_golcuk_targets_are_what_fake_perception_built_before():
     data = read('golcuk_2026_10_14')
     c = course_mod.load(data)
@@ -59,7 +78,7 @@ def test_positions_in_metres_or_degrees():
 
 
 def test_dock_banners_face_into_their_slips():
-    c = course_mod.load(read('roboboat_2026'))
+    c = roboboat_local()
     banners = [t for t in c.targets
                if isinstance(t, Panel) and c.class_names[t.class_id].startswith('digit')]
     south = sorted((t for t in banners if t.x < 23.0), key=lambda t: t.y)
@@ -74,7 +93,7 @@ def test_dock_banners_face_into_their_slips():
 
 
 def test_moored_vessel_lies_in_its_slip_bow_to_the_spine():
-    c = course_mod.load(read('roboboat_2026'))
+    c = roboboat_local()
     m = next(m for m in c.models if m.name == 'dock_S_slip1_yellow')
     first_slip_y = -14.0 + course_mod.FIRST_TINE_X + course_mod.CUBE + \
         course_mod.SLIP_WIDTH / 2.0
@@ -96,7 +115,7 @@ def test_vessel_marks_are_on_both_sides():
 
 
 def test_indicator_buoy_target_is_the_cylinder_on_top():
-    c = course_mod.load(read('roboboat_2026'))
+    c = roboboat_local()
     ind = [t for t in c.targets if isinstance(t, Buoy)
            and c.class_names[t.class_id] == 'indicator_green' and t.x == 13.0]
     (t,) = ind
