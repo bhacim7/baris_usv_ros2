@@ -62,7 +62,8 @@ def setup(context):
 
     # The course's mission section on top of navigator.yaml
     with open(course_file) as f:
-        mission = yaml.safe_load(f).get('mission', {})
+        course_data = yaml.safe_load(f)
+    mission = course_data.get('mission', {})
     navigator_overrides = {k: v for k, v in mission.items() if k != 'waypoints'}
     navigator_overrides.update({'waypoints.' + name: [float(x) for x in latlon]
                                 for name, latlon in mission.get('waypoints', {}).items()})
@@ -73,8 +74,13 @@ def setup(context):
     navigator_overrides['start_manual'] = \
         LaunchConfiguration('auto').perform(context).lower() != 'true'
 
+    # The declination perception adds is a per-venue setting on the boat (+6 Istanbul,
+    # -6 Sarasota); here it follows the course, i.e. a correctly set compass.
     # Experiment knobs: a value given on the command line replaces fake_perception.yaml
-    perception_overrides = {'course': course}
+    perception_overrides = {
+        'course': course,
+        'magnetic_declination_deg': float(course_data['magnetic_field']['declination_deg']),
+    }
     for name in PERCEPTION_KNOBS:
         value = LaunchConfiguration(name).perform(context)
         if value:

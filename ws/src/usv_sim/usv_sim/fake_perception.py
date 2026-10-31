@@ -43,7 +43,8 @@ from usv_core.detection import memory_snapshot, process_frame
 from usv_core.heading import HeadingFilter, LEGACY_DECLINATION_DEG, zed_heading
 from usv_core.object_memory import ObjectMemoryManager
 from usv_interfaces.msg import Buoy as BuoyMsg, BuoyArray
-from usv_sim.camera import Buoy, CameraModel, Frame, Settings
+from usv_sim import course as course_mod
+from usv_sim.camera import CameraModel, Frame, Settings
 from usv_sim.geo import enu
 from usv_sim.sensors import make_rng, roll_pitch_from_quaternion
 from usv_sim.zed import body_field, FrameClock, magnetic_heading_deg, rotate, world_field_enu
@@ -59,8 +60,8 @@ class FakePerception(Node):
         course_path = os.path.join(get_package_share_directory('usv_sim'), 'courses',
                                    course_name + '.yaml')
         with open(course_path) as f:
-            self.course = yaml.safe_load(f)
-        mf = self.course['magnetic_field']
+            self.course = course_mod.load(yaml.safe_load(f))
+        mf = self.course.magnetic_field
         self.field_enu = world_field_enu(mf['declination_deg'], mf['inclination_deg'],
                                          mf['strength_uT'])
         self.declination = p('magnetic_declination_deg', LEGACY_DECLINATION_DEG).value
@@ -92,16 +93,15 @@ class FakePerception(Node):
             occlusion_fraction=p('occlusion_fraction', 0.6).value,
             depth_error_coeff=p('depth_error_coeff', 0.0033).value,
             depth_pixel_noise=p('depth_pixel_noise', 0.005).value,
-            depth_nan_prob=p('depth_nan_prob', 0.10).value)
+            depth_nan_prob=p('depth_nan_prob', 0.10).value,
+            class_ids=self.course.class_ids())
         self.antenna_mount = tuple(p('gnss_antenna_mount_m', [-0.60, 0.0, 0.75]).value)
-        self.origin = self.course['origin']
-        types = self.course['buoy_types']
-        self.buoys = []
-        for b in self.course['buoys']:
-            spec = types[b['type']]
-            x, y = enu(b['lat'], b['lon'], self.origin['lat'], self.origin['lon'])
-            self.buoys.append(Buoy(x, y, spec['diameter'] / 2.0, spec['height'],
-                                   spec['class_id']))
+        self.origin = self.course.origin
+        # Everything the camera can report: buoys, indicators, vessel marks, slip banners
+        self.buoys = self.course.targets
+        # The legacy detection + object memory (/usv/buoys) speaks TEKNOFEST class ids;
+        # RoboBoat detections get their own path (/usv/detections, phase 6 R1.4)
+        self.legacy_buoys = self.course.profile == 'teknofest'
         self.memory = ObjectMemoryManager()
 
         self.orientation = None       # (x, y, z, w) body -> ENU, exact
@@ -124,7 +124,8 @@ class FakePerception(Node):
         self.create_timer(0.2, self.publish_attitude)
         self.create_timer(1.0, self.publish_fps)
         self.get_logger().info(
-            f'fake_perception ready: course {course_name} ({len(self.buoys)} buoys), site '
+            f'fake_perception ready: course {course_name} ({self.course.profile}, '
+            f'{len(self.buoys)} camera targets), site '
             f'declination {mf["declination_deg"]:+.1f} deg; perception adds '
             f'{self.declination:+.1f} deg, compass offset {self.compass_offset:+.1f} deg, '
             f'hard iron {hard_iron_uT} uT')
@@ -169,6 +170,8 @@ class FakePerception(Node):
         lever = rotate(self.orientation, self.antenna_mount)
         boat = tuple(a - l for a, l in zip(self.antenna_enu, lever))
         frame = Frame(self.buoys, boat, self.orientation, self.cam, self.settings, self.rng)
+        if not self.legacy_buoys:
+            return          # RoboBoat: boxes go to /usv/detections from R1.4 on
         now = self.get_clock().now()
         lat, lon = self.fix if self.fix is not None else (0, 0)
         process_frame(frame.boxes(), frame.depth_at, self.cam.width, self.cam.height,

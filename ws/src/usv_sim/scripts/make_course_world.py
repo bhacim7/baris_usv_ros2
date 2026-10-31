@@ -12,7 +12,9 @@ physics, sensors, water, waves and our boat), with these changes:
     uses a coarse built-in table; fake_perception computes the ZED 2i magnetometer from
     the course's magnetic_field instead (see usv_sim/zed.py)
   * the boat starts at the course's start pose
-  * one static model per buoy, shaped from the course's buoy_types
+  * one static model per buoy, shaped from the course's buoy_types (sphere, pear,
+    cylinder, pole, indicator); one per vessel and dock (RoboBoat), geometry from
+    usv_sim/course.py, which fake_perception also uses
 
 Gazebo's world frame is ENU here: x east, y north, z up.
 
@@ -29,6 +31,7 @@ import yaml
 
 # usv_sim.geo from the source tree, so the script also runs before a build
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+from usv_sim import course as course_mod  # noqa: E402
 from usv_sim.geo import enu as geo_enu  # noqa: E402
 
 BASE_WORLD = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'worlds',
@@ -70,10 +73,35 @@ def buoy_model(name, kind, spec, x, y):
     link = sub(model, 'link', name='link')
     r = spec['diameter'] / 2.0
     h = spec['height']
-    rgb = COLOURS.get(kind, (0.5, 0.5, 0.5))
+    rgb = COLOURS.get(kind) or course_mod.RGB.get(spec.get('color'), (0.5, 0.5, 0.5))
 
     body = sub(link, 'visual', name='body')
-    if spec['shape'] == 'sphere':
+    if spec['shape'] == 'indicator':
+        # RoboBoat color indicator: white float frame, coloured cylinder on top
+        base_h = h - course_mod.INDICATOR_HEIGHT
+        sub(body, 'pose', f'0 0 {(base_h - 0.10) / 2:.3f} 0 0 0')
+        sub(sub(sub(body, 'geometry'), 'box'), 'size',
+            f'{2 * r:.3f} {2 * r:.3f} {base_h + 0.10:.3f}')
+        material(body, course_mod.RGB['white'])
+        body = sub(link, 'visual', name='indicator')
+        sub(body, 'pose', f'0 0 {h - course_mod.INDICATOR_HEIGHT / 2:.3f} 0 0 0')
+        cyl = sub(sub(body, 'geometry'), 'cylinder')
+        sub(cyl, 'radius', f'{course_mod.INDICATOR_RADIUS:.4f}')
+        sub(cyl, 'length', f'{course_mod.INDICATOR_HEIGHT:.3f}')
+    elif spec['shape'] == 'pole':
+        # RoboBoat Task 1 marker (Taylor Made Sur-Mark): tall can, narrower top third
+        low = 2.0 * h / 3.0
+        sub(body, 'pose', f'0 0 {(low - SUBMERGED_M) / 2:.3f} 0 0 0')
+        cyl = sub(sub(body, 'geometry'), 'cylinder')
+        sub(cyl, 'radius', f'{r:.3f}')
+        sub(cyl, 'length', f'{low + SUBMERGED_M:.3f}')
+        material(body, rgb)
+        body = sub(link, 'visual', name='top')
+        sub(body, 'pose', f'0 0 {(low + h) / 2:.3f} 0 0 0')
+        cyl = sub(sub(body, 'geometry'), 'cylinder')
+        sub(cyl, 'radius', f'{0.6 * r:.3f}')
+        sub(cyl, 'length', f'{h - low:.3f}')
+    elif spec['shape'] == 'sphere':
         # Top of the ball at h; the rest under water
         sub(body, 'pose', f'0 0 {h - r:.3f} 0 0 0')
         sub(sub(sub(body, 'geometry'), 'sphere'), 'radius', f'{r:.3f}')
@@ -118,19 +146,49 @@ def buoy_model(name, kind, spec, x, y):
     return model
 
 
+def geometry(parent, part):
+    g = sub(parent, 'geometry')
+    if part.shape == 'box':
+        sub(sub(g, 'box'), 'size', ' '.join(f'{v:.3f}' for v in part.size))
+    elif part.shape == 'cylinder':
+        cyl = sub(g, 'cylinder')
+        sub(cyl, 'radius', f'{part.size[0]:.4f}')
+        sub(cyl, 'length', f'{part.size[1]:.3f}')
+    else:
+        sub(sub(g, 'sphere'), 'radius', f'{part.size[0]:.3f}')
+
+
+def course_model(m):
+    """A vessel or dock from usv_sim.course: static, one link, one visual per part."""
+    model = ET.Element('model', name=m.name)
+    sub(model, 'static', 'true')
+    sub(model, 'pose', f'{m.x:.3f} {m.y:.3f} 0 0 0 {m.yaw:.4f}')
+    link = sub(model, 'link', name='link')
+    for k, part in enumerate(m.parts):
+        pose = f'{part.pose[0]:.3f} {part.pose[1]:.3f} {part.pose[2]:.3f} 0 0 {part.pose[3]:.4f}'
+        vis = sub(link, 'visual', name=f'v{k}')
+        sub(vis, 'pose', pose)
+        geometry(vis, part)
+        material(vis, part.rgb)
+        if part.collide:
+            col = sub(link, 'collision', name=f'c{k}')
+            sub(col, 'pose', pose)
+            geometry(col, part)
+    return model
+
+
 def main():
     if len(sys.argv) != 3:
         sys.exit(__doc__)
     with open(sys.argv[1]) as f:
-        course = yaml.safe_load(f)
-    origin = course['origin']
+        course = course_mod.load(yaml.safe_load(f))
+    origin = course.origin
 
     tree = ET.parse(BASE_WORLD)
     world = tree.getroot().find('world')
 
-    boat = course['boat']
-    bx, by = enu(boat['lat'], boat['lon'], origin)
-    yaw = math.radians(90.0 - boat['heading_deg'])              # compass -> ENU yaw
+    bx, by = course.boat['east'], course.boat['north']
+    yaw = math.radians(90.0 - course.boat['heading_deg'])       # compass -> ENU yaw
     for inc in list(world.findall('include')):
         uri = inc.findtext('uri', '')
         if 'nathan_benderson_park' in uri:
@@ -151,18 +209,18 @@ def main():
     sc.find('latitude_deg').text = f"{origin['lat']:.7f}"
     sc.find('longitude_deg').text = f"{origin['lon']:.7f}"
 
-    types = course['buoy_types']
-    for i, b in enumerate(course['buoys']):
-        x, y = enu(b['lat'], b['lon'], origin)
-        world.append(buoy_model(f"buoy_{i:02d}_{b['type']}", b['type'], types[b['type']], x, y))
+    for name, kind, spec, x, y in course.buoys:
+        world.append(buoy_model(name, kind, spec, x, y))
+    for m in course.models:
+        world.append(course_model(m))
 
     ET.indent(tree, space='  ')
     header = (f"<?xml version=\"1.0\"?>\n<!-- GENERATED by scripts/make_course_world.py from "
               f"{os.path.basename(sys.argv[1])}. Edit the course file, not this one. -->\n")
     with open(sys.argv[2], 'w') as f:
         f.write(header + ET.tostring(tree.getroot(), encoding='unicode') + '\n')
-    print(f"{sys.argv[2]}: {len(course['buoys'])} buoys, origin {origin['lat']}, "
-          f"{origin['lon']}")
+    print(f"{sys.argv[2]}: {len(course.buoys)} buoys, {len(course.models)} vessels/docks, "
+          f"{len(course.targets)} camera targets, origin {origin['lat']}, {origin['lon']}")
 
 
 if __name__ == '__main__':

@@ -9,7 +9,7 @@ import pytest
 
 from usv_core.detection import (
     bearing_deg, depth_sample_pixel, distance_is_valid, median_depth)
-from usv_sim.camera import Buoy, CameraModel, Frame, Settings
+from usv_sim.camera import Buoy, CameraModel, Frame, Panel, Settings
 from usv_sim.sensors import make_rng
 
 CAM = CameraModel()
@@ -99,3 +99,35 @@ def test_depth_error_grows_with_distance():
 
     assert spread(3.0) < 0.05
     assert spread(14.0) == pytest.approx(0.0033 * (14.0 - 0.29 - 0.225) ** 2, rel=0.2)
+
+
+# ---------------------------------------------------------------- RoboBoat targets
+def test_panel_is_seen_from_its_front_only():
+    # A 0.6 m banner 6 m north of the boat; normal_deg 270 = facing south, at the boat
+    facing = frame([Panel(0.0, 6.0, 0.3, 0.9, 0.6, 270.0, 4)])
+    ((x1, y1, x2, y2, cid),) = facing.boxes()
+    assert cid == 4
+    assert (x2 - x1) == pytest.approx(CAM.fx * 0.6 / (6.0 - 0.29), rel=0.05)
+    assert frame([Panel(0.0, 6.0, 0.3, 0.9, 0.6, 90.0, 4)]).boxes() == []    # its back
+
+
+def test_panel_edge_on_is_not_seen():
+    # Facing east while the boat is due south of it: 90 deg off the face
+    assert frame([Panel(0.0, 6.0, 0.3, 0.9, 0.6, 0.0, 4)]).boxes() == []
+    # 60 deg off the face is still within the default 75 deg
+    assert len(frame([Panel(0.0, 6.0, 0.3, 0.9, 0.6, 270.0 - 60.0, 4)]).boxes()) == 1
+
+
+def test_indicator_box_starts_at_its_base_height():
+    low = frame([Buoy(0.0, 5.0, 0.0635, 0.30, 8)]).boxes()[0]
+    high = frame([Buoy(0.0, 5.0, 0.0635, 0.30, 8, z0=0.17)]).boxes()[0]
+    assert high[3] < low[3]                    # bottom edge higher in the image
+    assert high[1] == pytest.approx(low[1])    # same top
+
+
+def test_confused_class_comes_from_the_profile_list():
+    settings = Settings(detect_prob=1.0, full_detection_px=1.0, box_jitter_px=0.0,
+                        class_confusion=1.0, class_ids=tuple(range(13)))
+    seen = {frame([Buoy(0.0, 6.0, 0.1, 0.15, 0)], settings=settings, seed=s).boxes()[0][4]
+            for s in range(200)}
+    assert 0 not in seen and seen <= set(range(1, 13)) and max(seen) > 4

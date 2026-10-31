@@ -10,8 +10,10 @@ z up); the camera looks along body x, so pixel u grows to the right (-y) and v d
 
 What is modelled, all numbers in config/fake_perception.yaml:
   * pinhole HD720 camera at the left lens of the ZED (it reports the left image)
-  * buoys as upright cylinders from the water line to their height; a box is the
-    projection of their outline, clipped to the image
+  * buoys as upright cylinders from the water line (or a base height z0) to their height;
+    a box is the projection of their outline, clipped to the image
+  * panels (vessel marks, slip number banners): flat vertical rectangles, seen only from
+    their front side and not beyond max_view_deg off their face normal
   * not seen: behind the camera, beyond max range, too few pixels, mostly hidden behind a
     nearer buoy, or missed by YOLO (more often when small)
   * YOLO box edges jitter; now and then the class is wrong
@@ -25,7 +27,7 @@ from dataclasses import dataclass
 
 from usv_sim.zed import rotate
 
-CLASS_IDS = (0, 1, 2, 3, 4)
+CLASS_IDS = (0, 1, 2, 3, 4)       # TEKNOFEST; Settings.class_ids for other profiles
 
 
 @dataclass
@@ -33,8 +35,21 @@ class Buoy:
     x: float              # ENU, m
     y: float
     radius: float
-    height: float         # above the water
+    height: float         # top, above the water
     class_id: int
+    z0: float = 0.0       # bottom of what YOLO boxes (an indicator sits on its buoy)
+
+
+@dataclass
+class Panel:
+    x: float              # centre, ENU, m
+    y: float
+    z0: float             # bottom and top above the water
+    z1: float
+    width: float
+    normal_deg: float     # ENU direction the printed face looks to (0 = east, 90 = north)
+    class_id: int
+    max_view_deg: float = 75.0
 
 
 @dataclass
@@ -88,7 +103,7 @@ def buoy_view(buoy, cam_pos, q, cam, ring=12):
         a = 2.0 * math.pi * k / ring
         px = buoy.x + buoy.radius * math.cos(a)
         py = buoy.y + buoy.radius * math.sin(a)
-        for z in (0.0, buoy.height):
+        for z in (buoy.z0, buoy.height):
             p_cam = to_camera((px, py, z), cam_pos, q)
             uv = project(p_cam, cam)
             if uv is None:
@@ -97,6 +112,37 @@ def buoy_view(buoy, cam_pos, q, cam, ring=12):
             vs.append(uv[1])
             depths.append(p_cam[0])
     return (min(us), min(vs), max(us), max(vs)), min(depths)
+
+
+def panel_view(panel, cam_pos, q, cam):
+    """(box, front_depth) of a panel facing the camera; None if behind, edge-on or back."""
+    n = math.radians(panel.normal_deg)
+    nx, ny = math.cos(n), math.sin(n)
+    to_cam = (cam_pos[0] - panel.x, cam_pos[1] - panel.y)
+    dist = math.hypot(*to_cam)
+    if dist < 1e-6:
+        return None
+    if (to_cam[0] * nx + to_cam[1] * ny) / dist < math.cos(math.radians(panel.max_view_deg)):
+        return None
+    half = panel.width / 2.0
+    us, vs, depths = [], [], []
+    for s in (-half, half):
+        px, py = panel.x - s * ny, panel.y + s * nx      # along the panel, across the normal
+        for z in (panel.z0, panel.z1):
+            p_cam = to_camera((px, py, z), cam_pos, q)
+            uv = project(p_cam, cam)
+            if uv is None:
+                return None
+            us.append(uv[0])
+            vs.append(uv[1])
+            depths.append(p_cam[0])
+    return (min(us), min(vs), max(us), max(vs)), min(depths)
+
+
+def target_view(target, cam_pos, q, cam):
+    if isinstance(target, Panel):
+        return panel_view(target, cam_pos, q, cam)
+    return buoy_view(target, cam_pos, q, cam)
 
 
 def clip_box(box, cam):
@@ -124,12 +170,14 @@ class Settings:
     depth_error_coeff: float = 0.0033     # sigma = coeff * depth^2 per buoy per frame
     depth_pixel_noise: float = 0.005      # sigma = this * depth per pixel
     depth_nan_prob: float = 0.10
+    class_ids: tuple = CLASS_IDS          # what a confused YOLO may report instead
 
 
 class Frame:
     """One simulated camera frame: YOLO boxes plus a depth image to sample."""
 
     def __init__(self, buoys, boat_pos, q, cam, settings, rng):
+        """buoys: the course's camera targets, Buoy and Panel objects."""
         self.cam, self.settings, self.rng = cam, settings, rng
         self.q = q
         self.cam_pos = camera_position(boat_pos, q, cam)
@@ -138,7 +186,7 @@ class Frame:
         for b in buoys:
             if math.hypot(b.x - self.cam_pos[0], b.y - self.cam_pos[1]) > settings.max_range_m:
                 continue
-            view = buoy_view(b, self.cam_pos, q, cam)
+            view = target_view(b, self.cam_pos, q, cam)
             if view is None:
                 continue
             box, depth = view
@@ -170,7 +218,7 @@ class Frame:
             if box[2] <= box[0] or box[3] <= box[1]:
                 continue
             if rng.random() < s.class_confusion:
-                cid = rng.choice([c for c in CLASS_IDS if c != cid])
+                cid = rng.choice([c for c in s.class_ids if c != cid])
             out.append((*box, cid))
         return out
 

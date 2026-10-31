@@ -32,6 +32,7 @@ from ament_index_python.packages import get_package_share_directory
 from rclpy.serialization import deserialize_message
 import rosbag2_py
 from rosidl_runtime_py.utilities import get_message
+from usv_sim import course as course_mod
 from usv_sim.geo import enu
 from usv_sim.sensors import yaw_from_quaternion
 import yaml
@@ -63,15 +64,11 @@ def read_bag(path):
 def load_course(name):
     path = os.path.join(get_package_share_directory('usv_sim'), 'courses', name + '.yaml')
     with open(path) as f:
-        course = yaml.safe_load(f)
-    o = course['origin']
-    buoys = []
-    for i, b in enumerate(course['buoys']):
-        spec = course['buoy_types'][b['type']]
-        e, n = enu(b['lat'], b['lon'], o['lat'], o['lon'])
-        buoys.append({'index': i, 'type': b['type'], 'east': e, 'north': n,
-                      'radius': spec['diameter'] / 2.0})
-    return course, buoys
+        course = course_mod.load(yaml.safe_load(f))
+    buoys = [{'index': i, 'type': kind, 'east': e, 'north': n,
+              'radius': spec['diameter'] / 2.0}
+             for i, (_, kind, spec, e, n) in enumerate(course.buoys)]
+    return {'origin': course.origin}, buoys
 
 
 # ---------------------------------------------------------------- ground truth

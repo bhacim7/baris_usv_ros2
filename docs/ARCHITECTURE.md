@@ -363,9 +363,30 @@ Next: phase 6.
 
 Remaining phases:
 
+Reordered on 2026-11-01: the boat cannot go in the water for a while, so the RoboBoat
+adaptation comes first, in simulation; the boat phases follow and then run alongside it.
+
 | Phase | Work | Done when |
 |---|---|---|
-| 5 | `navigator` (mixer, controller, mission) | Tasks 1, 2, 3 completed in simulation |
-| 6 | Boat image (arm64), `fc_bridge`, `perception`, `heading_source`, `telemetry_bridge`, `recorder` | Sensors flowing on land and at the pier; GCS connects unchanged |
-| 7 | Sea trials | ROS 2 version completes the same course as the legacy system |
-| 8 | RoboBoat adaptation | Defined from the RoboBoat rules |
+| 5 | `navigator` (mixer, controller, mission) | Done: Tasks 1, 2, 3 completed in simulation |
+| 6 | RoboBoat in simulation (section 16): course and 13-class perception (R1), persistent map from power-on (R1), competition profile in the navigator (R2), Tasks 1, 2, 3, 6, 5 (R3), RoboCommand reporting (R4), fix-after-parity items measured in simulation (R5) | Qualifying criteria met in simulation: core of two tasks, advanced of two, two in sequence, heartbeat |
+| 7 | Boat image (arm64, Thor), `fc_bridge`, `perception`, `heading_source`, `telemetry_bridge`, `recorder`, audio | Sensors flowing on land and at the pier; GCS connects unchanged |
+| 8 | Sea trials, then alongside the simulation | The ROS 2 version completes RoboBoat tasks on the water |
+
+## 16. RoboBoat decisions (2026-11-01)
+
+Source: RoboBoat 2026 Team Handbook (February 2026, Nathan Benderson Park). The 2027 handbook
+is expected around November 2026; differences are adapted when it appears.
+
+| Decision | Why |
+|---|---|
+| No waypoints dropped by eye from the GCS | In 2026 they cost time and some were wrong (even outside the course). Tasks are found from the map |
+| GPS is used for: placing every detection on the map (fix + heading + ZED range + pixel bearing), the boat's own position, the lat/lon the reports require, and remembering places (entry gate for the exit, Task 3 yellow buoy and marina for Task 6) | Everything the GPS can do well without operator input |
+| Mapping starts at power-on, also in MANUAL | Courses are laid out in any orientation; driving by hand to the Task 1 start already maps what the boat sees |
+| The vehicle receives no control information in autonomous mode (handbook 5.3.1) | The whole run is decided on board; the GCS only listens |
+| Class names in English, the dataset renamed to match | Naming principle (section 2) |
+| Task 4 (water and ball) stays on its own Orin Nano for now | Not part of this system yet; may move to the Thor later |
+| Docking with the camera only; a 3D LiDAR may come later; the legacy 2D RPLidar is never used | Hardware decision |
+| The boat is the four-thruster Thor boat of this port | Same model as in simulation |
+| Task order: 1, 2, 3, 6, 5, 4 | Task 1 is mandatory; Task 2 is closest to TEKNOFEST Task 2 and scores most |
+| Microphone for Task 6 exists (worked in 2026 with an FFT); ported as a node in phase 7, a simulated sound event until then | |

@@ -1,0 +1,109 @@
+# RoboBoat 2026 course at Nathan Benderson Park, built from the Team Handbook (2026),
+# section 3.2 task descriptions and the "Preliminary task layout" (section 3.4).
+#
+# Element sizes are the handbook's (buoy models, docks, vessels; see usv_sim/course.py).
+# The LAYOUT is ASSUMED: the handbook gives a sketch, not coordinates. Distances it does give
+# are kept: channel gates 6-10 ft wide (2.5 m used), Task 3 yellow buoy 40-100 ft past its
+# gate (20 m used), start at least 6 ft before the first Task 1 gate (8 m used), docks
+# 340 in long with 60 in slips. Positions are east/north metres from the origin.
+#
+# What a run should find here (for the mission work, phase 6 R3):
+#   Task 1  two pole gates heading north, red on the port (west) side
+#   Task 2  four channel gates north of Task 1, debris field beyond: five black buoys,
+#           one GREEN indicator (circle it) and one RED indicator (avoid it), a black vessel
+#   Task 3  gate on the east side, entered heading east; indicator RED -> circle the yellow
+#           buoy counter-clockwise (from the right)
+#   Task 5  docks S (tines east) and N (tines west), slips numbered from the south end;
+#           green: S slip 2 and N slip 1 -> the right answer is N slip 1
+#   Task 6  zones: the Task 3 yellow buoy, and the yellow buoy north of the marina
+#   Task 4  yellow vessels (triangle) and black vessels (plus) around the course
+
+name: roboboat_2026
+classes: roboboat
+
+# VRX nbpark world origin (Nathan Benderson Park, Sarasota, Florida)
+origin: {lat: 27.367256, lon: -82.451120}
+
+# Declination -6 deg as the team used in 2026 (legacy notes); inclination and strength are
+# rounded WMM values for Sarasota (ASSUMED)
+magnetic_field: {declination_deg: -6.0, inclination_deg: 55.5, strength_uT: 45.5}
+
+boat: {east: 2.0, north: -8.0, heading_deg: 0.0}
+
+buoy_types:
+  # Task 1: Taylor Made Sur-Mark, 18 in wide, 39 in above the water
+  pole_red:        {class: pole_red,        shape: pole,      diameter: 0.457, height: 0.99,  color: red}
+  pole_green:      {class: pole_green,      shape: pole,      diameter: 0.457, height: 0.99,  color: green}
+  # Task 2: Polyform A-0, 20.3 cm, 0.5 ft above the water
+  a0_red:          {class: buoy_red,        shape: sphere,    diameter: 0.203, height: 0.152, color: red}
+  a0_green:        {class: buoy_green,      shape: sphere,    diameter: 0.203, height: 0.152, color: green}
+  a0_black:        {class: buoy_black,      shape: sphere,    diameter: 0.203, height: 0.152, color: black}
+  # Task 3 and zones: Polyform A-2, 36.8 cm, 1 ft above the water
+  a2_red:          {class: buoy_red,        shape: sphere,    diameter: 0.368, height: 0.305, color: red}
+  a2_green:        {class: buoy_green,      shape: sphere,    diameter: 0.368, height: 0.305, color: green}
+  a2_black:        {class: buoy_black,      shape: sphere,    diameter: 0.368, height: 0.305, color: black}
+  a2_yellow:       {class: buoy_yellow,     shape: sphere,    diameter: 0.368, height: 0.305, color: yellow}
+  # Color indicator: cylinder on an 18 in float frame, 1 ft above the water
+  indicator_red:   {class: indicator_red,   shape: indicator, diameter: 0.457, height: 0.305, color: red}
+  indicator_green: {class: indicator_green, shape: indicator, diameter: 0.457, height: 0.305, color: green}
+
+buoys:
+  # --- Task 1: entry/exit gates (gate width 4 m ASSUMED) ---
+  - {type: pole_red,   east: 0.0, north: 0.0}
+  - {type: pole_green, east: 4.0, north: 0.0}
+  - {type: pole_red,   east: 0.0, north: 6.0}
+  - {type: pole_green, east: 4.0, north: 6.0}
+  # --- Task 2: navigation channel, red on the port side going in ---
+  - {type: a0_red,     east: 0.8, north: 12.0}
+  - {type: a0_green,   east: 3.3, north: 12.0}
+  - {type: a0_red,     east: 1.4, north: 18.0}
+  - {type: a0_green,   east: 3.9, north: 18.0}
+  - {type: a0_red,     east: 2.0, north: 24.0}
+  - {type: a0_green,   east: 4.5, north: 24.0}
+  - {type: a0_black,   east: 2.6, north: 24.2}     # inside the gate, beside the red
+  - {type: a0_red,     east: 3.0, north: 30.0}
+  - {type: a0_green,   east: 5.5, north: 30.0}
+  - {type: a0_black,   east: 3.6, north: 30.3}
+  # --- Task 2: debris field ---
+  - {type: a0_black,   east: 6.0,  north: 36.0}
+  - {type: a0_black,   east: 11.0, north: 38.0}
+  - {type: a0_black,   east: 15.0, north: 43.0}
+  - {type: a0_black,   east: 19.0, north: 46.0}
+  - {type: a0_black,   east: 8.0,  north: 45.0}
+  - {type: indicator_green, east: 13.0, north: 40.0}   # survivor: circle 360 and report
+  - {type: indicator_red,   east: 17.0, north: 49.0}   # hazard: avoid and report
+  # --- Task 3: speed challenge, entered heading east ---
+  - {type: a2_red,     east: 28.0, north: 28.25}
+  - {type: a2_green,   east: 28.0, north: 25.75}
+  - {type: indicator_red, east: 36.0, north: 27.0}     # red -> circle counter-clockwise
+  - {type: a2_yellow,  east: 48.0, north: 27.0}
+  - {type: a2_black,   east: 45.0, north: 24.5}
+  - {type: a2_black,   east: 40.0, north: 22.0}
+  # --- Task 6: marina zone ---
+  - {type: a2_yellow,  east: 23.0, north: -2.0}
+
+vessels:
+  - {color: black,  east: 5.0,  north: 47.0, heading_deg: 30.0}   # in the debris field
+  - {color: yellow, east: 42.0, north: 20.0, heading_deg: 40.0}   # near Task 3
+  - {color: yellow, east: 52.0, north: 8.0,  heading_deg: 200.0}
+  - {color: black,  east: 36.0, north: 6.0,  heading_deg: 120.0}
+
+docks:
+  - name: S
+    east: 16.0
+    north: -14.0
+    heading_deg: 0.0          # spine runs north from here
+    tines: right              # slips open to the east
+    slips:
+      - {indicator: red, vessel: yellow}
+      - {indicator: green}
+      - {indicator: red}
+  - name: N
+    east: 30.0
+    north: -14.0
+    heading_deg: 0.0
+    tines: left               # slips open to the west
+    slips:
+      - {indicator: green}
+      - {indicator: red}
+      - {indicator: red, vessel: black}
