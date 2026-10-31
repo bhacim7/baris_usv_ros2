@@ -1,6 +1,6 @@
 # Bekleyenler
 
-Bir şey tamamlandıkça buradan sil ya da üstünü çiz. Son güncelleme: 22 Ekim 2026.
+Bir şey tamamlandıkça buradan sil ya da üstünü çiz. Son güncelleme: 31 Ekim 2026 (Faz 6, R1.6 sonrası).
 
 ---
 
@@ -8,18 +8,20 @@ Bir şey tamamlandıkça buradan sil ya da üstünü çiz. Son güncelleme: 22 E
 
 | # | Ne | Neden | Nereye | Ne zaman |
 |---|---|---|---|---|
-| 1 | Eski sistemin bir koşusundan **telemetri CSV'si** (`arac_telemetri_YYYYMMDD_HHMMSS.csv`). En iyisi Parkur 1'de uzun düz gidişi olan bir koşu | İleri yön su direnci (`xU`, `xUU`) 14 Ekim videosundan ayarlandı (1680 PWM'de ≈1,28 m/s). CSV ile iki şey doğrulanacak: (a) bu hız, başka yönlerde de (rüzgâr etkisi); (b) HUD'daki HIZ değerinin (VFR_HUD groundspeed) GPS konumuna göre neden yarı yarıya düşük okuduğu | `~/usv_ros2/docs/data/`. Git'e eklenip eklenmeyeceğine sen karar ver | Bulabildiğinde; işi bekletmiyor |
-| 2 | ~~**STL dosyası**~~ **Tamam (26 Ekim):** `ROBO27_MAIN_BODY_SIM.STL`'den (yapım öncesi hâl) yalnızca iki gövde alındı. Açık soru: STL'de gövde merkezleri arası 0,60 m, çizimde 0,52 m; modelde 0,52 kullanılıyor. Gerçek teknede ölçüp söyle | | | |
-| 3 | ~~İtici bataryası~~ **Cevaplandı:** her iticiye bir 7S. Modelde 91 N (8 kgf @24 V, 7S'e ölçeklendi). Not: üretici Utras'ı 3S–6S için veriyor | | | |
-| 4 | **Dümen servosunun** gerçek açı aralığı (servo: 2× MG995, hız datasheet'ten) | Şu an ±45° (1100 = 45° sol, 1900 = 45° sağ) kabul edildi. **5.6'dan sonra önemli:** simülasyon teknesi virajlarda videodakinden çok yavaşlıyor; düz giderken hız doğru (1,33 m/s). En olası sebep bu açı (ve tahmini yanal sürtünme) | Bana yaz | Teknede ölçebildiğinde |
-| 4d | **ZED pusulasının teknede doğruluğu**: tekneyi bilinen yönlere (ör. iskele boyunca, 4 yön) çevirip HUD'daki yönü telefon pusulası / harita ile karşılaştır | 5.6 deneyinde 8° pusula hatası tek başına bir sarıya teması getirdi (şamandıralar pusulayla konumlanıyor: 10 m'de 8° ≈ 1,4 m yana kayma). Videoda 4–8° hata tahmin etmiştik | Değerleri bana yaz | Faz 6 / ilk iskele testi |
-| 4c | **ArduPilot parametre dosyası** (Mission Planner → Config → Full Parameter List → Save, `.param`) | GPS hızı, akış hızları, servo kanalları, röle başlangıç durumu, pusula ayarları; `sim_bridge` değerleri şimdilik koddan ve varsayımdan | Bana gönder | Bulabildiğinde |
-| 4b | ~~**Video** (14 Ekim, eski kodla hareket)~~ **Tamam:** 2123 karenin hepsi okundu (23 Ekim). İleri hız modele işlendi, dönüş hızı modelle uyumlu | | | |
-| 1b | **14 Ekim koşusunun dosyaları** (bulunamadı, silinmiş olabilir): `final_costmap.npz`, `kayit_20261014_*.mp4` (tam çözünürlük), `arac_telemetri_20261014_*.csv`. Başka koşularınki de olur | Gölcük parkuru şu an videodan TAHMİNİ (±2 m). `.npz` gerçek şamandıra konumlarını, CSV pusula hatasını verir | `~/usv_ros2/ws/bags/legacy_runs/` | Bulunursa |
-| 5 | Elinizde varsa ZED'in ham kayıtları (**`.svo`**) | `perception` node'unu tekneye çıkmadan, gerçek görüntü ve derinlikle geliştirmek için | Bana sor, yeri birlikte belirleriz | Faz 6'dan önce, isteğe bağlı |
-| 6 | YOLO modelinin **`.pt`** dosyası | Thor'da `.engine`'e yeniden dönüştürülecek (eski `.engine` yeni donanımda çalışmaz). Depoya konmayacak | `~/usv_models/` (depo dışında) | Faz 6 |
-| 7 | **RoboBoat kural belgesi** | Uyarlama aşamasında görevler ve raporlama buna göre tasarlanacak | Bana gönder | Faz 8 |
-| 8 | Parkur 3'te ceza alan noktaların hangileri olduğu | Arama mantığının girdileri | Sahada güncellenecek | Saha testleri |
+| 1 | Eski sistemin bir koşusundan **telemetri CSV'si** (`arac_telemetri_YYYYMMDD_HHMMSS.csv`). En iyisi uzun düz gidişi olan bir koşu | İleri yön su direnci 14 Ekim videosundan ayarlandı (1680 PWM'de ≈1,28 m/s). CSV ile iki şey doğrulanacak: (a) bu hız başka yönlerde de geçerli mi (rüzgâr); (b) HUD'daki HIZ değeri (VFR_HUD) neden GPS'e göre yarı yarıya düşük | `~/usv_ros2/docs/data/` | Bulabildiğinde; işi bekletmiyor |
+| 1b | **14 Ekim koşusunun dosyaları** (bulunamadı, silinmiş olabilir): `final_costmap.npz`, `kayit_20261014_*.mp4` (tam çözünürlük), `arac_telemetri_20261014_*.csv`. Başka koşularınki de olur | Gölcük parkuru videodan TAHMİNİ (±2 m). `.npz` gerçek şamandıra konumlarını, CSV pusula hatasını verir | `~/usv_ros2/ws/bags/legacy_runs/` | Bulunursa |
+| 2 | ~~STL dosyası~~ **Tamam (26 Ekim).** Açık soru: STL'de gövde merkezleri arası 0,60 m, çizimde 0,52 m; modelde 0,52 kullanılıyor. Gerçek teknede ölçüp söyle | | | |
+| 3 | ~~İtici bataryası~~ **Cevaplandı:** her iticiye bir 7S | | | |
+| 4 | **Dümen servosunun** gerçek açı aralığı (2× MG995) | Şu an ±45° kabul edildi. Simülasyon teknesi virajlarda videodakinden çok yavaşlıyor; düz giderken hız doğru (1,33 m/s). En olası sebep bu açı (ve tahmini yanal sürtünme) | Bana yaz | Teknede ölçebildiğinde |
+| 4b | ~~Video (14 Ekim)~~ **Tamam (23 Ekim)** | | | |
+| 4c | **ArduPilot parametre dosyası** (Mission Planner → Config → Full Parameter List → Save, `.param`) | GPS hızı (`GPS_RATE_MS`; şu an videodan 2 Hz kabul ediliyor), akış hızları, servo kanalları, röle başlangıç durumu, pusula ayarları | Bana gönder | Bulabildiğinde |
+| 4d | **ZED pusulasının teknede doğruluğu**: tekneyi bilinen yönlere (ör. iskele boyunca, 4 yön) çevirip HUD'daki yönü telefon pusulası / harita ile karşılaştır | Şamandıralar pusulayla konumlanıyor: 10 m'de 8° ≈ 1,4 m yana kayma. Faz 5.6'da 8° hata tek başına bir temas getirdi | Değerleri bana yaz | İlk iskele testi |
+| 4e | **GPS anteni ile ZED sol merceği arası mesafe** (şeritle: ileri-geri, sağ-sol, yükseklik) | Harita düzeltmesi D1: tespitler artık kameradan konumlanacak. Simülasyonda anten 0,89 m geride kabul ediliyor (model çiziminden) | Bana yaz | Teknede ölçebildiğinde |
+| 4f | **GPS'in durduğu yerde kayması**: tekne iskelede dururken 10 dakika `/usv/fix` kaydı (ya da Mission Planner'dan konum logu) | Haritanın mutlak hatasını GPS alıcısı belirliyor. Simülasyon 1 m / 60 s kayma VARSAYIYOR; gerçek değer harita hedefini doğrudan etkiler | Kayıt dosyası | Faz 7, iskele |
+| 5 | Elinizde varsa ZED'in ham kayıtları (**`.svo`**) | `perception` node'unu tekneye çıkmadan, gerçek görüntü ve derinlikle geliştirmek için | Bana sor | Faz 7'den önce, isteğe bağlı |
+| 6 | YOLO modelinin **`.pt`** dosyası, RoboBoat sınıflarıyla | Thor'da `.engine`'e dönüştürülecek (eski `.engine` yeni donanımda çalışmaz). Depoya konmayacak | `~/usv_models/` (depo dışında) | Faz 7 |
+| 6b | **Veri setindeki sınıf adlarını İngilizceye çevirmek**: `buoy_black`, `buoy_green`, `buoy_red`, `buoy_yellow`, `digit_1`, `digit_2`, `digit_3`, `indicator_green`, `indicator_red`, `plus`, `pole_green`, `pole_red`, `triangle` (alfabetik; kod bu sırayı bekliyor, `usv_core/classes.py`) | Kod ile modelin sınıf numaraları aynı olmalı | Veri setinde | Model yeniden eğitilmeden önce |
+| 7 | ~~RoboBoat kural belgesi~~ **Tamam:** 2026 Team Handbook alındı. **2027 handbook** çıkınca (Kasım 2026 civarı) gönder; farklar uyarlanacak | | | |
 
 ---
 
@@ -27,10 +29,7 @@ Bir şey tamamlandıkça buradan sil ya da üstünü çiz. Son güncelleme: 22 E
 
 | # | Kontrol | Nasıl | Beklenen |
 |---|---|---|---|
-| 1 | Simülasyon teknesinin su çekimi | `daily-startup.md` → "Kendi simülasyonumuz" → konum döngüsü | z sıfır çevresinde, birkaç cm oynuyor |
-| 2 | Yerinde dönüş hızı | Sol iticiler +10 N, sağ iticiler -10 N; bir turun süresini say | Sağa dönüş, bir tur ≈ 15 s (≈ 24°/s) |
-| 3 | Dümenle dönüş yönü | Dördü +10 N, ön iticiler +0,5 rad, sonra -0,5 rad | +0,5'te sola, -0,5'te sağa; yana kayma az |
-| 4 | Simülasyon teknesindeki değişiklikleri kaydet | Kontroller tamamsa: `cd ~/usv_ros2 && git add . && git commit -m "Four-thruster catamaran model with revised buoyancy and drag" && git push` | GitHub'a gider |
+| 1–4 | ~~Simülasyon teknesinin su çekimi, dönüş hızı, dümen yönü, model commit'i~~ **Tamam** (Faz 4, commit `a2438ed`) | | |
 | 5 | Laptop donması | PSR 13 Ekim'de kapatıldı; donma tekrar ederse `daily-startup.md` → "Ekran donarsa" | Hiç donmaması |
 | 6 | Pil şarj sınırı | Şarj aleti takılıyken `cat /sys/class/power_supply/BAT0/status /sys/class/power_supply/BAT0/capacity` | %80'in üstünde `Not charging` |
 
@@ -38,15 +37,25 @@ Bir şey tamamlandıkça buradan sil ya da üstünü çiz. Son güncelleme: 22 E
 
 ## 3. Sırada (Claude ile)
 
-Faz 4 (sim_bridge, fake_perception, sim launch) bitti. Faz 5 (navigator taşıma):
+Faz 5 bitti (1 Kasım). Yol haritası değişti: tekne bir süre suya inemediği için **Faz 6 =
+RoboBoat simülasyonda** (ARCHITECTURE.md §15–16).
 
-1. ~~5.1 altın referans düzeneği~~, ~~5.2 Görev 1-2 navigator~~ (commit a0cb421), ~~5.3 Görev 3 araması~~.
-2. ~~5.4 acil durum kilidi, kalkış kontrolü, röle tekrarları~~. Karar (31 Ekim): §9 geçerli; acil durum röleyi keser, çıkış = röle aç + görevi yeniden seç (röle açıkken gelen `set_task`).
-3. ~~5.5 ROS `navigator` node'u~~.
-4. ~~5.6 Gazebo'da tam Gölcük koşusu ve videoyla karşılaştırma~~ (1 Kasım; sonuç tablosu ARCHITECTURE.md §15). **Faz 5 bitti.**
-5. Sırada Faz 6: tekne imajı (arm64, Thor), `fc_bridge`, `perception`, `telemetry_bridge`, `recorder`. Plan koddan önce sunulacak.
+| Adım | Ne | Durum |
+|---|---|---|
+| R1.1–R1.3 | 13 sınıf, ortak parkur okuyucu, gemiler ve iskeleler, `roboboat_2026` parkuru Nathan Benderson Park'ta | Bitti (commit `d951ade`) |
+| R1.4–R1.5 | Kare başına tespitler (`/usv/detections`), kalıcı dünya haritası (`mapper`), RViz | Bitti (`79aca43`) |
+| R1.6 | Sabit ölçüm rotası (`survey_drive`), `map_report.py`, ilk ölçüm (`survey_base`) | Bitti (`f98e8cc`) |
+| **R1.7** | **Ölçüm zinciri düzeltmeleri, her biri ayrı ayar.** Sıra: D2 (derinlik → mesafe) + D1 (kameradan konumla), sonra D4 (hızlı dönüşte düşük ağırlık), D5 (sınıf karışması hayaletleri), D3 (GPS yaşı). Her birinden sonra `survey:=true seed:=1` koşusu + rapor. `map_report.py`'nin `TARGET` satırı da yeni iki hedefe göre güncellenecek (şu an eski 0,5 / 1 m mutlak hedefi yazıyor) | **Sıradaki iş** |
+| R2 | Navigator'a yarışma profili (RoboBoat) | |
+| R3 | Görevler: 1 → 2 → 3 → 6 → 5 → 4 | |
+| R4 | RoboCommand raporlama (protobuf / TCP, 1 Hz heartbeat) | |
+| R5 | Eşdeğerlik sonrası düzeltmeler (ARCHITECTURE §14 listesi), simülasyonda ölçülerek | |
 
-Mimari kararları ve tam yol haritası: `ARCHITECTURE.md`.
+Harita hedefi (31 Ekim kararı): ikiye ayrıldı.
+- Ölçüm zinciri (GPS gerçeğe çekilmiş halde, 6 m içinden görülen onaylı izler): ortalama < 0,4 m, en fazla 0,8 m.
+- Mutlak harita hatası: raporlanır, hedef yok. GPS alıcısının kayması belirliyor; RTK ya da görsel odometri gerekir.
+
+Mimari kararlar ve tam yol haritası: `ARCHITECTURE.md`.
 
 ---
 
@@ -57,4 +66,4 @@ Bu satırlar eski kodla döngü döngü karşılaştırılmadı; bir taşıma ha
 | Kısım | Neden kapsanmadı | Ne zaman bakılır |
 |---|---|---|
 | Görev 3 çapa + devriye (`task3.py`: GOTO_STANDOFF, PATROL_1/2) | TEKNOFEST'e özgü; RoboBoat'ta değişecek (31 Ekim kararı) | TEKNOFEST'e tekrar gidilirse `task3_anchor` senaryosu yazılır |
-| Röle tekrar denemeleri | Eski kodla karşılaştırmalı birim testi var (`test_relay.py`); gerçek uçuş kontrolcüsüyle değil | Faz 6, `fc_bridge` iskelede |
+| Röle tekrar denemeleri | Eski kodla karşılaştırmalı birim testi var (`test_relay.py`); gerçek uçuş kontrolcüsüyle değil | Faz 7, `fc_bridge` iskelede |

@@ -42,11 +42,11 @@ These are not cleaned up during the port, because the gains were tuned against t
 | Package | Build type | Content |
 |---|---|---|
 | `usv_interfaces` | ament_cmake | Custom messages and services |
-| `usv_core` | ament_python | ROS-free library: `navigation`, `planner`, `object_memory`, `mixer`, `heading`, `detection`, `mission`, `controller`. Unit tests |
-| `usv_nodes` | ament_python | `navigator`, `fc_bridge`, `perception`, `heading_source`, `telemetry_bridge`, `recorder` |
-| `usv_sim` | ament_python | `sim_bridge`, `fake_perception`, boat model, worlds |
+| `usv_core` | ament_python | ROS-free library: `navigation`, `planner`, `object_memory`, `mixer`, `heading`, `detection`, the navigator brain (`nav_config`, `costmap`, `guidance`, `mission`, `task3`, `commands`, `navigator`, `safety`, `relay`), RoboBoat `classes` and `world_map`. Unit and golden tests |
+| `usv_nodes` | ament_python | `navigator`, `heading_source`, `mapper` (written); `fc_bridge`, `perception`, `telemetry_bridge`, `recorder` (phase 7) |
+| `usv_sim` | ament_python | `sim_bridge`, `fake_perception`, `survey_drive`, course files (`courses/*.yaml`) and world generator, boat model, `sim.launch.py` |
 | `usv_gz_plugins` | ament_cmake | Gazebo systems (C++): `HullBuoyancy`, buoyancy from the hull mesh. Simulation only; skipped where VRX is absent |
-| `usv_bringup` | ament_python | Launch files and per-node YAML parameters (replaces `config.py`) |
+| `usv_bringup` | ament_python | Boat launch files and per-node YAML parameters (replaces `config.py`). Not created yet: until phase 7 the YAML files live in each package's `config/` and the launch in `usv_sim` |
 | `usv_learn` | ament_python | Tutorial package, not part of the system |
 
 ## 4. Node graph
@@ -75,6 +75,8 @@ These are not cleaned up during the port, because the gains were tuned against t
 | `recorder` | CSV + `CostmapRecorder` | Competition deliverables: vehicle CSV (2 Hz, legacy header) and costmap record |
 | `sim_bridge` | new | Stands in for `fc_bridge`: commands to Gazebo, FC-side sensors back, with the real hardware's rates and errors (section 10) |
 | `fake_perception` | new | Stands in for `perception`: buoys from ground truth within camera FOV and range, ZED heading and attitude, all with ZED-like errors |
+| `mapper` | new (RoboBoat) | Persistent world map from power-on, also in MANUAL: fuses `/usv/detections` into landmarks (`usv_core.world_map`), publishes `/usv/map`, writes the map to JSON on shutdown |
+| `survey_drive` | new, simulation only | Drives a course's fixed survey route from Gazebo's true pose, for map-quality measurements (section 16) |
 
 `navigator` is deliberately one node. Its internals are split into classes (section 8);
 splitting it into several nodes would add message latency inside a 25 Hz control loop for
@@ -100,6 +102,9 @@ All topics use the default reliable QoS (depth 10) unless marked *latched*
 | `/usv/nav_status` | `usv_interfaces/NavStatus` (10 Hz) | `navigator` | telemetry_bridge, recorder, perception (HUD) |
 | `/usv/mission/waypoints` | `usv_interfaces/WaypointArray` *latched* | `navigator` | telemetry_bridge |
 | `/usv/plan` | `nav_msgs/Path` | `navigator` | RViz, recorder |
+| `/usv/detections` | `usv_interfaces/DetectionArray` (every camera frame) | `perception` / `fake_perception` (RoboBoat courses) | mapper |
+| `/usv/map` | `usv_interfaces/LandmarkArray` (2 Hz) | `mapper` | navigator (R2-R3), telemetry_bridge, recorder |
+| `/usv/map/markers` | `visualization_msgs/MarkerArray`, frame `usv_map` | `mapper` | RViz |
 
 ## 6. Services
 
@@ -297,7 +302,8 @@ Gazebo topics (`gz.msgs.Double`):
 | Processed camera video with HUD | `perception` |
 | Vehicle telemetry CSV (2 Hz, legacy header) | `recorder` |
 | Costmap record | `recorder` |
-| Full run for replay and analysis | `ros2 bag record` |
+| Full run for replay and analysis | `ros2 bag record` (simulation: `sim.launch.py record:=<name>`; reports `ws/tools/run_report.py`, `ws/tools/map_report.py`) |
+| World map (JSON, every landmark) | `mapper`, on shutdown |
 
 ## 12. Parameters
 
@@ -373,6 +379,12 @@ adaptation comes first, in simulation; the boat phases follow and then run along
 | 7 | Boat image (arm64, Thor), `fc_bridge`, `perception`, `heading_source`, `telemetry_bridge`, `recorder`, audio | Sensors flowing on land and at the pier; GCS connects unchanged |
 | 8 | Sea trials, then alongside the simulation | The ROS 2 version completes RoboBoat tasks on the water |
 
+Phase 6 progress (2026-10-31): R1.1-R1.6 done. 13 RoboBoat classes; one course reader for
+the world generator and `fake_perception`; `roboboat_2026` at Nathan Benderson Park (vessels,
+docks, indicators); per-frame detections and the persistent world map (`mapper`, RViz); the
+fixed survey route and `map_report.py`. First measurement in section 16. Next: R1.7, the
+measurement-chain fixes D2 + D1, then D4, D5, D3.
+
 ## 16. RoboBoat decisions (2026-11-01)
 
 Source: RoboBoat 2026 Team Handbook (February 2026, Nathan Benderson Park). The 2027 handbook
@@ -400,8 +412,26 @@ truth. Each sighting is recomputed with one input at a time swapped for the trut
 heading, ZED range, antenna instead of camera as origin), so the error each input brings is
 known before anything is changed.
 
-Target: confirmed landmarks seen from within 6 m, mean error < 0.5 m, none above 1 m (enough to
-find the middle of a 2.5 m channel gate from the map).
+Target (revised 2026-10-31, after the first measurement), two numbers:
+- Measurement chain, with the GPS swapped for the truth: confirmed landmarks seen from within
+  6 m, mean error < 0.4 m, none above 0.8 m. This is what perception and the mapper control.
+- Absolute map error: reported, no target. Without RTK the receiver's own drift sets it
+  (~1 m); improving it needs RTK or visual odometry. The first target (< 0.5 m absolute) could
+  not be met by any fix in this chain.
+
+First measurement (`survey_base`, seed 1, 2026-10-31; 8 383 sightings within 12 m):
+
+| | Mean sighting error |
+|---|---|
+| As recorded | 2.75 m (along the line of sight -2.56 m: placed too close) |
+| Only the range wrong | 1.74 m: geometry, not ZED noise (-0.28 m at 0-15 deg off-axis, -3.41 m beyond 45 deg) |
+| Only the GPS wrong | 1.01 m: receiver drift 1.02 m, fix age 0.25 m (mean age 0.36 s) |
+| Only the origin wrong | 0.94 m (antenna 0.89 m behind the camera) |
+| Only the heading wrong | 0.34 m: 0.35 deg straight, mean 9.2 deg (up to 20 deg) above 30 deg/s yaw rate |
+| All inputs true | 0.06 m (the tool's own residual) |
+
+Map: 259 landmarks, 121 confirmed, 202 more than 3 m from any object of their kind; confirmed
+landmarks seen from within 6 m: mean 1.99 m, max 2.68 m.
 
 Fixes to the RoboBoat measurement chain (`measure_boxes`, the mapper), each a parameter so the
 report measures it alone; the TEKNOFEST chain and the golden tests are not touched:
