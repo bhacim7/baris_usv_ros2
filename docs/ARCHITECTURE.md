@@ -345,7 +345,21 @@ Phase 4 progress (2026-10-30): **done criteria met** (boat driven in simulation 
 | Course `golcuk_2026_10_14` (provisional, from the video) + world generator | Written: `courses/*.yaml` is the single source; `make_course_world.py` builds the world (site origin, magnetic field, buoys) |
 | `fake_perception` | Done and tested: heading, attitude, FPS, buoys (simulated ZED + YOLO -> the boat's own detection code -> `/usv/buoys` at 30 Hz) |
 
-Phase 5 progress (2026-10-31): the navigator brain is ported to `usv_core` (`nav_config`, `costmap`, `guidance`, `mission`, `task3`, `commands`, `navigator`, `safety`, `relay`) and matches the legacy loop cycle for cycle on every golden scenario (`test/golden/`). Deliberate changes: the emergency stop latches as in section 9 (neutral from the same cycle; released by relay on + `set_task`) instead of ending the program; relay retries move to `fc_bridge`. Next: 5.5 ROS `navigator` node, 5.6 full Golcuk run in Gazebo.
+Phase 5 progress (2026-10-31): the navigator brain is ported to `usv_core` (`nav_config`, `costmap`, `guidance`, `mission`, `task3`, `commands`, `navigator`, `safety`, `relay`) and matches the legacy loop cycle for cycle on every golden scenario (`test/golden/`). Deliberate changes: the emergency stop latches as in section 9 (neutral from the same cycle; released by relay on + `set_task`) instead of ending the program; relay retries move to `fc_bridge`. 5.5: the `navigator` node runs in `sim.launch.py`.
+
+Phase 5 **done criteria met** (2026-11-01): Golcuk course in Gazebo from Task 1 to FINISHED, no corridor contact with the default simulated sensors. 5.6 comparison with the 2026-10-14 video (`ws/tools/run_report.py`, `ws/tools/golcuk_2026_10_14_reference.yaml`), single runs each:
+
+| Run | Task 2 start -> FINISHED | Task 2 mean speed | Corridor contacts | Closest corridor buoy |
+|---|---|---|---|---|
+| Video (legacy boat) | ~68 s (red hit) | ~1.0-1.3 m/s | 3 (#18, #21, one more) | - |
+| Simulation, default sensors | 126 s | 0.63 m/s | 0 | #19 +0.83 m |
+| Detections only within 10 m | 108 s | 0.73 m/s | 0 | #21 +0.36 m |
+| YOLO misses half the frames | 117 s | 0.68 m/s | 0 | #4 +0.96 m |
+| ZED compass +8 deg | 125 s | 0.68 m/s | **1** (#17, -0.01 m) | |
+
+Reading: the hull itself reaches 1.33 m/s at 1680 PWM (straight-line test), so the slower simulated run is the navigator weaving round every buoy it sees. Late detection makes the path straighter, faster and closer to the buoys the real boat hit; a compass error produces the first contact (buoys are placed with the heading, so 8 deg puts a buoy 10 m away 1.4 m sideways). Per-frame misses change little (the object memory bridges them). Consistent with the real contacts coming from perception and compass error rather than from the code - but single runs with random noise, not proof. The remaining speed gap in turns depends on unmeasured hardware (steering angle range, assumed +/-45 deg; sway drag, guessed).
+
+Next: phase 6.
 
 Remaining phases:
 

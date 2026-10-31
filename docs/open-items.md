@@ -11,7 +11,8 @@ Bir şey tamamlandıkça buradan sil ya da üstünü çiz. Son güncelleme: 22 E
 | 1 | Eski sistemin bir koşusundan **telemetri CSV'si** (`arac_telemetri_YYYYMMDD_HHMMSS.csv`). En iyisi Parkur 1'de uzun düz gidişi olan bir koşu | İleri yön su direnci (`xU`, `xUU`) 14 Ekim videosundan ayarlandı (1680 PWM'de ≈1,28 m/s). CSV ile iki şey doğrulanacak: (a) bu hız, başka yönlerde de (rüzgâr etkisi); (b) HUD'daki HIZ değerinin (VFR_HUD groundspeed) GPS konumuna göre neden yarı yarıya düşük okuduğu | `~/usv_ros2/docs/data/`. Git'e eklenip eklenmeyeceğine sen karar ver | Bulabildiğinde; işi bekletmiyor |
 | 2 | ~~**STL dosyası**~~ **Tamam (26 Ekim):** `ROBO27_MAIN_BODY_SIM.STL`'den (yapım öncesi hâl) yalnızca iki gövde alındı. Açık soru: STL'de gövde merkezleri arası 0,60 m, çizimde 0,52 m; modelde 0,52 kullanılıyor. Gerçek teknede ölçüp söyle | | | |
 | 3 | ~~İtici bataryası~~ **Cevaplandı:** her iticiye bir 7S. Modelde 91 N (8 kgf @24 V, 7S'e ölçeklendi). Not: üretici Utras'ı 3S–6S için veriyor | | | |
-| 4 | **Dümen servosunun** gerçek açı aralığı (servo: 2× MG995, hız datasheet'ten) | Şu an ±45° (1100 = 45° sol, 1900 = 45° sağ) kabul edildi | Bana yaz | Teknede ölçebildiğinde |
+| 4 | **Dümen servosunun** gerçek açı aralığı (servo: 2× MG995, hız datasheet'ten) | Şu an ±45° (1100 = 45° sol, 1900 = 45° sağ) kabul edildi. **5.6'dan sonra önemli:** simülasyon teknesi virajlarda videodakinden çok yavaşlıyor; düz giderken hız doğru (1,33 m/s). En olası sebep bu açı (ve tahmini yanal sürtünme) | Bana yaz | Teknede ölçebildiğinde |
+| 4d | **ZED pusulasının teknede doğruluğu**: tekneyi bilinen yönlere (ör. iskele boyunca, 4 yön) çevirip HUD'daki yönü telefon pusulası / harita ile karşılaştır | 5.6 deneyinde 8° pusula hatası tek başına bir sarıya teması getirdi (şamandıralar pusulayla konumlanıyor: 10 m'de 8° ≈ 1,4 m yana kayma). Videoda 4–8° hata tahmin etmiştik | Değerleri bana yaz | Faz 6 / ilk iskele testi |
 | 4c | **ArduPilot parametre dosyası** (Mission Planner → Config → Full Parameter List → Save, `.param`) | GPS hızı, akış hızları, servo kanalları, röle başlangıç durumu, pusula ayarları; `sim_bridge` değerleri şimdilik koddan ve varsayımdan | Bana gönder | Bulabildiğinde |
 | 4b | ~~**Video** (14 Ekim, eski kodla hareket)~~ **Tamam:** 2123 karenin hepsi okundu (23 Ekim). İleri hız modele işlendi, dönüş hızı modelle uyumlu | | | |
 | 1b | **14 Ekim koşusunun dosyaları** (bulunamadı, silinmiş olabilir): `final_costmap.npz`, `kayit_20261014_*.mp4` (tam çözünürlük), `arac_telemetri_20261014_*.csv`. Başka koşularınki de olur | Gölcük parkuru şu an videodan TAHMİNİ (±2 m). `.npz` gerçek şamandıra konumlarını, CSV pusula hatasını verir | `~/usv_ros2/ws/bags/legacy_runs/` | Bulunursa |
@@ -41,8 +42,9 @@ Faz 4 (sim_bridge, fake_perception, sim launch) bitti. Faz 5 (navigator taşıma
 
 1. ~~5.1 altın referans düzeneği~~, ~~5.2 Görev 1-2 navigator~~ (commit a0cb421), ~~5.3 Görev 3 araması~~.
 2. ~~5.4 acil durum kilidi, kalkış kontrolü, röle tekrarları~~. Karar (31 Ekim): §9 geçerli; acil durum röleyi keser, çıkış = röle aç + görevi yeniden seç (röle açıkken gelen `set_task`).
-3. 5.5 ROS `navigator` node'u, servisler, NavStatus, `/usv/plan`, launch'a ekleme (yazıldı, test bekliyor).
-4. 5.6 Gazebo'da tam Gölcük koşusu ve videoyla karşılaştırma.
+3. ~~5.5 ROS `navigator` node'u~~.
+4. ~~5.6 Gazebo'da tam Gölcük koşusu ve videoyla karşılaştırma~~ (1 Kasım; sonuç tablosu ARCHITECTURE.md §15). **Faz 5 bitti.**
+5. Sırada Faz 6: tekne imajı (arm64, Thor), `fc_bridge`, `perception`, `telemetry_bridge`, `recorder`. Plan koddan önce sunulacak.
 
 Mimari kararları ve tam yol haritası: `ARCHITECTURE.md`.
 
