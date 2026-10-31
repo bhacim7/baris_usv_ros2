@@ -4,6 +4,8 @@
     ros2 launch usv_sim sim.launch.py paused:=true         # start paused (press play)
     ros2 launch usv_sim sim.launch.py gui:=false           # no Gazebo window (faster)
     ros2 launch usv_sim sim.launch.py course:=<name>       # another usv_sim/courses/<name>.yaml
+    ros2 launch usv_sim sim.launch.py start_task:=TASK1_STATE_ENTER   # not the course's own
+    ros2 launch usv_sim sim.launch.py navigator:=false     # drive by hand (ros2 topic pub)
 
 What starts, in this order:
   1. make_course_world.py builds the world from the course file into /tmp, so the world
@@ -50,6 +52,10 @@ def setup(context):
     navigator_overrides = {k: v for k, v in mission.items() if k != 'waypoints'}
     navigator_overrides.update({'waypoints.' + name: [float(x) for x in latlon]
                                 for name, latlon in mission.get('waypoints', {}).items()})
+    start_task = LaunchConfiguration('start_task').perform(context)
+    if start_task:
+        navigator_overrides['start_task'] = start_task
+    with_navigator = LaunchConfiguration('navigator').perform(context).lower() == 'true'
 
     make_world = ExecuteProcess(
         cmd=['python3', os.path.join(share, 'scripts', 'make_course_world.py'),
@@ -79,10 +85,11 @@ def setup(context):
         Node(package='usv_nodes', executable='heading_source', output='screen',
              parameters=[heading_config],
              respawn=True, respawn_delay=2.0),
-        Node(package='usv_nodes', executable='navigator', output='screen',
-             parameters=[navigator_config, navigator_overrides],
-             respawn=True, respawn_delay=2.0),
     ]
+    if with_navigator:
+        ours.append(Node(package='usv_nodes', executable='navigator', output='screen',
+                         parameters=[navigator_config, navigator_overrides],
+                         respawn=True, respawn_delay=2.0))
 
     start_rest = RegisterEventHandler(OnProcessExit(
         target_action=make_world, on_exit=[gazebo, bridge] + ours))
@@ -104,5 +111,9 @@ def generate_launch_description():
                               description='false = Gazebo without a window'),
         DeclareLaunchArgument('paused', default_value='false',
                               description='true = start paused, press play in Gazebo'),
+        DeclareLaunchArgument('start_task', default_value='',
+                              description="navigator start task; empty = the course's own"),
+        DeclareLaunchArgument('navigator', default_value='true',
+                              description='false = no navigator, drive with ros2 topic pub'),
         OpaqueFunction(function=setup),
     ])
