@@ -1,3 +1,5 @@
+# bhacim7
+
 # Günlük Çalışma Rehberi
 
 Bilgisayarı açtıktan sonra ortama girmek, simülasyonu açmak, ölçüm almak ve günü kapatmak için
