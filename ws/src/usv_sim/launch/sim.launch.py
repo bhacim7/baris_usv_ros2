@@ -6,6 +6,7 @@
     ros2 launch usv_sim sim.launch.py course:=<name>       # another usv_sim/courses/<name>.yaml
     ros2 launch usv_sim sim.launch.py start_task:=TASK1_STATE_ENTER   # not the course's own
     ros2 launch usv_sim sim.launch.py navigator:=false     # drive by hand (ros2 topic pub)
+    ros2 launch usv_sim sim.launch.py rviz:=true           # also RViz on the world map
     ros2 launch usv_sim sim.launch.py course:=roboboat_2026 course_east:=182.5 \
         course_north:=952.2 course_heading:=180    # put the course elsewhere: boat start
                                                    # (Gazebo x, y) and heading; layout follows
@@ -47,7 +48,7 @@ from launch_ros.actions import Node
 PERCEPTION_KNOBS = ('compass_offset_deg', 'detect_prob', 'max_range_m')
 # What ws/tools/run_report.py reads, plus what is handy to replay
 RECORD_TOPICS = ('/usv/nav_status', '/usv/thrusters/pwm', '/usv/sim/navsat', '/usv/sim/imu',
-                 '/usv/fix', '/usv/heading', '/usv/buoys')
+                 '/usv/fix', '/usv/heading', '/usv/buoys', '/usv/detections', '/usv/map')
 
 
 def setup(context):
@@ -134,7 +135,19 @@ def setup(context):
         Node(package='usv_nodes', executable='heading_source', output='screen',
              parameters=[heading_config],
              respawn=True, respawn_delay=2.0),
+        # The world map, from power-on (written to /ws/bags/map_<course>.json on Ctrl+C)
+        Node(package='usv_nodes', executable='mapper', output='screen',
+             parameters=[os.path.join(nodes_config, 'mapper.yaml'),
+                         {'map_file': os.path.join('/ws/bags', f'map_{course}.json')}],
+             respawn=True, respawn_delay=2.0),
     ]
+    if LaunchConfiguration('rviz').perform(context).lower() == 'true':
+        # RViz on the map: the markers live in usv_map, tied to RViz's fixed frame 'map'
+        ours.append(Node(package='tf2_ros', executable='static_transform_publisher',
+                         arguments=['--frame-id', 'map', '--child-frame-id', 'usv_map'],
+                         output='log'))
+        ours.append(Node(package='rviz2', executable='rviz2', output='log',
+                         arguments=['-d', os.path.join(nodes_config, 'map.rviz')]))
     if with_navigator:
         ours.append(Node(package='usv_nodes', executable='navigator', output='screen',
                          parameters=[navigator_config, navigator_overrides],
@@ -169,6 +182,8 @@ def generate_launch_description():
                               description="navigator start task; empty = the course's own"),
         DeclareLaunchArgument('navigator', default_value='true',
                               description='false = no navigator, drive with ros2 topic pub'),
+        DeclareLaunchArgument('rviz', default_value='false',
+                              description='true = open RViz on the world map'),
         DeclareLaunchArgument('course_east', default_value='',
                               description='boat start x in the Gazebo world (m); the layout '
                               'follows. Give all three course_* or none'),

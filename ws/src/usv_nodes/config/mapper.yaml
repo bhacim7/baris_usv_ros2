@@ -1,0 +1,13 @@
+# mapper parameters (usv_core.world_map.MapConfig). First values, to be tuned from the
+# map-quality report (ws/tools/run_report.py, phase 6 R1.6).
+mapper:
+  ros__parameters:
+    merge_radius_m: 1.5       # a sighting joins the nearest landmark of its kind within this
+                              # (the dock indicators stand 2 m apart)
+    max_range_m: 12.0         # farther sightings are not mapped (legacy MAP_MAX_RANGE_M)
+    sigma_base_m: 0.3         # sighting uncertainty = base + per_m * range (ASSUMED)
+    sigma_per_m: 0.1
+    confirm_sightings: 3      # a landmark is trusted after this many sightings
+    color_window: 15          # indicator colour = majority of the last N sightings
+    publish_hz: 2.0
+    map_file: ''              # JSON written on shutdown; '' = not saved

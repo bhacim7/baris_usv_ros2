@@ -1,0 +1,52 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+    Help Height: 0
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid (10 m)
+      Enabled: true
+      Cell Size: 10
+      Plane Cell Count: 20
+      Reference Frame: usv_map
+      Color: 160; 160; 164
+      Alpha: 0.4
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Name: World map
+      Enabled: true
+      Topic:
+        Value: /usv/map/markers
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+      Value: true
+  Enabled: true
+  Global Options:
+    Background Color: 40; 60; 90
+    Fixed Frame: map
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Measure
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/TopDownOrtho
+      Name: Current View
+      Angle: 0
+      Scale: 8
+      X: 0
+      Y: 0
+      Target Frame: <Fixed Frame>
+      Value: TopDownOrtho (rviz_default_plugins)
+    Saved: ~
+Window Geometry:
+  Displays:
+    collapsed: false
+  Height: 900
+  Width: 1400

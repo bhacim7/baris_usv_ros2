@@ -137,3 +137,33 @@ def memory_snapshot(memory):
         'seen': obj.get('seen', 1),
         'pos_ok': bool(obj.get('pos_ok', True)),
     } for obj in memory.memory]
+
+
+def measure_boxes(boxes, depth_at, width, height, cam_cx, cam_fx, heading_deg, boat_lat,
+                  boat_lon, class_names):
+    """
+    Measure every box of one frame, for /usv/detections (RoboBoat, phase 6).
+
+    Same geometry as process_frame (depth window, bearing, position from the GPS fix), but
+    nothing is dropped and nothing is remembered: every box comes back with what could be
+    measured. boxes: [(x1, y1, x2, y2, class_id), ...]; class_names: the model's class list.
+    Returns dicts: class_name, class_id, box, distance_m (nan), bearing_deg (nan),
+    position_ok, lat, lon (nan unless position_ok).
+    """
+    nan = float('nan')
+    have_heading = heading_deg is not None
+    have_fix = bool(boat_lat)
+    out = []
+    for box in boxes:
+        cid = int(box[4])
+        x1, y1, x2, y2 = map(int, box[:4])
+        cx, cy = depth_sample_pixel(x1, y1, x2, y2, height)
+        dist_m = median_depth(depth_at, cx, cy, width, height)
+        valid = distance_is_valid(dist_m)
+        bearing = bearing_deg(cx, cam_cx, cam_fx, heading_deg) if have_heading else nan
+        ok = valid and have_heading and have_fix
+        lat, lon = detection_position(boat_lat, boat_lon, dist_m, bearing) if ok else (nan, nan)
+        out.append({'class_name': class_names[cid], 'class_id': cid, 'box': (x1, y1, x2, y2),
+                    'distance_m': dist_m if valid else nan, 'bearing_deg': bearing,
+                    'position_ok': ok, 'lat': lat, 'lon': lon})
+    return out

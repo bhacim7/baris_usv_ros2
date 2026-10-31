@@ -11,7 +11,7 @@ setup(
     data_files=[
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        ('share/' + package_name + '/config', glob('config/*.yaml')),
+        ('share/' + package_name + '/config', glob('config/*.yaml') + glob('config/*.rviz')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -24,6 +24,7 @@ setup(
         'console_scripts': [
             'heading_source = usv_nodes.heading_source:main',
             'navigator = usv_nodes.navigator:main',
+            'mapper = usv_nodes.mapper:main',
         ],
     },
 )

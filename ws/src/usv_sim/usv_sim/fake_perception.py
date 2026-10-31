@@ -8,7 +8,10 @@ config/fake_perception.yaml):
                          boxes and ZED depth (camera.py) go through the boat's own code,
                          usv_core.detection.process_frame + the object memory, with the
                          heading the navigation uses (/usv/heading) and the GPS fix
-                         (/usv/fix), exactly as camera_process does it.
+                         (/usv/fix), exactly as camera_process does it. TEKNOFEST courses.
+  /usv/detections        usv_interfaces/DetectionArray, once per camera frame, RoboBoat
+                         courses: every box measured (usv_core.detection.measure_boxes),
+                         for the mapper.
   /usv/heading/zed       std_msgs/Float32 (deg)  once per camera frame, like camera_process:
                          magnetometer -> magnetic heading (tilt compensated) -> the legacy
                          Kalman filter -> + declination (usv_core.heading, unchanged code).
@@ -39,10 +42,10 @@ from sensor_msgs.msg import Imu, NavSatFix
 from std_msgs.msg import Float32
 import yaml
 
-from usv_core.detection import memory_snapshot, process_frame
+from usv_core.detection import measure_boxes, memory_snapshot, process_frame
 from usv_core.heading import HeadingFilter, LEGACY_DECLINATION_DEG, zed_heading
 from usv_core.object_memory import ObjectMemoryManager
-from usv_interfaces.msg import Buoy as BuoyMsg, BuoyArray
+from usv_interfaces.msg import Buoy as BuoyMsg, BuoyArray, Detection, DetectionArray
 from usv_sim import course as course_mod
 from usv_sim.camera import CameraModel, Frame, Settings
 from usv_sim.geo import enu
@@ -120,6 +123,7 @@ class FakePerception(Node):
         self.attitude_pub = self.create_publisher(Vector3Stamped, '/usv/attitude', 10)
         self.fps_pub = self.create_publisher(Float32, '/usv/perception/fps', 10)
         self.buoys_pub = self.create_publisher(BuoyArray, '/usv/buoys', 10)
+        self.detections_pub = self.create_publisher(DetectionArray, '/usv/detections', 10)
 
         self.create_timer(0.002, self.poll_frame)     # frames are due at irregular times
         self.create_timer(0.2, self.publish_attitude)
@@ -171,14 +175,41 @@ class FakePerception(Node):
         lever = rotate(self.orientation, self.antenna_mount)
         boat = tuple(a - l for a, l in zip(self.antenna_enu, lever))
         frame = Frame(self.buoys, boat, self.orientation, self.cam, self.settings, self.rng)
-        if not self.legacy_buoys:
-            return          # RoboBoat: boxes go to /usv/detections from R1.4 on
         now = self.get_clock().now()
         lat, lon = self.fix if self.fix is not None else (0, 0)
+        if not self.legacy_buoys:
+            self.publish_detections(frame, now, lat, lon)
+            return
         process_frame(frame.boxes(), frame.depth_at, self.cam.width, self.cam.height,
                       self.cam.cx, self.cam.fx, self.heading, lat, lon, self.memory,
                       now=now.nanoseconds * 1e-9)
         self.publish_buoys(now)
+
+    def publish_detections(self, frame, now, lat, lon):
+        """Every box of this frame, measured as perception measures it (/usv/detections)."""
+        measured = measure_boxes(frame.boxes(), frame.depth_at, self.cam.width,
+                                 self.cam.height, self.cam.cx, self.cam.fx, self.heading,
+                                 lat, lon, self.course.class_names)
+        out = DetectionArray()
+        out.header.stamp = now.to_msg()
+        out.header.frame_id = 'zed_left'
+        out.image_width = self.cam.width
+        out.boat_latitude = float(lat)
+        out.boat_longitude = float(lon)
+        out.heading_deg = float('nan') if self.heading is None else float(self.heading)
+        for m in measured:
+            d = Detection()
+            d.class_name = m['class_name']
+            d.class_id = m['class_id']
+            d.confidence = 1.0
+            d.x1, d.y1, d.x2, d.y2 = m['box']
+            d.distance_m = float(m['distance_m'])
+            d.bearing_deg = float(m['bearing_deg'])
+            d.position_ok = bool(m['position_ok'])
+            d.latitude = float(m['lat'])
+            d.longitude = float(m['lon'])
+            out.detections.append(d)
+        self.detections_pub.publish(out)
 
     def publish_buoys(self, now):
         out = BuoyArray()
