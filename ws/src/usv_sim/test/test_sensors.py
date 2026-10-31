@@ -1,4 +1,5 @@
-"""Unit tests for the sensor error models of sim_bridge (no ROS needed).
+"""
+Unit tests for the sensor error models of sim_bridge (no ROS needed).
 
 Run: cd /ws/src/usv_sim && python3 -m pytest test/test_sensors.py -v
 """

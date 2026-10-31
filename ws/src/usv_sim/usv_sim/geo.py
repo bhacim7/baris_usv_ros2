@@ -1,4 +1,5 @@
-"""Latitude/longitude <-> local metres around a course origin, on the WGS84 ellipsoid.
+"""
+Latitude/longitude <-> local metres around a course origin, on the WGS84 ellipsoid.
 
 Gazebo's NavSat sensor converts with the WGS84 ellipsoid, so the world generator and
 fake_perception must too: with a sphere of 6378137 m the north scale is 0.25 % off at 40.7 N,

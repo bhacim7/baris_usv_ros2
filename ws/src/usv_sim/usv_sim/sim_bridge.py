@@ -1,4 +1,5 @@
-"""sim_bridge: the simulated boat's flight-controller side. Stands in for fc_bridge.
+"""
+sim_bridge: the simulated boat's flight-controller side. Stands in for fc_bridge.
 
 It publishes what fc_bridge publishes on the boat, no more: the Orange Cube's view of the
 world. The ZED's view (its heading, attitude, buoys) comes from fake_perception, as it
@@ -66,11 +67,11 @@ class SimBridge(Node):
         self.to_thrust = PwmToThrust(
             p('thrust_table_pwm', [1100.0, 1500.0, 1900.0]).value,
             p('thrust_table_newton', [-64.0, 0.0, 91.0]).value)
-        self.steer_args = dict(
-            center_us=p('steer_center_us', 1500.0).value,
-            half_range_us=p('steer_half_range_us', 400.0).value,
-            max_angle_rad=p('steer_max_angle_rad', 0.785).value,
-            sign=p('steer_sign', -1.0).value)
+        self.steer_args = {
+            'center_us': p('steer_center_us', 1500.0).value,
+            'half_range_us': p('steer_half_range_us', 400.0).value,
+            'max_angle_rad': p('steer_max_angle_rad', 0.785).value,
+            'sign': p('steer_sign', -1.0).value}
         self.steer_servo = SlewLimiter(p('steer_rate_rad_s', 5.2).value)
 
         # One FC output channel per ThrusterPwm field

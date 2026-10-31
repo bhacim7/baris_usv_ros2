@@ -35,6 +35,7 @@ setup(
         'console_scripts': [
             'sim_bridge = usv_sim.sim_bridge:main',
             'fake_perception = usv_sim.fake_perception:main',
+            'survey_drive = usv_sim.survey_drive:main',
         ],
     },
 )

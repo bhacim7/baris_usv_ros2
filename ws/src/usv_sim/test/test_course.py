@@ -1,4 +1,5 @@
-"""Unit tests for the course file reader (usv_sim/course.py), no ROS needed.
+"""
+Unit tests for the course file reader (usv_sim/course.py), no ROS needed.
 
 Run: cd /ws/src/usv_sim && python3 -m pytest test/test_course.py -v
 """
@@ -27,7 +28,7 @@ def by_class(course):
 
 
 def roboboat_local():
-    """The RoboBoat course as laid out in the file, before the anchor moves it."""
+    """Load the RoboBoat course as laid out in the file, before the anchor moves it."""
     data = read('roboboat_2026')
     data.pop('anchor', None)
     data.pop('placement', None)
@@ -140,3 +141,32 @@ def test_indicator_buoy_target_is_the_cylinder_on_top():
     (t,) = ind
     assert t.radius == course_mod.INDICATOR_RADIUS
     assert t.height - t.z0 == pytest.approx(course_mod.INDICATOR_HEIGHT)
+
+
+def test_survey_route_follows_the_placement():
+    course = course_mod.load(read('roboboat_2026'))
+    local = roboboat_local()
+    assert len(course.survey) == len(local.survey) > 5
+    assert any('spin_deg' in s for s in course.survey)
+    # Same distances between the route and the buoys wherever the course is placed
+    first = course.survey[0]
+    first_local = local.survey[0]
+    t, tl = course.targets[0], local.targets[0]
+    assert math.hypot(first['east'] - t.x, first['north'] - t.y) == pytest.approx(
+        math.hypot(first_local['east'] - tl.x, first_local['north'] - tl.y))
+    assert first_local == {'east': 2.05, 'north': -1.0}
+
+
+def test_survey_route_keeps_clear_of_the_buoys():
+    """Straight legs between the points pass no buoy closer than its radius + 0.6 m."""
+    course = roboboat_local()
+    points = [(s['east'], s['north']) for s in course.survey if 'east' in s]
+    points.insert(0, (course.boat['east'], course.boat['north']))
+    for (x1, y1), (x2, y2) in zip(points, points[1:]):
+        for b in course.targets:
+            if not isinstance(b, Buoy):
+                continue
+            dx, dy = x2 - x1, y2 - y1
+            f = max(0.0, min(1.0, ((b.x - x1) * dx + (b.y - y1) * dy) / (dx * dx + dy * dy)))
+            gap = math.hypot(x1 + f * dx - b.x, y1 + f * dy - b.y)
+            assert gap > b.radius + 0.6, (x1, y1, x2, y2, b)

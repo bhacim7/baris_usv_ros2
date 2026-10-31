@@ -1,4 +1,5 @@
-"""What the boat's hardware does with a PWM command, for the simulation.
+"""
+What the boat's hardware does with a PWM command, for the simulation.
 
 ROS-free so it can be unit tested. sim_bridge stands in for fc_bridge + Orange Cube + ESCs +
 steering servos, so each class here copies one link of that chain:
@@ -38,7 +39,8 @@ class PwmToThrust:
 
 def steer_angle_rad(pwm, center_us=1500.0, half_range_us=400.0, max_angle_rad=0.785,
                     sign=-1.0):
-    """Steering PWM -> front thruster angle in Gazebo's convention, clamped to the stops.
+    """
+    Steering PWM -> front thruster angle in Gazebo's convention, clamped to the stops.
 
     sign = -1 because the team's PWM above 1500 turns the boat right, while a positive
     (counter-clockwise) angle on a front thruster turns it left (measured, see model.sdf).
@@ -63,7 +65,8 @@ class SlewLimiter:
 
 
 class ServoWriteThinning:
-    """The value the flight controller actually holds for one output channel.
+    """
+    The value the flight controller actually holds for one output channel.
 
     Same rule as the legacy USVController.set_servo: an update smaller than min_delta_us is
     not sent unless refresh_s passed since the last write; force always goes out.

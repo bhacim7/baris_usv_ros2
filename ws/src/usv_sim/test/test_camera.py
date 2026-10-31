@@ -1,4 +1,5 @@
-"""Unit tests for the simulated ZED 2i camera and YOLO (no ROS needed).
+"""
+Unit tests for the simulated ZED 2i camera and YOLO (no ROS needed).
 
 Run: cd /ws/src/usv_sim && python3 -m pytest test/test_camera.py -v
 """

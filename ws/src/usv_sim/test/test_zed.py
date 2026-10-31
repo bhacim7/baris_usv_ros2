@@ -1,4 +1,5 @@
-"""Unit tests for the ZED 2i models of fake_perception (no ROS needed).
+"""
+Unit tests for the ZED 2i models of fake_perception (no ROS needed).
 
 Run: cd /ws/src/usv_sim && python3 -m pytest test/test_zed.py -v
 """

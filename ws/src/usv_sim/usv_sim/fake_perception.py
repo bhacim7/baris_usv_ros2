@@ -1,4 +1,5 @@
-"""fake_perception: the simulated ZED 2i side of the boat. Stands in for perception.
+"""
+fake_perception: the simulated ZED 2i side of the boat. Stands in for perception.
 
 Publishes what perception publishes on the boat, from Gazebo's exact sensors plus the
 camera's own behaviour (models in zed.py and camera.py, numbers in
@@ -40,8 +41,6 @@ from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from sensor_msgs.msg import Imu, NavSatFix
 from std_msgs.msg import Float32
-import yaml
-
 from usv_core.detection import measure_boxes, memory_snapshot, process_frame
 from usv_core.heading import HeadingFilter, LEGACY_DECLINATION_DEG, zed_heading
 from usv_core.object_memory import ObjectMemoryManager
@@ -51,6 +50,7 @@ from usv_sim.camera import CameraModel, Frame, Settings
 from usv_sim.geo import enu
 from usv_sim.sensors import make_rng, roll_pitch_from_quaternion
 from usv_sim.zed import body_field, FrameClock, magnetic_heading_deg, rotate, world_field_enu
+import yaml
 
 
 class FakePerception(Node):

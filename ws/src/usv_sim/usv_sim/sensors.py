@@ -1,4 +1,5 @@
-"""How the boat's sensors distort the truth, for the simulation.
+"""
+How the boat's sensors distort the truth, for the simulation.
 
 ROS-free so it can be unit tested. Gazebo gives exact position, velocity and attitude;
 sim_bridge passes them through these models so the software sees what it would see on the
@@ -13,15 +14,16 @@ boat (rates and delays are handled in sim_bridge):
                   (clockwise from north, 0-360)
 """
 
+from collections import deque
 import math
 import random
-from collections import deque
 
 from usv_sim.geo import latlon
 
 
 class GaussMarkov:
-    """First-order Gauss-Markov process: standard deviation sigma, correlation time tau.
+    """
+    First-order Gauss-Markov process: standard deviation sigma, correlation time tau.
 
     x(t + dt) = x(t) * exp(-dt / tau) + sigma * sqrt(1 - exp(-2 dt / tau)) * N(0, 1)
     Stationary, so it starts from a random draw instead of zero.
@@ -83,5 +85,5 @@ def compass_deg(enu_yaw_rad):
 
 
 def make_rng(seed):
-    """seed 0 = different every run; any other value = the same noise every run."""
+    """Return a random generator: seed 0 = different every run, other = the same noise."""
     return random.Random(None if seed == 0 else seed)

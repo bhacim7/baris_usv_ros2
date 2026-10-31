@@ -1,4 +1,5 @@
-"""Unit tests for the actuator models of sim_bridge (no ROS needed).
+"""
+Unit tests for the actuator models of sim_bridge (no ROS needed).
 
 Run: cd /ws/src/usv_sim && python3 -m pytest test/test_actuators.py -v
 """

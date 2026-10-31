@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Generate a light hull mesh (OBJ) for one catamaran hull of usv_boat from the team's STL.
+"""
+Generate a light hull mesh (OBJ) for one catamaran hull of usv_boat from the team's STL.
 
 Input: ROBO27_MAIN_BODY_SIM.STL, the SolidWorks export of the boat body before the build
 (binary STL, millimetres, translated to positive space). It is ONE closed shell: both hulls
@@ -80,7 +81,7 @@ def slice_points(tris, x):
 
 def convex_outline(pts):
     """Counter-clockwise convex hull (monotone chain)."""
-    pts = sorted(set((round(y, 3), round(z, 3)) for y, z in pts))
+    pts = sorted({(round(y, 3), round(z, 3)) for y, z in pts})
     if len(pts) < 3:
         return pts
 
@@ -100,8 +101,11 @@ def convex_outline(pts):
 
 
 def resample(path, count):
-    """`count` points evenly spaced by arc length along an open polyline, first point
-    included, last point excluded."""
+    """
+    Return `count` points evenly spaced by arc length along an open polyline.
+
+    The first point is included, the last one excluded.
+    """
     seg = [math.dist(path[i], path[i + 1]) for i in range(len(path) - 1)]
     total = sum(seg)
     out, i, done = [], 0, 0.0
@@ -117,9 +121,13 @@ def resample(path, count):
 
 
 def ring(outline):
-    """RING_DECK + RING_SIDES points on the outline. The two deck corners are always ring
-    points, so the sharp deck edge lofts cleanly; the rest is spaced by arc length, so point
-    k of every ring sits at the same place around the hull (no twist in the loft)."""
+    """
+    Return RING_DECK + RING_SIDES points on the outline.
+
+    The two deck corners are always ring points, so the sharp deck edge lofts cleanly; the
+    rest is spaced by arc length, so point k of every ring sits at the same place around the
+    hull (no twist in the loft).
+    """
     z_top = max(p[1] for p in outline)
     top = [i for i, p in enumerate(outline) if p[1] >= z_top - 0.5]
     right = max(top, key=lambda i: outline[i][0])

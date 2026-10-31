@@ -120,3 +120,29 @@ docks:
       - {indicator: green}
       - {indicator: red}
       - {indicator: red, vessel: black}
+
+# Map-measurement route (phase 6 R1.6), driven by survey_drive from Gazebo's true pose, so
+# every run takes the same path: through the Task 1 gates, one full turn on the spot (the
+# heading filter's lag), the channel just right of its centre line, across the debris field,
+# through the Task 3 gate heading east, south past the vessels, along the north end of the
+# marina and back to the start. About 155 m, 2.5-3 minutes. Same coordinates as the buoys.
+survey:
+  - {east: 2.05, north: -1.0}
+  - {east: 2.05, north: 11.0}
+  - {spin_deg: 360}
+  - {east: 3.6,  north: 18.0}
+  - {east: 4.5,  north: 27.1}
+  - {east: 5.1,  north: 33.1}
+  - {east: 6.1,  north: 39.1}
+  - {east: 5.5,  north: 45.5}
+  - {east: 11.5, north: 52.0}
+  - {east: 17.5, north: 49.5}
+  - {east: 24.0, north: 40.0}
+  - {east: 21.0, north: 30.0}
+  - {east: 24.0, north: 27.0}
+  - {east: 32.0, north: 27.0}
+  - {east: 33.0, north: 19.0}
+  - {east: 30.0, north: 8.0}
+  - {east: 24.0, north: 2.0}
+  - {east: 8.0,  north: -3.0}
+  - {east: 2.0,  north: -6.0}

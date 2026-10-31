@@ -1,4 +1,5 @@
-"""The whole simulation with one command.
+"""
+The whole simulation with one command.
 
     ros2 launch usv_sim sim.launch.py                      # Golcuk course, GUI, running
     ros2 launch usv_sim sim.launch.py paused:=true         # start paused (press play)
@@ -20,6 +21,15 @@ Experiments (phase 5.6), one command each:
     max_range_m:=10.0          fake_perception: no detections beyond 10 m
   e.g.  ros2 launch usv_sim sim.launch.py auto:=true record:=exp_compass8 compass_offset_deg:=8.0
 
+Map measurements (phase 6 R1.6):
+    survey:=true               no navigator; survey_drive drives the course's survey route
+                               from Gazebo's true pose, the same path every run
+    seed:=<n>                  the same sensor noise every run (sim_bridge, fake_perception);
+                               0 = different every run
+  e.g.  ros2 launch usv_sim sim.launch.py course:=roboboat_2026 survey:=true seed:=1 \
+            record:=map_base
+        then: python3 /ws/tools/map_report.py /ws/bags/map_base --course roboboat_2026
+
 What starts, in this order:
   1. make_course_world.py builds the world from the course file into /tmp, so the world
      can never be older than the course (no more "remember to regenerate").
@@ -36,7 +46,6 @@ Ctrl+C stops everything.
 import os
 
 from ament_index_python.packages import get_package_share_directory
-import yaml
 from launch import LaunchDescription
 from launch.actions import (AppendEnvironmentVariable, DeclareLaunchArgument, ExecuteProcess,
                             IncludeLaunchDescription, OpaqueFunction, RegisterEventHandler)
@@ -44,11 +53,13 @@ from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+import yaml
 
 PERCEPTION_KNOBS = ('compass_offset_deg', 'detect_prob', 'max_range_m')
 # What ws/tools/run_report.py reads, plus what is handy to replay
 RECORD_TOPICS = ('/usv/nav_status', '/usv/thrusters/pwm', '/usv/sim/navsat', '/usv/sim/imu',
-                 '/usv/fix', '/usv/heading', '/usv/buoys', '/usv/detections', '/usv/map')
+                 '/usv/fix', '/usv/heading', '/usv/buoys', '/usv/detections', '/usv/map',
+                 '/usv/speed')
 
 
 def setup(context):
@@ -106,6 +117,15 @@ def setup(context):
         if value:
             perception_overrides[name] = float(value)
     record = LaunchConfiguration('record').perform(context)
+    survey = LaunchConfiguration('survey').perform(context).lower() == 'true'
+    if survey:
+        with_navigator = False        # survey_drive is the only one commanding the thrusters
+    seed = LaunchConfiguration('seed').perform(context)
+    bridge_overrides = {}
+    if seed:
+        # Not the same numbers in both nodes; 0 stays 0 (different every run)
+        perception_overrides['random_seed'] = int(seed)
+        bridge_overrides['random_seed'] = int(seed) + 1000 if int(seed) else 0
 
     make_world = ExecuteProcess(
         cmd=['python3', os.path.join(share, 'scripts', 'make_course_world.py'),
@@ -127,7 +147,7 @@ def setup(context):
 
     ours = [
         Node(package='usv_sim', executable='sim_bridge', output='screen',
-             parameters=[os.path.join(config, 'sim_bridge.yaml')],
+             parameters=[os.path.join(config, 'sim_bridge.yaml'), bridge_overrides],
              respawn=True, respawn_delay=2.0),
         Node(package='usv_sim', executable='fake_perception', output='screen',
              parameters=[os.path.join(config, 'fake_perception.yaml'), perception_overrides],
@@ -152,6 +172,9 @@ def setup(context):
         ours.append(Node(package='usv_nodes', executable='navigator', output='screen',
                          parameters=[navigator_config, navigator_overrides],
                          respawn=True, respawn_delay=2.0))
+    if survey:
+        ours.append(Node(package='usv_sim', executable='survey_drive', output='screen',
+                         parameters=[{'course': course, 'course_file': course_file}]))
     if record:
         ours.append(ExecuteProcess(
             cmd=['ros2', 'bag', 'record', '-o', os.path.join('/ws/bags', record)]
@@ -195,6 +218,12 @@ def generate_launch_description():
                               description='true = navigator starts in AUTO'),
         DeclareLaunchArgument('record', default_value='',
                               description='bag name under /ws/bags; empty = no recording'),
+        DeclareLaunchArgument('survey', default_value='false',
+                              description='true = no navigator, survey_drive drives the '
+                              "course's survey route from the true pose"),
+        DeclareLaunchArgument('seed', default_value='',
+                              description='sensor noise seed for sim_bridge and '
+                              'fake_perception; empty = YAML value'),
     ] + [
         DeclareLaunchArgument(name, default_value='',
                               description='fake_perception override; empty = YAML value')

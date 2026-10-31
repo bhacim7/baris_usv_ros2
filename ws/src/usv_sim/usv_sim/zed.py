@@ -1,4 +1,5 @@
-"""What the ZED 2i measures, for the simulation (ROS-free, unit tested).
+"""
+What the ZED 2i measures, for the simulation (ROS-free, unit tested).
 
   world_field_enu       the Earth's field at the course (declination, inclination,
                         strength from the course file), as an ENU vector. Gazebo's own
@@ -44,13 +45,14 @@ def world_field_enu(declination_deg, inclination_deg, strength_uT):
 
 
 def body_field(field_enu, q_body_to_enu):
-    """The world field as seen from the body frame (inverse rotation)."""
+    """Return the world field as seen from the body frame (inverse rotation)."""
     x, y, z, w = q_body_to_enu
     return rotate((-x, -y, -z, w), field_enu)
 
 
 def magnetic_heading_deg(field_body, q_body_to_enu, hard_iron_body=(0.0, 0.0, 0.0)):
-    """Magnetic heading in [0, 360) from a body-frame field (x forward, y left, z up).
+    """
+    Magnetic heading in [0, 360) from a body-frame field (x forward, y left, z up).
 
     q_body_to_enu: attitude from the IMU. Only its roll and pitch matter: the field is
     turned into the world frame and back about the vertical by the IMU's own yaw, which

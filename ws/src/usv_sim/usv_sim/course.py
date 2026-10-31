@@ -1,4 +1,5 @@
-"""Course files (courses/*.yaml): one reader for the world generator and fake_perception.
+"""
+Course files (courses/*.yaml): one reader for the world generator and fake_perception.
 
 Both take the course's geometry from here, so what Gazebo draws and what the simulated
 camera sees cannot drift apart. ROS-free, unit tested (test/test_course.py).
@@ -22,6 +23,8 @@ A course file has:
                  with a triangle (yellow) or plus (black) on both sides
   docks          {name, heading_deg, tines: left|right, slips: [{indicator, vessel}] x 3,
                  position of the start of the dock's spine}: RoboBoat floating docks
+  survey         optional, the route survey_drive follows for map measurements: steps
+                 {east, north} (drive there) or {spin_deg: N} (turn on the spot, + clockwise)
 Positions: `lat`/`lon`, or `east`/`north` in metres from the origin.
 
 Dimensions are the RoboBoat 2026 handbook's where it gives them; everything marked
@@ -92,6 +95,7 @@ class Course:
     buoys: list                   # (name, type, spec, east, north) for the world generator
     models: list                  # Model, for vessels and docks
     targets: list                 # Buoy / Panel: what the camera can report
+    survey: list = field(default_factory=list)   # {east, north} world ENU or {spin_deg}
 
     def class_ids(self):
         return tuple(range(len(self.class_names)))
@@ -124,7 +128,7 @@ def local_to_enu(x0, y0, yaw, lx, ly):
 
 
 def anchor_for(placement, boat):
-    """The anchor that puts the file's boat start on placement (east, north, heading_deg)."""
+    """Return the anchor that puts the file's boat start on placement (east, north, hdg)."""
     rot = float(boat['heading_deg']) - float(placement['heading_deg'])
     r = math.radians(rot)
     e, n = float(boat['east']), float(boat['north'])
@@ -178,14 +182,22 @@ def load(data):
         models.extend(dock_models)
         targets.extend(dock_targets)
 
+    survey = []
+    for step in data.get('survey', []):
+        if 'spin_deg' in step:
+            survey.append({'spin_deg': float(step['spin_deg'])})
+        else:
+            x, y = position(step, origin, anchor)
+            survey.append({'east': x, 'north': y})
+
     return Course(name=data['name'], origin=origin, magnetic_field=data['magnetic_field'],
                   boat=boat, profile=profile, class_names=names,
                   mission=data.get('mission', {}), venue=data.get('venue', ''),
-                  buoys=buoys, models=models, targets=targets)
+                  buoys=buoys, models=models, targets=targets, survey=survey)
 
 
 def vessel(name, color, x, y, yaw, names):
-    """A stationary vessel and the two marks on its sides (camera panels)."""
+    """Build a stationary vessel and the two marks on its sides (camera panels)."""
     mark = 'triangle' if color == 'yellow' else 'plus'
     model = Model(name, x, y, yaw)
     h = VESSEL_FREEBOARD
@@ -226,7 +238,7 @@ def mark_parts(mark, y, zc, white_back):
 
 
 def dock(d, x0, y0, heading_deg, names):
-    """A floating dock: spine, four tines making three slips, banners, indicators."""
+    """Build a floating dock: spine, four tines making three slips, banners, indicators."""
     yaw = compass_to_yaw(heading_deg)
     s = 1 if d.get('tines', 'left') == 'left' else -1
     model = Model(f"dock_{d['name']}", x0, y0, yaw)

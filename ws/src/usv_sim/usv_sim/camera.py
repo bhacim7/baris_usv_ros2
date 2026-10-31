@@ -1,4 +1,5 @@
-"""The ZED 2i's eye and YOLO, for the simulation (ROS-free, unit tested).
+"""
+The ZED 2i's eye and YOLO, for the simulation (ROS-free, unit tested).
 
 Turns the known buoys (course file) and the boat's exact pose into what perception gets
 from the hardware on the boat: YOLO boxes and a depth image. Everything after that (depth
@@ -22,8 +23,8 @@ What is modelled, all numbers in config/fake_perception.yaml:
     pixels off the buoy see the water surface, or nothing above the horizon (inf)
 """
 
-import math
 from dataclasses import dataclass
+import math
 
 from usv_sim.zed import rotate
 
@@ -206,7 +207,7 @@ class Frame:
         self.depth_cache = {}
 
     def boxes(self):
-        """What YOLO reports: (x1, y1, x2, y2, class_id), with misses, jitter, confusions."""
+        """Return what YOLO reports: (x1, y1, x2, y2, class_id), misses, jitter, confusions."""
         s, rng = self.settings, self.rng
         out = []
         for (x1, y1, x2, y2), _, cid in self.visible:

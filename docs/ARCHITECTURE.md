@@ -390,3 +390,29 @@ is expected around November 2026; differences are adapted when it appears.
 | The boat is the four-thruster Thor boat of this port | Same model as in simulation |
 | Task order: 1, 2, 3, 6, 5, 4 | Task 1 is mandatory; Task 2 is closest to TEKNOFEST Task 2 and scores most |
 | Microphone for Task 6 exists (worked in 2026 with an FFT); ported as a node in phase 7, a simulated sound event until then | |
+
+### Map quality (R1.6)
+
+Measured, not guessed: `sim.launch.py survey:=true seed:=<n> record:=<name>` drives the course
+file's `survey` route from Gazebo's true pose (usv_sim/survey.py, the same path every run, no
+navigator), and `ws/tools/map_report.py` compares every sighting and the final map with the
+truth. Each sighting is recomputed with one input at a time swapped for the truth (GPS fix,
+heading, ZED range, antenna instead of camera as origin), so the error each input brings is
+known before anything is changed.
+
+Target: confirmed landmarks seen from within 6 m, mean error < 0.5 m, none above 1 m (enough to
+find the middle of a 2.5 m channel gate from the map).
+
+Fixes to the RoboBoat measurement chain (`measure_boxes`, the mapper), each a parameter so the
+report measures it alone; the TEKNOFEST chain and the golden tests are not touched:
+
+| | Fix | Error it removes |
+|---|---|---|
+| D1 | Place from the camera, not the GPS antenna (0.89 m behind it) | Constant along-heading offset |
+| D2 | ZED depth -> distance: depth / cos(pixel angle) | Objects off the image centre placed too close (~30 % at 45 deg) |
+| D3 | Boat position at the frame time: last fix + speed x age along the heading | GPS age (2 Hz + delay, up to ~0.8 m at 1.3 m/s) |
+| D4 | Less weight for sightings while turning fast | Heading filter lag in turns, duplicates |
+| D5 | No new landmark next to a confirmed one of another kind | Ghosts from YOLO class confusion |
+
+Not fixable here: the receiver's own drift without RTK (~1 m wandering over a minute); the
+map says where to look, the camera says exactly where it is.
