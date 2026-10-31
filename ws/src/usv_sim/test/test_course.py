@@ -29,7 +29,8 @@ def by_class(course):
 def roboboat_local():
     """The RoboBoat course as laid out in the file, before the anchor moves it."""
     data = read('roboboat_2026')
-    del data['anchor']
+    data.pop('anchor', None)
+    data.pop('placement', None)
     return course_mod.load(data)
 
 
@@ -39,10 +40,28 @@ def test_anchor_moves_and_turns_the_layout():
     e, n = course_mod.position({'east': 10.0, 'north': 0.0}, origin, anchor)
     assert (e, n) == (pytest.approx(-185.0), pytest.approx(1098.0))   # east turned to north
     assert course_mod.heading({'heading_deg': 90.0}, anchor) == 0.0
-    c = course_mod.load(read('roboboat_2026'))
+
+
+def test_placement_puts_the_boat_start_where_asked():
+    data = read('roboboat_2026')
+    c = course_mod.load(data)
     assert c.venue == 'nbpark'
-    assert c.boat['east'] == pytest.approx(-185.0 + 2.0)
-    assert c.boat['north'] == pytest.approx(1088.0 - 8.0)
+    p = data['placement']
+    assert c.boat['east'] == pytest.approx(p['east'])
+    assert c.boat['north'] == pytest.approx(p['north'])
+    assert c.boat['heading_deg'] == pytest.approx(p['heading_deg'])
+    # Everything keeps its place relative to the boat: the first Task 1 gate stays 8 m
+    # straight ahead of it
+    local = roboboat_local()
+    gate = [t for t in c.targets if c.class_names[t.class_id].startswith('pole')][:2]
+    gate_local = [t for t in local.targets
+                  if local.class_names[t.class_id].startswith('pole')][:2]
+    for t, tl in zip(gate, gate_local):
+        assert math.dist((t.x, t.y), (c.boat['east'], c.boat['north'])) == pytest.approx(
+            math.dist((tl.x, tl.y), (local.boat['east'], local.boat['north'])))
+    mid = ((gate[0].x + gate[1].x) / 2, (gate[0].y + gate[1].y) / 2)
+    bearing = math.degrees(math.atan2(mid[0] - c.boat['east'], mid[1] - c.boat['north']))
+    assert bearing % 360.0 == pytest.approx(p['heading_deg'], abs=1.0)
 
 
 def test_golcuk_targets_are_what_fake_perception_built_before():
@@ -117,7 +136,7 @@ def test_vessel_marks_are_on_both_sides():
 def test_indicator_buoy_target_is_the_cylinder_on_top():
     c = roboboat_local()
     ind = [t for t in c.targets if isinstance(t, Buoy)
-           and c.class_names[t.class_id] == 'indicator_green' and t.x == 13.0]
+           and c.class_names[t.class_id] == 'indicator_green' and t.x == 14.52]
     (t,) = ind
     assert t.radius == course_mod.INDICATOR_RADIUS
     assert t.height - t.z0 == pytest.approx(course_mod.INDICATOR_HEIGHT)

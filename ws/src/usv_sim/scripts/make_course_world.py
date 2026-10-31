@@ -222,7 +222,8 @@ def main():
     with open(sys.argv[2], 'w') as f:
         f.write(header + ET.tostring(tree.getroot(), encoding='unicode') + '\n')
     print(f"{sys.argv[2]}: {len(course.buoys)} buoys, {len(course.models)} vessels/docks, "
-          f"{len(course.targets)} camera targets, origin {origin['lat']}, {origin['lon']}")
+          f"{len(course.targets)} camera targets, origin {origin['lat']}, {origin['lon']}; "
+          f"boat start x {bx:.2f} y {by:.2f} heading {course.boat['heading_deg']:.1f} deg")
 
 
 if __name__ == '__main__':

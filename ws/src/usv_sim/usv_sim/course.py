@@ -10,6 +10,9 @@ A course file has:
                  laid out around this point of the world, turned by rotation_deg
                  (counter-clockwise), so a course drawn north-up can be fitted into the lake;
                  headings in the file turn with it
+  placement      optional {east, north, heading_deg}, instead of anchor: where in the world
+                 the boat starts and which way it points; the whole layout follows (the
+                 anchor is worked out from the boat's own position in the file)
   classes        'teknofest' (default) or 'roboboat': the class list (usv_core.classes)
   mission        optional, navigator overrides (see sim.launch.py)
   buoy_types     shapes: sphere, pear, cylinder (legacy), pole, indicator; class by name
@@ -120,10 +123,22 @@ def local_to_enu(x0, y0, yaw, lx, ly):
     return x0 + lx * c - ly * s, y0 + lx * s + ly * c
 
 
+def anchor_for(placement, boat):
+    """The anchor that puts the file's boat start on placement (east, north, heading_deg)."""
+    rot = float(boat['heading_deg']) - float(placement['heading_deg'])
+    r = math.radians(rot)
+    e, n = float(boat['east']), float(boat['north'])
+    return {'east': placement['east'] - (e * math.cos(r) - n * math.sin(r)),
+            'north': placement['north'] - (e * math.sin(r) + n * math.cos(r)),
+            'rotation_deg': rot}
+
+
 def load(data):
     """Build a Course from a parsed course file (dict)."""
     origin = data['origin']
     anchor = data.get('anchor')
+    if 'placement' in data:
+        anchor = anchor_for(data['placement'], data['boat'])
     profile = data.get('classes', 'teknofest')
     names = class_names(profile)
 

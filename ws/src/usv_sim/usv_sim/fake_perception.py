@@ -57,8 +57,9 @@ class FakePerception(Node):
         p = self.declare_parameter
         self.rng = make_rng(p('random_seed', 0).value)
         course_name = p('course', 'golcuk_2026_10_14').value
-        course_path = os.path.join(get_package_share_directory('usv_sim'), 'courses',
-                                   course_name + '.yaml')
+        # course_file: a full path (sim.launch.py's placed copy); else the named course
+        course_path = p('course_file', '').value or os.path.join(
+            get_package_share_directory('usv_sim'), 'courses', course_name + '.yaml')
         with open(course_path) as f:
             self.course = course_mod.load(yaml.safe_load(f))
         mf = self.course.magnetic_field

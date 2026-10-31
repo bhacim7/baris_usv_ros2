@@ -6,6 +6,9 @@
     ros2 launch usv_sim sim.launch.py course:=<name>       # another usv_sim/courses/<name>.yaml
     ros2 launch usv_sim sim.launch.py start_task:=TASK1_STATE_ENTER   # not the course's own
     ros2 launch usv_sim sim.launch.py navigator:=false     # drive by hand (ros2 topic pub)
+    ros2 launch usv_sim sim.launch.py course:=roboboat_2026 course_east:=182.5 \
+        course_north:=952.2 course_heading:=180    # put the course elsewhere: boat start
+                                                   # (Gazebo x, y) and heading; layout follows
 
 Experiments (phase 5.6), one command each:
     auto:=true                 navigator starts in AUTO (no set_manual call needed)
@@ -60,9 +63,24 @@ def setup(context):
     heading_config = os.path.join(nodes_config, 'heading_source.yaml')
     navigator_config = os.path.join(nodes_config, 'navigator.yaml')
 
-    # The course's mission section on top of navigator.yaml
     with open(course_file) as f:
         course_data = yaml.safe_load(f)
+
+    # Course placed elsewhere from the command line: a placed copy in /tmp, used by the
+    # world generator and fake_perception alike
+    placement = [LaunchConfiguration(n).perform(context)
+                 for n in ('course_east', 'course_north', 'course_heading')]
+    if any(placement):
+        if not all(placement):
+            raise RuntimeError('give course_east, course_north and course_heading together')
+        course_data.pop('anchor', None)
+        course_data['placement'] = {'east': float(placement[0]), 'north': float(placement[1]),
+                                    'heading_deg': float(placement[2])}
+        course_file = os.path.join('/tmp', f'usv_sim_{course}_placed.yaml')
+        with open(course_file, 'w') as f:
+            yaml.safe_dump(course_data, f, sort_keys=False)
+
+    # The course's mission section on top of navigator.yaml
     mission = course_data.get('mission', {})
     navigator_overrides = {k: v for k, v in mission.items() if k != 'waypoints'}
     navigator_overrides.update({'waypoints.' + name: [float(x) for x in latlon]
@@ -79,6 +97,7 @@ def setup(context):
     # Experiment knobs: a value given on the command line replaces fake_perception.yaml
     perception_overrides = {
         'course': course,
+        'course_file': course_file,
         'magnetic_declination_deg': float(course_data['magnetic_field']['declination_deg']),
     }
     for name in PERCEPTION_KNOBS:
@@ -150,6 +169,13 @@ def generate_launch_description():
                               description="navigator start task; empty = the course's own"),
         DeclareLaunchArgument('navigator', default_value='true',
                               description='false = no navigator, drive with ros2 topic pub'),
+        DeclareLaunchArgument('course_east', default_value='',
+                              description='boat start x in the Gazebo world (m); the layout '
+                              'follows. Give all three course_* or none'),
+        DeclareLaunchArgument('course_north', default_value='',
+                              description='boat start y in the Gazebo world (m)'),
+        DeclareLaunchArgument('course_heading', default_value='',
+                              description='boat start heading, compass deg (0 north, 90 east)'),
         DeclareLaunchArgument('auto', default_value='false',
                               description='true = navigator starts in AUTO'),
         DeclareLaunchArgument('record', default_value='',
