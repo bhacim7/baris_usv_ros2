@@ -34,6 +34,19 @@ INDICATOR_COLOR = {'indicator_red': 'red', 'indicator_green': 'green'}
 VESSEL_MARK_COLOR = {'triangle': 'yellow', 'plus': 'black'}   # mark -> vessel colour
 DIGIT_NUMBER = {'digit_1': 1, 'digit_2': 2, 'digit_3': 3}
 
+# Horizontal radius (m) of what the camera sees of each class: the ZED measures the object's
+# front, the map wants its centre (usv_core.detection.measure_boxes, add_radius; phase 6
+# R1.7 D6). Handbook 2026 sizes. Red, green and black buoys come as Polyform A-0 (20.3 cm,
+# channel, debris) and A-2 (36.8 cm, Task 3): the A-0 value is used, the more common one.
+# Flat marks (vessel marks, slip banners) are seen face on: 0.
+OBJECT_RADIUS_M = {
+    'pole_red': 0.229, 'pole_green': 0.229,                 # Sur-Mark, 18 in
+    'buoy_red': 0.102, 'buoy_green': 0.102, 'buoy_black': 0.102,    # A-0
+    'buoy_yellow': 0.184,                                   # A-2
+    'indicator_red': 0.064, 'indicator_green': 0.064,       # 5 in cylinder
+    'triangle': 0.0, 'plus': 0.0, 'digit_1': 0.0, 'digit_2': 0.0, 'digit_3': 0.0,
+}
+
 
 def class_names(profile):
     """Return the class name list of a profile ('teknofest' or 'roboboat')."""

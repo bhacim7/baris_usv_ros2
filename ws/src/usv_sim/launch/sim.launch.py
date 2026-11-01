@@ -28,6 +28,7 @@ Map measurements (phase 6 R1.6):
                                0 = different every run
     true_distance:=false       RoboBoat detections: ZED depth used as the distance (legacy, D2)
     from_camera:=false         RoboBoat detections: placed from the GPS antenna (legacy, D1)
+    add_radius:=false          RoboBoat detections: front of the object, no radius (D6)
   e.g.  ros2 launch usv_sim sim.launch.py course:=roboboat_2026 survey:=true seed:=1 \
             record:=map_base
         then: python3 /ws/tools/map_report.py /ws/bags/map_base --course roboboat_2026
@@ -60,7 +61,8 @@ import yaml
 PERCEPTION_KNOBS = ('compass_offset_deg', 'detect_prob', 'max_range_m')
 # Measurement-chain fixes of /usv/detections (phase 6 R1.7): launch argument -> parameter
 CHAIN_SWITCHES = {'true_distance': 'detection_true_distance',
-                  'from_camera': 'detection_from_camera'}
+                  'from_camera': 'detection_from_camera',
+                  'add_radius': 'detection_add_radius'}
 # What ws/tools/run_report.py reads, plus what is handy to replay
 RECORD_TOPICS = ('/usv/nav_status', '/usv/thrusters/pwm', '/usv/sim/navsat', '/usv/sim/imu',
                  '/usv/fix', '/usv/heading', '/usv/buoys', '/usv/detections', '/usv/map',

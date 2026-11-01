@@ -21,6 +21,11 @@ def test_roboboat_has_the_thirteen_dataset_classes_sorted():
     assert len(set(classes.ROBOBOAT)) == 13
 
 
+def test_every_roboboat_class_has_a_radius():
+    assert set(classes.OBJECT_RADIUS_M) == set(classes.ROBOBOAT)
+    assert all(0.0 <= r < 0.5 for r in classes.OBJECT_RADIUS_M.values())
+
+
 def test_groups_only_name_existing_classes():
     names = set(classes.ROBOBOAT)
     for group in (classes.GATE_POLES, classes.CHANNEL_BUOYS, classes.INDICATOR_COLOR,

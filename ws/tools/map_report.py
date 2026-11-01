@@ -58,6 +58,7 @@ from ament_index_python.packages import get_package_share_directory
 from rclpy.serialization import deserialize_message
 import rosbag2_py
 from rosidl_runtime_py.utilities import get_message
+from usv_core.classes import OBJECT_RADIUS_M
 from usv_core.world_map import kind_of, MapConfig, WorldMap
 from usv_sim import course as course_mod
 from usv_sim.camera import Buoy, camera_position, CameraModel, target_view, to_camera
@@ -352,9 +353,15 @@ def report_sightings(recs, confused, unmatched, skipped, max_range):
     print(f'   recorded vs recomputed position: mean {100 * mean(recorded):.1f} cm '
           '(the legacy formula uses a spherical Earth)')
     r0 = recs[0]
-    chain = ('distance = depth / cos(angle)' if any(abs(r['d'] - r['depth']) > 1e-3
-                                                    for r in recs)
-             else 'distance = depth (legacy)')
+
+    def predicted(r, true_distance, radius):
+        d = r['depth'] / math.cos(math.radians(r['alpha'])) if true_distance else r['depth']
+        return d + (OBJECT_RADIUS_M.get(r['class_name'], 0.0) if radius else 0.0)
+
+    best = min(((td, rad) for td in (False, True) for rad in (False, True)),
+               key=lambda c: sum(abs(r['d'] - predicted(r, *c)) for r in recs[:2000]))
+    chain = 'distance = ' + ('depth / cos(angle)' if best[0] else 'depth (legacy)') + (
+        ' + class radius' if best[1] else '')
     origin = (f"placed from {r0['origin_body'][0]:.2f} m ahead, {r0['origin_body'][1]:.2f} m "
               'left of the antenna' if any(r0['origin_body']) else
               'placed from the antenna (legacy)')
@@ -421,6 +428,11 @@ def report_inputs(recs):
     binned(recs, lambda r: r['r_true'], [0.0, 3.0, 6.0, 9.0, 12.0, math.inf], columns)
     print('     by |pixel angle| (deg)')
     binned(recs, lambda r: abs(r['alpha']), [0.0, 15.0, 30.0, 45.0, math.inf], columns)
+    print('     by class               n   total  ZED noise    rest')
+    for name in sorted({r['class_name'] for r in recs}):
+        rows = [r for r in recs if r['class_name'] == name]
+        cells = ' '.join(f'{mean([f(r) for r in rows]):8.2f}' for _, f in columns[:3])
+        print(f'   {name:>15} {len(rows):6d} {cells}')
     true_cam, used = recs[0]['lever_body'], recs[0]['origin_body']
     print(f'\n   origin: the camera is {true_cam[0]:.2f} m ahead, {true_cam[1]:.2f} m left of the '
           f'antenna; positions placed from {used[0]:.2f}, {used[1]:.2f}')

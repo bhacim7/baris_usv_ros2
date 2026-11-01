@@ -13,7 +13,8 @@ config/fake_perception.yaml):
   /usv/detections        usv_interfaces/DetectionArray, once per camera frame, RoboBoat
                          courses: every box measured (usv_core.detection.measure_boxes),
                          for the mapper; the chain fixes of phase 6 R1.7 (true distance,
-                         placed from the camera) are the detection_* parameters.
+                         placed from the camera, + class radius) are the detection_*
+                         parameters.
   /usv/heading/zed       std_msgs/Float32 (deg)  once per camera frame, like camera_process:
                          magnetometer -> magnetic heading (tilt compensated) -> the legacy
                          Kalman filter -> + declination (usv_core.heading, unchanged code).
@@ -106,6 +107,7 @@ class FakePerception(Node):
         self.antenna_mount = tuple(p('gnss_antenna_mount_m', [-0.46, 0.0, 0.68]).value)
         # Measurement chain of /usv/detections (phase 6 R1.7, usv_core.detection.measure_boxes)
         self.true_distance = p('detection_true_distance', False).value
+        self.add_radius = p('detection_add_radius', False).value
         offset = list(p('camera_from_antenna_m', [0.75, 0.06]).value)
         self.camera_offset = (tuple(offset[:2]) if p('detection_from_camera', False).value
                               else (0.0, 0.0))
@@ -146,6 +148,8 @@ class FakePerception(Node):
             f'hard iron {hard_iron_uT} uT')
         if not self.legacy_buoys:
             distance = 'depth / cos(angle)' if self.true_distance else 'depth (legacy)'
+            if self.add_radius:
+                distance += ' + class radius'
             origin = (f'camera {self.camera_offset} m from the antenna'
                       if any(self.camera_offset) else 'antenna (legacy)')
             self.get_logger().info(f'detections: distance = {distance}, placed from the {origin}')
@@ -216,7 +220,8 @@ class FakePerception(Node):
                                  self.cam.height, self.cam.cx, self.cam.fx, self.heading,
                                  lat, lon, self.course.class_names,
                                  true_distance=self.true_distance,
-                                 camera_offset=self.camera_offset)
+                                 camera_offset=self.camera_offset,
+                                 add_radius=self.add_radius)
         out = DetectionArray()
         out.header.stamp = now.to_msg()
         out.header.frame_id = 'zed_left'

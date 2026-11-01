@@ -177,6 +177,7 @@ Bir node çökerse 2 saniye sonra kendiliğinden yeniden başlar (teknedeki gibi
 | `seed:=N` | yok (her koşu farklı) | Algılayıcı gürültüsü her koşuda aynı (iki koşuyu karşılaştırmak için) |
 | `true_distance:=false` | YAML (`true`) | RoboBoat tespitleri: derinlik mesafe sayılır (eski hal, D2 kapalı) |
 | `from_camera:=false` | YAML (`true`) | RoboBoat tespitleri: antenden konumlanır (eski hal, D1 kapalı) |
+| `add_radius:=false` | YAML (`true`) | RoboBoat tespitleri: nesnenin ön yüzü, yarıçap eklenmez (D6 kapalı) |
 | `record:=<ad>` | kayıt yok | `/ws/bags/<ad>` klasörüne kayıt. Ad daha önce kullanılmamış olmalı |
 | `compass_offset_deg:=8.0` | YAML | ZED pusulası 8° fazla okur (deney) |
 | `detect_prob:=0.5` | YAML | YOLO bir nesneyi karelerin yarısında bulur (deney) |

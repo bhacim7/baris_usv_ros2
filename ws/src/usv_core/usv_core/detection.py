@@ -28,6 +28,7 @@ measure_boxes (RoboBoat) can correct both, see its options.
 import math
 import statistics
 
+from usv_core.classes import OBJECT_RADIUS_M
 from usv_core.navigation import calculate_obj_gps
 from usv_core.object_memory import CID_TO_COLOR
 
@@ -152,7 +153,8 @@ def offset_position(lat, lon, forward_m, left_m, heading_deg):
 
 
 def measure_boxes(boxes, depth_at, width, height, cam_cx, cam_fx, heading_deg, boat_lat,
-                  boat_lon, class_names, true_distance=False, camera_offset=(0.0, 0.0)):
+                  boat_lon, class_names, true_distance=False, camera_offset=(0.0, 0.0),
+                  add_radius=False):
     """
     Measure every box of one frame, for /usv/detections (RoboBoat, phase 6).
 
@@ -160,12 +162,14 @@ def measure_boxes(boxes, depth_at, width, height, cam_cx, cam_fx, heading_deg, b
     nothing is dropped and nothing is remembered: every box comes back with what could be
     measured. boxes: [(x1, y1, x2, y2, class_id), ...]; class_names: the model's class list.
 
-    Two fixes to the legacy chain (phase 6 R1.7), off by default (= process_frame):
+    Fixes to the legacy chain (phase 6 R1.7), off by default (= process_frame):
       true_distance  the ZED depth is the distance along the optical axis; the horizontal
                      distance to the point is depth / cos(pixel angle). Legacy uses the
                      depth itself: ~30 % short at 45 deg off the image centre.
       camera_offset  (forward_m, left_m) of the camera from the GPS antenna, boat frame:
                      objects are placed from the camera instead of from the antenna.
+      add_radius     the depth is that of the object's front; the class's radius
+                     (usv_core.classes.OBJECT_RADIUS_M) is added to reach its centre.
     The depth window is validated as in legacy (0.5-15 m) before any correction.
 
     Returns dicts: class_name, class_id, box, depth_m (nan), distance_m (nan: the distance
@@ -185,6 +189,8 @@ def measure_boxes(boxes, depth_at, width, height, cam_cx, cam_fx, heading_deg, b
         dist_m = depth
         if valid and true_distance:
             dist_m = depth * math.hypot(1.0, (cx - cam_cx) / cam_fx)    # depth / cos(angle)
+        if valid and add_radius:
+            dist_m += OBJECT_RADIUS_M.get(class_names[cid], 0.0)
         bearing = bearing_deg(cx, cam_cx, cam_fx, heading_deg) if have_heading else nan
         ok = valid and have_heading and have_fix
         lat, lon = nan, nan

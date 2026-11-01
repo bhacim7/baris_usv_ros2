@@ -206,3 +206,15 @@ def test_real_neighbour_of_another_kind_is_confirmed():
         m.add_frame(frame, k * 0.1)
     by_kind = {lm['kind']: lm for lm in m.snapshot()}
     assert by_kind['buoy_black']['sightings'] == 3 and by_kind['buoy_black']['confirmed']
+
+
+def test_measure_boxes_adds_the_class_radius():
+    """D6: the ZED sees the front of a yellow A-2 buoy; its centre is 0.184 m farther."""
+    box = [(630, 300, 650, 340, ROBOBOAT.index('buoy_yellow'))]
+    (d,) = measure_boxes(box, lambda u, v: 5.0, 1280, 720, CX, FX, 0.0, O_LAT, O_LON,
+                         ROBOBOAT, add_radius=True)
+    assert d['depth_m'] == 5.0 and d['distance_m'] == pytest.approx(5.184)
+    flat = [(630, 300, 650, 340, ROBOBOAT.index('digit_2'))]
+    (d,) = measure_boxes(flat, lambda u, v: 5.0, 1280, 720, CX, FX, 0.0, O_LAT, O_LON,
+                         ROBOBOAT, add_radius=True)
+    assert d['distance_m'] == 5.0

@@ -381,7 +381,7 @@ adaptation comes first, in simulation; the boat phases follow and then run along
 | 7 | Boat image (arm64, Thor), `fc_bridge`, `perception`, `heading_source`, `telemetry_bridge`, `recorder`, audio | Sensors flowing on land and at the pier; GCS connects unchanged |
 | 8 | Sea trials, then alongside the simulation | The ROS 2 version completes RoboBoat tasks on the water |
 
-Phase 6 progress (2026-11-01): R1.1-R1.6 done, R1.7 D1 + D2 done (measurement-chain target met), D4 + D5 done. 13 RoboBoat classes; one course reader for
+Phase 6 progress (2026-11-01): R1.1-R1.6 done, R1.7 D1 + D2 done (measurement-chain target met), D4 + D5 done, D6 written; D3 deferred (fix age now 0.14 m; the real GPS rate is in the unseen `.param`). 13 RoboBoat classes; one course reader for
 the world generator and `fake_perception`; `roboboat_2026` at Nathan Benderson Park (vessels,
 docks, indicators); per-frame detections and the persistent world map (`mapper`, RViz); the
 fixed survey route and `map_report.py`. First measurement in section 16. Next: R1.7, the
@@ -478,6 +478,7 @@ report measures it alone; the TEKNOFEST chain and the golden tests are not touch
 | D2 | ZED depth -> distance: depth / cos(pixel angle). Done (R1.7): `detection_true_distance` | Objects off the image centre placed too close (~30 % at 45 deg) |
 | D3 | Boat position at the frame time: last fix + speed x age along the heading | GPS age (2 Hz + delay, up to ~0.8 m at 1.3 m/s) |
 | D4 | Turning: sigma += distance x tan(heading_lag_s x yaw rate); no new landmark above new_landmark_max_turn_dps. Written (R1.7), yaw rate from `/usv/imu` | Heading filter lag in turns, duplicates |
+| D6 | + the class radius (`usv_core.classes.OBJECT_RADIUS_M`, handbook sizes; flat marks 0): the ZED sees the front, the map wants the centre. Written (R1.7): `detection_add_radius` | The -0.2 to -0.3 m left after D2 |
 | D5 | A landmark is not confirmed while a landmark of another kind within confusion_radius_m has confusion_ratio x its sightings and the two were never in the same frame (a real neighbour, e.g. a black buoy 0.65 m from a red one, is seen in the same frames as a box of its own). Written (R1.7) | Ghosts from YOLO class confusion |
 
 Not fixable here: the receiver's own drift without RTK (~1 m wandering over a minute); the

@@ -44,9 +44,10 @@ fake_perception:
 
     # ---------------------------------------------------------------- measurement chain
     # RoboBoat /usv/detections only (phase 6 R1.7); the TEKNOFEST /usv/buoys chain stays
-    # legacy. false = as legacy. The boat's perception gets the same three settings.
+    # legacy. false = as legacy. The boat's perception gets the same settings.
     detection_true_distance: true        # D2: distance = ZED depth / cos(pixel angle)
     detection_from_camera: true          # D1: place objects from the camera, not the antenna
+    detection_add_radius: true           # D6: + the class radius (front -> centre)
     # Camera (left lens) from the GPS antenna, boat frame x forward / y left: what the boat
     # is TOLD. Tape measurement 2026-11-01: 0.75 m ahead; 0.06 m = the left lens beside the
     # ZED's centre. Same as camera_mount_m minus gnss_antenna_mount_m, i.e. exact here;
