@@ -16,7 +16,7 @@ Bir şey tamamlandıkça buradan sil ya da üstünü çiz. Son güncelleme: 31 E
 | 4b | ~~Video (14 Ekim)~~ **Tamam (23 Ekim)** | | | |
 | 4c | **ArduPilot parametre dosyası** (Mission Planner → Config → Full Parameter List → Save, `.param`) | GPS hızı (`GPS_RATE_MS`; şu an videodan 2 Hz kabul ediliyor), akış hızları, servo kanalları, röle başlangıç durumu, pusula ayarları | Bana gönder | Bulabildiğinde |
 | 4d | **ZED pusulasının teknede doğruluğu**: tekneyi bilinen yönlere (ör. iskele boyunca, 4 yön) çevirip HUD'daki yönü telefon pusulası / harita ile karşılaştır | Şamandıralar pusulayla konumlanıyor: 10 m'de 8° ≈ 1,4 m yana kayma. Faz 5.6'da 8° hata tek başına bir temas getirdi | Değerleri bana yaz | İlk iskele testi |
-| 4e | **GPS anteni ile ZED sol merceği arası mesafe** (şeritle: ileri-geri, sağ-sol, yükseklik) | Harita düzeltmesi D1: tespitler artık kameradan konumlanacak. Simülasyonda anten 0,89 m geride kabul ediliyor (model çiziminden) | Bana yaz | Teknede ölçebildiğinde |
+| 4e | ~~GPS anteni ile ZED arası mesafe~~ **Tamam (1 Kasım):** anten ZED'in 0,75 m gerisinde, 0,50 m üstünde. Model ve ayarlar güncellendi. Açık küçük soru: ikisi de teknenin orta çizgisinde mi? (öyle kabul edildi) | | | |
 | 4f | **GPS'in durduğu yerde kayması**: tekne iskelede dururken 10 dakika `/usv/fix` kaydı (ya da Mission Planner'dan konum logu) | Haritanın mutlak hatasını GPS alıcısı belirliyor. Simülasyon 1 m / 60 s kayma VARSAYIYOR; gerçek değer harita hedefini doğrudan etkiler | Kayıt dosyası | Faz 7, iskele |
 | 5 | Elinizde varsa ZED'in ham kayıtları (**`.svo`**) | `perception` node'unu tekneye çıkmadan, gerçek görüntü ve derinlikle geliştirmek için | Bana sor | Faz 7'den önce, isteğe bağlı |
 | 6 | YOLO modelinin **`.pt`** dosyası, RoboBoat sınıflarıyla | Thor'da `.engine`'e dönüştürülecek (eski `.engine` yeni donanımda çalışmaz). Depoya konmayacak | `~/usv_models/` (depo dışında) | Faz 7 |
@@ -45,7 +45,7 @@ RoboBoat simülasyonda** (ARCHITECTURE.md §15–16).
 | R1.1–R1.3 | 13 sınıf, ortak parkur okuyucu, gemiler ve iskeleler, `roboboat_2026` parkuru Nathan Benderson Park'ta | Bitti (commit `d951ade`) |
 | R1.4–R1.5 | Kare başına tespitler (`/usv/detections`), kalıcı dünya haritası (`mapper`), RViz | Bitti (`79aca43`) |
 | R1.6 | Sabit ölçüm rotası (`survey_drive`), `map_report.py`, ilk ölçüm (`survey_base`) | Bitti (`f98e8cc`) |
-| **R1.7** | **Ölçüm zinciri düzeltmeleri, her biri ayrı ayar.** Sıra: D2 (derinlik → mesafe) + D1 (kameradan konumla), sonra D4 (hızlı dönüşte düşük ağırlık), D5 (sınıf karışması hayaletleri), D3 (GPS yaşı). Her birinden sonra `survey:=true seed:=1` koşusu + rapor. `map_report.py`'nin `TARGET` satırı da yeni iki hedefe göre güncellenecek (şu an eski 0,5 / 1 m mutlak hedefi yazıyor) | **Sıradaki iş** |
+| **R1.7** | **Ölçüm zinciri düzeltmeleri, her biri ayrı ayar.** D2 (derinlik → mesafe) + D1 (kameradan konumla) **bitti** (1 Kasım): ölçüm zinciri haritası 1,74 → 0,28 m, hedef geçti. Sonra D4 (hızlı dönüşte düşük ağırlık), D5 (sınıf karışması hayaletleri), D3 (GPS yaşı). Her birinden sonra `survey:=true seed:=1` koşusu + rapor. `map_report.py` yeni iki hedefe göre güncellendi (3a mutlak, 3b ölçüm zinciri) | **Sıradaki iş** |
 | R2 | Navigator'a yarışma profili (RoboBoat) | |
 | R3 | Görevler: 1 → 2 → 3 → 6 → 5 → 4 | |
 | R4 | RoboCommand raporlama (protobuf / TCP, 1 Hz heartbeat) | |

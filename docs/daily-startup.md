@@ -175,6 +175,8 @@ Bir node çökerse 2 saniye sonra kendiliğinden yeniden başlar (teknedeki gibi
 | `start_task:=...` | parkurun kendi görevi | Navigator başlangıç görevi, ör. `TASK1_STATE_ENTER` |
 | `survey:=true` | `false` | Navigator yok; `survey_drive` parkurun ölçüm rotasını sürer (RoboBoat) |
 | `seed:=N` | yok (her koşu farklı) | Algılayıcı gürültüsü her koşuda aynı (iki koşuyu karşılaştırmak için) |
+| `true_distance:=false` | YAML (`true`) | RoboBoat tespitleri: derinlik mesafe sayılır (eski hal, D2 kapalı) |
+| `from_camera:=false` | YAML (`true`) | RoboBoat tespitleri: antenden konumlanır (eski hal, D1 kapalı) |
 | `record:=<ad>` | kayıt yok | `/ws/bags/<ad>` klasörüne kayıt. Ad daha önce kullanılmamış olmalı |
 | `compass_offset_deg:=8.0` | YAML | ZED pusulası 8° fazla okur (deney) |
 | `detect_prob:=0.5` | YAML | YOLO bir nesneyi karelerin yarısında bulur (deney) |
@@ -348,10 +350,17 @@ Beklenen: birkaç saniye ile bir dakika arası sürer, üç bölüm yazar.
 Resimde: solda harita (halkalar gerçek nesneler, noktalar harita, çizgiler hata), sağ üstte
 hatanın uzaklığa göre dağılımı, sağ altta her girdinin tek başına getirdiği hata.
 
+Düzeltmeler (R1.7) `fake_perception.yaml`'da açık; eski hali (karşılaştırma için) launch'a
+`true_distance:=false from_camera:=false` eklenerek koşulur. Raporun sonunda iki harita var:
+`3a` teknenin kendi haritası (mutlak hata, hedef yok: GPS belirliyor) ve `3b` aynı tespitlerin
+GPS kusursuzmuş gibi yeniden haritalanması (ölçüm zinciri, `TARGET` satırı burada).
+R1.7'den önce alınan kayıtlar (ör. `survey_base`) yeni raporla okunamaz: mesajlara alan eklendi.
+
 İlk ölçüm (`survey_base`, 31 Ekim): tespit başına ortalama 2,75 m. Paylar: mesafe 1,74 m
 (derinliği mesafe sanmak), GPS 1,01 m (çoğu alıcı kayması), anten/kamera farkı 0,94 m, pusula
 0,34 m (dönüşlerde 9°'ye kadar). Ayrıntı ve düzeltme sırası: `ARCHITECTURE.md` §16,
-"Map quality". Sıradaki iş: D2 + D1 düzeltmeleri, ardından aynı komutla `record:=survey_d1d2`.
+"Map quality". D2 + D1 sonrası (`survey_d1d2`, 1 Kasım): tespit başına 1,39 m, ölçüm zinciri haritası 0,28 m
+(hedef geçti), mutlak harita 1,06 m (GPS kayması).
 
 ### 6.3 Elle sürmek
 

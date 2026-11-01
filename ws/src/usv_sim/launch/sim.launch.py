@@ -26,6 +26,8 @@ Map measurements (phase 6 R1.6):
                                from Gazebo's true pose, the same path every run
     seed:=<n>                  the same sensor noise every run (sim_bridge, fake_perception);
                                0 = different every run
+    true_distance:=false       RoboBoat detections: ZED depth used as the distance (legacy, D2)
+    from_camera:=false         RoboBoat detections: placed from the GPS antenna (legacy, D1)
   e.g.  ros2 launch usv_sim sim.launch.py course:=roboboat_2026 survey:=true seed:=1 \
             record:=map_base
         then: python3 /ws/tools/map_report.py /ws/bags/map_base --course roboboat_2026
@@ -56,6 +58,9 @@ from launch_ros.actions import Node
 import yaml
 
 PERCEPTION_KNOBS = ('compass_offset_deg', 'detect_prob', 'max_range_m')
+# Measurement-chain fixes of /usv/detections (phase 6 R1.7): launch argument -> parameter
+CHAIN_SWITCHES = {'true_distance': 'detection_true_distance',
+                  'from_camera': 'detection_from_camera'}
 # What ws/tools/run_report.py reads, plus what is handy to replay
 RECORD_TOPICS = ('/usv/nav_status', '/usv/thrusters/pwm', '/usv/sim/navsat', '/usv/sim/imu',
                  '/usv/fix', '/usv/heading', '/usv/buoys', '/usv/detections', '/usv/map',
@@ -116,6 +121,10 @@ def setup(context):
         value = LaunchConfiguration(name).perform(context)
         if value:
             perception_overrides[name] = float(value)
+    for arg, param in CHAIN_SWITCHES.items():
+        value = LaunchConfiguration(arg).perform(context).lower()
+        if value:
+            perception_overrides[param] = value == 'true'
     record = LaunchConfiguration('record').perform(context)
     survey = LaunchConfiguration('survey').perform(context).lower() == 'true'
     if survey:
@@ -173,8 +182,12 @@ def setup(context):
                          parameters=[navigator_config, navigator_overrides],
                          respawn=True, respawn_delay=2.0))
     if survey:
+        with open(os.path.join(config, 'fake_perception.yaml')) as f:
+            antenna = yaml.safe_load(f)['fake_perception']['ros__parameters'][
+                'gnss_antenna_mount_m']
         ours.append(Node(package='usv_sim', executable='survey_drive', output='screen',
-                         parameters=[{'course': course, 'course_file': course_file}]))
+                         parameters=[{'course': course, 'course_file': course_file,
+                                      'gnss_antenna_mount_m': antenna}]))
     if record:
         ours.append(ExecuteProcess(
             cmd=['ros2', 'bag', 'record', '-o', os.path.join('/ws/bags', record)]
@@ -228,6 +241,11 @@ def generate_launch_description():
         DeclareLaunchArgument(name, default_value='',
                               description='fake_perception override; empty = YAML value')
         for name in PERCEPTION_KNOBS
+    ] + [
+        DeclareLaunchArgument(arg, default_value='',
+                              description=f'true/false: fake_perception {param}; empty = '
+                              'YAML value (true)')
+        for arg, param in CHAIN_SWITCHES.items()
     ] + [
         OpaqueFunction(function=setup),
     ])

@@ -17,9 +17,12 @@ the known buoy positions. Same code, so both see the same geometry and the same 
   process_frame          lines 534-605: one frame of boxes through all of the above into
                          the object memory (usv_core.object_memory)
   memory_snapshot        lines 648-675: what is handed to the navigation every frame
+  measure_boxes          new (RoboBoat): every box of a frame measured, nothing remembered
 
 The boat's GPS fix is the antenna's position, not the camera's: legacy places every buoy
-relative to the antenna, which on this boat is ~0.9 m behind the ZED. Kept.
+relative to the antenna, which on this boat is 0.75 m behind the ZED, and takes the ZED depth
+(along the optical axis) as the distance. Kept in process_frame (TEKNOFEST, golden tests);
+measure_boxes (RoboBoat) can correct both, see its options.
 """
 
 import math
@@ -139,16 +142,35 @@ def memory_snapshot(memory):
     } for obj in memory.memory]
 
 
+def offset_position(lat, lon, forward_m, left_m, heading_deg):
+    """Return (lat, lon) of a point fixed to the boat: forward_m ahead, left_m to the left."""
+    dist = math.hypot(forward_m, left_m)
+    if dist == 0.0:
+        return lat, lon
+    bearing = heading_deg - math.degrees(math.atan2(left_m, forward_m))    # left = smaller
+    return calculate_obj_gps(lat, lon, dist, bearing)
+
+
 def measure_boxes(boxes, depth_at, width, height, cam_cx, cam_fx, heading_deg, boat_lat,
-                  boat_lon, class_names):
+                  boat_lon, class_names, true_distance=False, camera_offset=(0.0, 0.0)):
     """
     Measure every box of one frame, for /usv/detections (RoboBoat, phase 6).
 
     Same geometry as process_frame (depth window, bearing, position from the GPS fix), but
     nothing is dropped and nothing is remembered: every box comes back with what could be
     measured. boxes: [(x1, y1, x2, y2, class_id), ...]; class_names: the model's class list.
-    Returns dicts: class_name, class_id, box, distance_m (nan), bearing_deg (nan),
-    position_ok, lat, lon (nan unless position_ok).
+
+    Two fixes to the legacy chain (phase 6 R1.7), off by default (= process_frame):
+      true_distance  the ZED depth is the distance along the optical axis; the horizontal
+                     distance to the point is depth / cos(pixel angle). Legacy uses the
+                     depth itself: ~30 % short at 45 deg off the image centre.
+      camera_offset  (forward_m, left_m) of the camera from the GPS antenna, boat frame:
+                     objects are placed from the camera instead of from the antenna.
+    The depth window is validated as in legacy (0.5-15 m) before any correction.
+
+    Returns dicts: class_name, class_id, box, depth_m (nan), distance_m (nan: the distance
+    the position was placed with), bearing_deg (nan), position_ok, lat, lon (nan unless
+    position_ok).
     """
     nan = float('nan')
     have_heading = heading_deg is not None
@@ -158,12 +180,20 @@ def measure_boxes(boxes, depth_at, width, height, cam_cx, cam_fx, heading_deg, b
         cid = int(box[4])
         x1, y1, x2, y2 = map(int, box[:4])
         cx, cy = depth_sample_pixel(x1, y1, x2, y2, height)
-        dist_m = median_depth(depth_at, cx, cy, width, height)
-        valid = distance_is_valid(dist_m)
+        depth = median_depth(depth_at, cx, cy, width, height)
+        valid = distance_is_valid(depth)
+        dist_m = depth
+        if valid and true_distance:
+            dist_m = depth * math.hypot(1.0, (cx - cam_cx) / cam_fx)    # depth / cos(angle)
         bearing = bearing_deg(cx, cam_cx, cam_fx, heading_deg) if have_heading else nan
         ok = valid and have_heading and have_fix
-        lat, lon = detection_position(boat_lat, boat_lon, dist_m, bearing) if ok else (nan, nan)
+        lat, lon = nan, nan
+        if ok:
+            o_lat, o_lon = offset_position(boat_lat, boat_lon, camera_offset[0],
+                                           camera_offset[1], heading_deg)
+            lat, lon = detection_position(o_lat, o_lon, dist_m, bearing)
         out.append({'class_name': class_names[cid], 'class_id': cid, 'box': (x1, y1, x2, y2),
+                    'depth_m': depth if valid else nan,
                     'distance_m': dist_m if valid else nan, 'bearing_deg': bearing,
                     'position_ok': ok, 'lat': lat, 'lon': lon})
     return out

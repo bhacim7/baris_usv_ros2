@@ -124,3 +124,34 @@ def test_measure_boxes_keeps_what_it_cannot_place():
     (d,) = measure_boxes([(600, 300, 640, 340, 0)], lambda u, v: 5.0, 1280, 720, CX, FX,
                          None, O_LAT, O_LON, ROBOBOAT)
     assert not d['position_ok'] and math.isnan(d['bearing_deg'])
+
+
+def test_measure_boxes_true_distance_corrects_off_axis_depth():
+    """Turn a 5 m depth 45 deg right of the image centre into 5 * sqrt(2) m (D2)."""
+    cx = int(CX + FX)                              # tan(45 deg) = 1
+    box = [(cx - 10, 300, cx + 10, 340, 0)]
+    (legacy,) = measure_boxes(box, lambda u, v: 5.0, 1280, 720, CX, FX, 0.0, O_LAT, O_LON,
+                              ROBOBOAT)
+    (fixed,) = measure_boxes(box, lambda u, v: 5.0, 1280, 720, CX, FX, 0.0, O_LAT, O_LON,
+                             ROBOBOAT, true_distance=True)
+    assert legacy['distance_m'] == 5.0 and legacy['depth_m'] == 5.0
+    assert fixed['depth_m'] == 5.0
+    assert fixed['distance_m'] == pytest.approx(5.0 * math.sqrt(2.0), rel=2e-3)
+    assert fixed['bearing_deg'] == pytest.approx(45.0, abs=0.1)
+    e, n = enu(fixed['lat'], fixed['lon'], O_LAT, O_LON)
+    assert e == pytest.approx(5.0, abs=0.05) and n == pytest.approx(5.0, abs=0.05)
+
+
+def test_measure_boxes_places_from_the_camera():
+    """Place from the camera, 0.89 m ahead and 0.06 m left of the antenna, heading east (D1)."""
+    box = [(630, 300, 650, 340, 0)]                # image centre
+    (d,) = measure_boxes(box, lambda u, v: 5.0, 1280, 720, CX, FX, 90.0, O_LAT, O_LON,
+                         ROBOBOAT, camera_offset=(0.89, 0.06))
+    e, n = enu(d['lat'], d['lon'], O_LAT, O_LON)
+    assert e == pytest.approx(5.89, abs=0.02)     # 0.89 ahead + 5 m
+    assert n == pytest.approx(0.06, abs=0.02)     # left of east-pointing = north
+    (zero,) = measure_boxes(box, lambda u, v: 5.0, 1280, 720, CX, FX, 90.0, O_LAT, O_LON,
+                            ROBOBOAT, camera_offset=(0.0, 0.0))
+    (legacy,) = measure_boxes(box, lambda u, v: 5.0, 1280, 720, CX, FX, 90.0, O_LAT, O_LON,
+                              ROBOBOAT)
+    assert (zero['lat'], zero['lon']) == (legacy['lat'], legacy['lon'])

@@ -70,6 +70,8 @@
   photos. Collisions are simple boxes around each hull. The same mesh carries the buoyancy.
 
   ZED camera (for the future sensor): x = +0.29, y = 0, z = +0.18, facing forward.
+  GNSS antenna: x = -0.46, y = 0, z = +0.68: 0.75 m behind and 0.50 m above the ZED, measured
+  on the boat (Baris, 2026-11-01; until then -0.60 / +0.75 from the photos).
 
   Gazebo topics (gz.msgs.Double):
     /usv_boat/thrusters/{rear_left,rear_right,front_left,front_right}/thrust   N
@@ -187,14 +189,14 @@
         <material><ambient>0.08 0.18 0.65 1</ambient><diffuse>0.12 0.25 0.85 1</diffuse></material>
       </visual>
 
-      <!-- GNSS mast leaning aft, antenna on top -->
+      <!-- GNSS mast, antenna on top (antenna position measured 2026-11-01) -->
       <visual name="mast">
-        <pose>-0.525 0 0.51 0 -0.343 0</pose>
-        <geometry><cylinder><radius>0.012</radius><length>0.45</length></cylinder></geometry>
+        <pose>-0.455 0 0.48 0 -0.03 0</pose>
+        <geometry><cylinder><radius>0.012</radius><length>0.37</length></cylinder></geometry>
         <material><ambient>0.7 0.7 0.72 1</ambient><diffuse>0.8 0.8 0.82 1</diffuse></material>
       </visual>
       <visual name="gnss">
-        <pose>-0.60 0 0.735 0 0 0</pose>
+        <pose>-0.46 0 0.665 0 0 0</pose>
         <geometry><cylinder><radius>0.045</radius><length>0.03</length></cylinder></geometry>
         <material><ambient>0.05 0.05 0.05 1</ambient><diffuse>0.1 0.1 0.1 1</diffuse></material>
       </visual>
@@ -220,7 +222,7 @@
       <!-- Sensors: exact values; sim_bridge adds the real sensors' rates, delays and errors -->
       <!-- GNSS antenna on top of the mast, so rolling and pitching move it as on the boat -->
       <sensor name="navsat" type="navsat">
-        <pose>-0.60 0 0.75 0 0 0</pose>
+        <pose>-0.46 0 0.68 0 0 0</pose>
         <always_on>1</always_on>
         <!-- 50 Hz exact: fake_perception places the camera from it every frame; the GPS
              the software sees (/usv/fix, 2 Hz, with errors) comes from sim_bridge -->

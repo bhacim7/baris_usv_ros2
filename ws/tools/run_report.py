@@ -13,7 +13,8 @@ Needs these topics in the bag:
 
 Everything about where the boat really was comes from Gazebo's ground truth, not from
 /usv/fix: a contact is a contact whatever the GPS believed. The hull is the catamaran's
-outline (1.182 x 0.78 m) around the model origin; the antenna sits 0.60 m behind it. A
+outline (1.182 x 0.78 m) around the model origin; the antenna sits --antenna-behind m behind
+it (0.46 measured 2026-11-01; runs recorded before that day had it at 0.60). A
 buoy's clearance is the gap between that outline and the buoy's edge (course file
 diameter); 0 or less is a contact. Expect +/- 5 cm from the outline approximation.
 
@@ -39,7 +40,7 @@ import yaml
 
 HALF_LENGTH = 1.182 / 2
 HALF_WIDTH = 0.78 / 2
-ANTENNA_BEHIND_M = 0.60
+ANTENNA_BEHIND_M = 0.46
 TARGET_TYPES = ('red_target', 'green_target', 'black_target')
 TOPICS = ('/usv/nav_status', '/usv/thrusters/pwm', '/usv/sim/navsat', '/usv/sim/imu')
 
@@ -72,7 +73,7 @@ def load_course(name):
 
 
 # ---------------------------------------------------------------- ground truth
-def truth_track(data, origin):
+def truth_track(data, origin, antenna_behind=ANTENNA_BEHIND_M):
     """[(t, east, north, yaw_rad)] of the hull centre, from the true antenna and yaw."""
     imu = data['/usv/sim/imu']
     imu_t = [t for t, _ in imu]
@@ -85,8 +86,8 @@ def truth_track(data, origin):
             continue
         yaw = yaws[k]
         ae, an = enu(fix.latitude, fix.longitude, origin['lat'], origin['lon'])
-        track.append((t, ae + ANTENNA_BEHIND_M * math.cos(yaw),
-                      an + ANTENNA_BEHIND_M * math.sin(yaw), yaw))
+        track.append((t, ae + antenna_behind * math.cos(yaw),
+                      an + antenna_behind * math.sin(yaw), yaw))
     return track
 
 
@@ -145,13 +146,16 @@ def main():
     ap.add_argument('--course', default='golcuk_2026_10_14')
     ap.add_argument('--plot')
     ap.add_argument('--reference')
+    ap.add_argument('--antenna-behind', type=float, default=ANTENNA_BEHIND_M,
+                    help='GNSS antenna behind the hull centre, m (0.60 for runs recorded '
+                    'before 2026-11-01)')
     args = ap.parse_args()
 
     data = read_bag(args.bag)
     course, buoys = load_course(args.course)
     status = data['/usv/nav_status']
     pwm = data['/usv/thrusters/pwm']
-    track = truth_track(data, course['origin'])
+    track = truth_track(data, course['origin'], args.antenna_behind)
     if not status or not track:
         sys.exit('no nav_status or no ground truth in the bag')
 

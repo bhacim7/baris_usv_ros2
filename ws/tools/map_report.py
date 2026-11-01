@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
-"""Map quality of one simulated run: every sighting and the final map against the truth
-(phase 6 R1.6).
+"""
+Map quality of one simulated run: every sighting and the final map against the truth.
+
+Phase 6 R1.6; R1.7 added the chain settings and the measurement-chain target.
 
 Usage (inside the container, after `source /ws/install/setup.bash`):
     python3 /ws/tools/map_report.py BAG_DIR [--course NAME | --course-file PATH]
@@ -10,7 +12,8 @@ Record the run with sim.launch.py record:=<name>; survey:=true drives the same r
 time and seed:=<n> keeps the same sensor noise, so two runs can be compared. Needs
 /usv/detections, /usv/fix, /usv/sim/navsat, /usv/sim/imu; /usv/map for part 3. Camera and
 antenna mounts come from the installed fake_perception.yaml, the fix delay from
-sim_bridge.yaml.
+sim_bridge.yaml, the map settings from mapper.yaml. Bags recorded before R1.7 (2026-11-01)
+cannot be read: the detection messages gained fields; record them again.
 
 1. Sightings: each measured box of /usv/detections (position_ok, within --max-range, the
    mapper's limit) is tied to the course object it came from: the object of its class
@@ -19,17 +22,22 @@ sim_bridge.yaml.
    Its position is then worked out again with inputs swapped for the truth:
      gps      the fix used (/usv/fix)           -> the true antenna position at the frame
      heading  the heading used (/usv/heading)   -> the true heading
-     range    the ZED depth                     -> true horizontal distance camera - object
-     origin   placed from the GPS antenna       -> placed from the camera (lever arm)
+     range    the distance used                 -> true horizontal distance camera - object
+     origin   the origin used (antenna, or the  -> the true camera position
+              camera offset perception was told)
    "only X fixed": as recorded but X true: what fixing X alone would gain.
    "only X wrong": all true but X: the error X brings by itself.
 2. Inputs: how wrong each input was, and when. GPS error = receiver error (drift + noise)
    + age (the fix was measured up to 1/rate + delay before the frame); heading error
-   against the yaw rate; range error = ZED noise + geometry (the ZED gives the depth of the
-   object's front along the optical axis, not the distance to its centre).
-3. The map (last /usv/map message): each object the camera saw - found, confirmed, error,
-   duplicates; landmarks with no object of their kind within 3 m ("ghosts"); and the
-   target: confirmed landmarks seen from within 6 m, mean error < 0.5 m, none above 1 m.
+   against the yaw rate; range error = ZED noise + the rest (the ZED gives the depth of the
+   object's front along the optical axis; legacy uses that as the distance to its centre).
+3. Two maps, each object the camera saw - found, confirmed, error, duplicates - and the
+   landmarks with no object of their kind within 3 m ("ghosts"):
+     a. absolute: the mapper's own map (last /usv/map). No target: without RTK the GPS
+        receiver's drift sets it.
+     b. measurement chain: the same sightings mapped again here (usv_core.world_map, same
+        settings) with the GPS swapped for the truth. Target: confirmed landmarks seen from
+        within 6 m, mean error < 0.4 m, none above 0.8 m.
    Objects of one kind closer than 1.5 m to each other (the two marks of a vessel) count as
    one, as the mapper merges them.
 """
@@ -46,10 +54,10 @@ from ament_index_python.packages import get_package_share_directory
 from rclpy.serialization import deserialize_message
 import rosbag2_py
 from rosidl_runtime_py.utilities import get_message
-from usv_core.world_map import kind_of
+from usv_core.world_map import kind_of, MapConfig, WorldMap
 from usv_sim import course as course_mod
 from usv_sim.camera import Buoy, camera_position, CameraModel, target_view, to_camera
-from usv_sim.geo import enu
+from usv_sim.geo import enu, latlon
 from usv_sim.sensors import compass_deg, yaw_from_quaternion
 from usv_sim.zed import rotate
 import yaml
@@ -61,8 +69,8 @@ MATCH_DEG = 4.0               # box column vs true direction
 GHOST_M = 3.0                 # landmark farther than this from any object of its kind
 GROUP_M = 1.5                 # objects of one kind this close are one map object
 TARGET_SEEN_M = 6.0
-TARGET_MEAN_M = 0.5
-TARGET_MAX_M = 1.0
+TARGET_MEAN_M = 0.4           # measurement chain, GPS true (revised 2026-10-31)
+TARGET_MAX_M = 0.8
 
 
 # ---------------------------------------------------------------- reading
@@ -78,7 +86,12 @@ def read_bag(path):
     while reader.has_next():
         topic, raw, t_ns = reader.read_next()
         if topic in data:
-            data[topic].append((t_ns * 1e-9, deserialize_message(raw, types[topic])))
+            try:
+                msg = deserialize_message(raw, types[topic])
+            except Exception as e:
+                sys.exit(f'cannot read {topic} ({e}): recorded with older messages? '
+                         'Record the run again')
+            data[topic].append((t_ns * 1e-9, msg))
     return data
 
 
@@ -93,6 +106,7 @@ class Setup:
     cam: CameraModel
     antenna: tuple            # GNSS antenna, body frame
     fix_delay: float
+    map_cfg: MapConfig
 
 
 def load_setup(course_name, course_file):
@@ -103,8 +117,10 @@ def load_setup(course_name, course_file):
     fp = ros_params(share, 'fake_perception')
     cam = CameraModel(width=fp['image_width'], height=fp['image_height'],
                       hfov_deg=fp['camera_hfov_deg'], mount=tuple(fp['camera_mount_m']))
+    mp = ros_params(get_package_share_directory('usv_nodes'), 'mapper')
+    map_cfg = MapConfig(**{k: mp[k] for k in MapConfig.__dataclass_fields__ if k in mp})
     return Setup(course, cam, tuple(fp['gnss_antenna_mount_m']),
-                 ros_params(share, 'sim_bridge')['fix_delay_s'])
+                 ros_params(share, 'sim_bridge')['fix_delay_s'], map_cfg)
 
 
 @dataclass
@@ -169,7 +185,7 @@ def sightings(data, setup, objects, max_range):
     fix_t = [f[0] for f in fixes]
     lever_body = (cam.mount[0] - setup.antenna[0], cam.mount[1] - setup.antenna[1])
 
-    recs, confused, unmatched, skipped = [], {}, 0, 0
+    recs, every, confused, unmatched, skipped = [], [], {}, 0, 0
     for t, frame in data['/usv/detections']:
         h_used = frame.heading_deg
         if math.isnan(h_used) or not frame.boat_latitude:
@@ -195,30 +211,34 @@ def sightings(data, setup, objects, max_range):
         yaw_rate = math.degrees(imu_msg.angular_velocity.z)
         a_fix = enu(frame.boat_latitude, frame.boat_longitude, origin['lat'], origin['lon'])
         sampled = navsat.latest(t_fix - setup.fix_delay) or antenna
+        origin_body = (frame.origin_forward_m, frame.origin_left_m)
 
         for d in frame.detections:
             if not d.position_ok or not d.distance_m <= max_range:
                 continue
             cx = int((d.x1 + d.x2) / 2)
             alpha = pixel_angle(cx, cam)
-            obj, front = match(objects, d.class_name, alpha, d.distance_m, cam_pos, q, cam)
+            rec = {
+                't': t, 'class_name': d.class_name, 'alpha': alpha, 'd': d.distance_m,
+                'depth': d.depth_m, 'h_used': h_used, 'h_true': h_true,
+                'yaw_rate': yaw_rate, 'a_fix': a_fix, 'a_true': antenna[:2],
+                'a_sampled': sampled[:2], 'fix_age': t - t_fix + setup.fix_delay,
+                'cam': cam_pos[:2], 'lever_body': lever_body, 'origin_body': origin_body,
+                'recorded': enu(d.latitude, d.longitude, origin['lat'], origin['lon'])}
+            every.append(rec)
+            obj, front = match(objects, d.class_name, alpha, d.depth_m, cam_pos, q, cam)
             if obj is None:
-                other, _ = match(objects, None, alpha, d.distance_m, cam_pos, q, cam)
+                other, _ = match(objects, None, alpha, d.depth_m, cam_pos, q, cam)
                 if other is None:
                     unmatched += 1
                 else:
                     key = (other.class_name, d.class_name)
                     confused[key] = confused.get(key, 0) + 1
                 continue
-            r_true = math.hypot(obj.east - cam_pos[0], obj.north - cam_pos[1])
-            recs.append({
-                't': t, 'obj': obj, 'alpha': alpha, 'd': d.distance_m, 'front': front,
-                'r_true': r_true, 'h_used': h_used, 'h_true': h_true, 'yaw_rate': yaw_rate,
-                'a_fix': a_fix, 'a_true': antenna[:2], 'a_sampled': sampled[:2],
-                'fix_age': t - t_fix + setup.fix_delay, 'cam': cam_pos[:2],
-                'lever_body': lever_body,
-                'recorded': enu(d.latitude, d.longitude, origin['lat'], origin['lon'])})
-    return recs, confused, unmatched, skipped
+            rec['obj'], rec['front'] = obj, front
+            rec['r_true'] = math.hypot(obj.east - cam_pos[0], obj.north - cam_pos[1])
+            recs.append(rec)
+    return recs, every, confused, unmatched, skipped
 
 
 def match(objects, class_name, alpha, depth, cam_pos, q, cam):
@@ -251,9 +271,8 @@ def position(rec, fixed):
     """Where the sighting lands with the inputs in `fixed` swapped for the truth."""
     ae, an = rec['a_true'] if 'gps' in fixed else rec['a_fix']
     h = rec['h_true'] if 'heading' in fixed else rec['h_used']
-    if 'origin' in fixed:
-        le, ln = body_to_enu(*rec['lever_body'], h)
-        ae, an = ae + le, an + ln
+    le, ln = body_to_enu(*(rec['lever_body'] if 'origin' in fixed else rec['origin_body']), h)
+    ae, an = ae + le, an + ln
     dist = rec['r_true'] if 'range' in fixed else rec['d']
     return place(ae, an, dist, h + rec['alpha'])
 
@@ -324,6 +343,14 @@ def report_sightings(recs, confused, unmatched, skipped, max_range):
         recorded.append(math.hypot(e1 - e2, n1 - n2))
     print(f'   recorded vs recomputed position: mean {100 * mean(recorded):.1f} cm '
           '(the legacy formula uses a spherical Earth)')
+    r0 = recs[0]
+    chain = ('distance = depth / cos(angle)' if any(abs(r['d'] - r['depth']) > 1e-3
+                                                    for r in recs)
+             else 'distance = depth (legacy)')
+    origin = (f"placed from {r0['origin_body'][0]:.2f} m ahead, {r0['origin_body'][1]:.2f} m "
+              'left of the antenna' if any(r0['origin_body']) else
+              'placed from the antenna (legacy)')
+    print(f'   chain of this run: {chain}; {origin}')
 
     print('\n   position error, m              mean median    p90    max   along  cross')
     means = {}
@@ -376,22 +403,19 @@ def report_inputs(recs):
         ('abs', lambda r: abs(wrap180(r['h_used'] - r['h_true']))),
         ('pos', lambda r: r['err']['as recorded'][0])])
 
-    print('\n   range, m: measured - true distance = ZED noise + geometry')
-    print('     by true distance  n   total  ZED noise geometry  pos err')
-    binned(recs, lambda r: r['r_true'], [0.0, 3.0, 6.0, 9.0, 12.0, math.inf], [
-        ('total', lambda r: r['d'] - r['r_true']),
-        ('zed', lambda r: r['d'] - r['front']),
-        ('geom', lambda r: r['front'] - r['r_true']),
-        ('pos', lambda r: r['err']['as recorded'][0])])
+    print('\n   range, m: distance used - true distance = ZED noise + the rest (geometry: depth')
+    print('   along the axis, front surface instead of centre)')
+    columns = [('total', lambda r: r['d'] - r['r_true']),
+               ('zed', lambda r: r['depth'] - r['front']),
+               ('rest', lambda r: (r['d'] - r['r_true']) - (r['depth'] - r['front'])),
+               ('pos', lambda r: r['err']['as recorded'][0])]
+    print('     by true distance  n   total  ZED noise    rest  pos err')
+    binned(recs, lambda r: r['r_true'], [0.0, 3.0, 6.0, 9.0, 12.0, math.inf], columns)
     print('     by |pixel angle| (deg)')
-    binned(recs, lambda r: abs(r['alpha']), [0.0, 15.0, 30.0, 45.0, math.inf], [
-        ('total', lambda r: r['d'] - r['r_true']),
-        ('zed', lambda r: r['d'] - r['front']),
-        ('geom', lambda r: r['front'] - r['r_true']),
-        ('pos', lambda r: r['err']['as recorded'][0])])
-    lever = math.hypot(*recs[0]['lever_body'])
-    print(f'\n   origin: positions are placed from the GPS antenna, the camera is {lever:.2f} m '
-          'away from it')
+    binned(recs, lambda r: abs(r['alpha']), [0.0, 15.0, 30.0, 45.0, math.inf], columns)
+    true_cam, used = recs[0]['lever_body'], recs[0]['origin_body']
+    print(f'\n   origin: the camera is {true_cam[0]:.2f} m ahead, {true_cam[1]:.2f} m left of the '
+          f'antenna; positions placed from {used[0]:.2f}, {used[1]:.2f}')
 
 
 # ---------------------------------------------------------------- 3. the map
@@ -415,18 +439,40 @@ def group_objects(objects):
     return groups
 
 
-def report_map(data, setup, objects, recs):
-    if not data['/usv/map']:
-        print('\n-- 3. map: no /usv/map in the bag')
-        return None
+def mapper_landmarks(data, setup):
+    """Landmarks of the mapper's last /usv/map message, in course east/north."""
     origin = setup.course.origin
     _, last = data['/usv/map'][-1]
-    lms = []
+    out = []
     for lm in last.landmarks:
         e, n = enu(lm.latitude, lm.longitude, origin['lat'], origin['lon'])
-        lms.append({'id': lm.id, 'kind': lm.kind, 'color': lm.color, 'east': e, 'north': n,
+        out.append({'id': lm.id, 'kind': lm.kind, 'color': lm.color, 'east': e, 'north': n,
                     'confirmed': lm.confirmed, 'sightings': lm.sightings,
-                    'closest': lm.closest_m, 'group': None, 'dist': math.inf})
+                    'closest': lm.closest_m})
+    return out
+
+
+def rebuild_map(every, setup, fixed):
+    """Map every sighting again (usv_core.world_map), inputs in `fixed` swapped for the truth."""
+    origin = setup.course.origin
+    wmap = WorldMap(setup.map_cfg)
+    for r in every:
+        lat, lon = latlon(*position(r, fixed), origin['lat'], origin['lon'])
+        wmap.add({'class_name': r['class_name'], 'position_ok': True, 'distance_m': r['d'],
+                  'lat': lat, 'lon': lon}, r['t'])
+    out = []
+    for lm in wmap.snapshot() if wmap.origin else []:
+        e, n = enu(lm['lat'], lm['lon'], origin['lat'], origin['lon'])
+        out.append({'id': lm['id'], 'kind': lm['kind'], 'color': lm['color'], 'east': e,
+                    'north': n, 'confirmed': lm['confirmed'], 'sightings': lm['sightings'],
+                    'closest': lm['closest']})
+    return out
+
+
+def report_map(lms, objects, recs, title, target):
+    """Print how well a map matches the objects; return {'groups', 'lms'} for the plot."""
+    for lm in lms:
+        lm['group'], lm['dist'] = None, math.inf
     groups = group_objects(objects)
     seen = {}
     for r in recs:
@@ -446,8 +492,7 @@ def report_map(data, setup, objects, recs):
             lm['group'] = None
 
     confirmed = [lm for lm in lms if lm['confirmed']]
-    print(f'\n-- 3. map: {len(lms)} landmarks, {len(confirmed)} confirmed '
-          '(last /usv/map message)')
+    print(f'\n-- {title}: {len(lms)} landmarks, {len(confirmed)} confirmed')
     print('   object              seen from  found  error  sightings  duplicates (confirmed)')
     errors = []
     for g in sorted(groups, key=lambda g: g['members'][0].index):
@@ -472,8 +517,7 @@ def report_map(data, setup, objects, recs):
           f'confirmed {sum(1 for lm in ghosts if lm["confirmed"])}')
     for lm in sorted(ghosts, key=lambda lm: -lm['sightings'])[:5]:
         if lm['confirmed']:
-            print(f'     id {lm["id"]} {lm["kind"]} x{lm["sightings"]}, nearest '
-                  f'{lm["kind"]} {lm["dist"]:.1f} m')
+            print(f'     id {lm["id"]} {lm["kind"]} x{lm["sightings"]}')
 
     if errors:
         de = mean([lm['east'] - g['east'] for g, lm in errors])
@@ -484,11 +528,14 @@ def report_map(data, setup, objects, recs):
               f' m; common offset {de:+.2f} m east {dn:+.2f} m north, '
               f'{mean(resid):.2f} m left after removing it')
     near = [lm['dist'] for g, lm in errors if lm['closest'] <= TARGET_SEEN_M]
-    if near:
+    if near and target:
         ok = mean(near) < TARGET_MEAN_M and max(near) <= TARGET_MAX_M
         print(f'\n   TARGET (confirmed, seen from <= {TARGET_SEEN_M:g} m: mean < '
               f'{TARGET_MEAN_M} m, max <= {TARGET_MAX_M} m): n = {len(near)}, mean '
               f'{mean(near):.2f} m, max {max(near):.2f} m -> {"PASS" if ok else "FAIL"}')
+    elif near:
+        print(f'   confirmed, seen from <= {TARGET_SEEN_M:g} m: n = {len(near)}, mean '
+              f'{mean(near):.2f} m, max {max(near):.2f} m (no target: set by the GPS)')
     return {'groups': groups, 'lms': lms}
 
 
@@ -573,10 +620,21 @@ def main():
     print(f'== {args.bag}: {len(data["/usv/detections"])} camera frames over {duration:.0f} s, '
           f'course {setup.course.name} ({len(objects)} objects)')
 
-    recs, confused, unmatched, skipped = sightings(data, setup, objects, args.max_range)
+    recs, every, confused, unmatched, skipped = sightings(data, setup, objects,
+                                                         args.max_range)
     means = report_sightings(recs, confused, unmatched, skipped, args.max_range)
     report_inputs(recs)
-    map_part = report_map(data, setup, objects, recs)
+    map_part = None
+    if data['/usv/map']:
+        map_part = report_map(mapper_landmarks(data, setup), objects, recs,
+                              '3a. absolute map (the mapper, last /usv/map)', target=False)
+    else:
+        print('\n-- 3a. no /usv/map in the bag')
+    again = rebuild_map(every, setup, ())
+    print(f'   (mapped again here from the same sightings: {len(again)} landmarks, '
+          f'{sum(1 for lm in again if lm["confirmed"])} confirmed)')
+    report_map(rebuild_map(every, setup, ('gps',)), objects, recs,
+               '3b. measurement-chain map (same sightings, GPS true)', target=True)
     if args.plot:
         plot(args.plot, data, setup, objects, recs, means, map_part)
 

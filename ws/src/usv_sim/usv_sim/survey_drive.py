@@ -45,7 +45,7 @@ class SurveyDrive(Node):
             self.course = course_mod.load(yaml.safe_load(f))
         if not self.course.survey:
             raise RuntimeError(f'course {course_name} has no survey route')
-        self.antenna_mount = tuple(p('gnss_antenna_mount_m', [-0.60, 0.0, 0.75]).value)
+        self.antenna_mount = tuple(p('gnss_antenna_mount_m', [-0.46, 0.0, 0.68]).value)
         self.start_delay = p('start_delay_s', 8.0).value
         defaults = PilotConfig()
         self.pilot = SurveyPilot(self.course.survey, PilotConfig(

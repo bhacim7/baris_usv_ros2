@@ -268,6 +268,7 @@ Open: detecting a node that is alive but stuck (legacy heartbeat watchdog). Not 
 |---|---|---|
 | Hull | Catamaran, 1.182 x 0.78 m, hull centre lines y = +/-0.26 m | Technical drawing |
 | Mass | 45 kg | Team |
+| GNSS antenna | x = -0.46, y = 0, z = +0.68 (0.75 m behind, 0.50 m above the ZED) | Measured on the boat 2026-11-01 |
 | Thrusters | Front x = +0.363, rear x = -0.493, y = +/-0.245, 7 cm below the keel | Technical drawing |
 | Steering | Front pair, +/-45 deg (1100 PWM = 45 deg left, 1900 = 45 deg right) | Team, to be measured |
 | Buoyancy | `usv_gz_plugins::HullBuoyancy`: water pressure integrated over the hull mesh, with VRX waves (replaced the VRX cylinder model on 2026-10-26) | STL; heave ~4 050 N/m, roll ~290 Nm/rad, pitch ~340 Nm/rad, reserve 128 kg |
@@ -379,7 +380,7 @@ adaptation comes first, in simulation; the boat phases follow and then run along
 | 7 | Boat image (arm64, Thor), `fc_bridge`, `perception`, `heading_source`, `telemetry_bridge`, `recorder`, audio | Sensors flowing on land and at the pier; GCS connects unchanged |
 | 8 | Sea trials, then alongside the simulation | The ROS 2 version completes RoboBoat tasks on the water |
 
-Phase 6 progress (2026-10-31): R1.1-R1.6 done. 13 RoboBoat classes; one course reader for
+Phase 6 progress (2026-11-01): R1.1-R1.6 done, R1.7 D1 + D2 done (measurement-chain target met). 13 RoboBoat classes; one course reader for
 the world generator and `fake_perception`; `roboboat_2026` at Nathan Benderson Park (vessels,
 docks, indicators); per-frame detections and the persistent world map (`mapper`, RViz); the
 fixed survey route and `map_report.py`. First measurement in section 16. Next: R1.7, the
@@ -426,20 +427,36 @@ First measurement (`survey_base`, seed 1, 2026-10-31; 8 383 sightings within 12 
 | As recorded | 2.75 m (along the line of sight -2.56 m: placed too close) |
 | Only the range wrong | 1.74 m: geometry, not ZED noise (-0.28 m at 0-15 deg off-axis, -3.41 m beyond 45 deg) |
 | Only the GPS wrong | 1.01 m: receiver drift 1.02 m, fix age 0.25 m (mean age 0.36 s) |
-| Only the origin wrong | 0.94 m (antenna 0.89 m behind the camera) |
+| Only the origin wrong | 0.94 m (antenna 0.89 m behind the camera in the model then; measured 0.75 m on 2026-11-01) |
 | Only the heading wrong | 0.34 m: 0.35 deg straight, mean 9.2 deg (up to 20 deg) above 30 deg/s yaw rate |
 | All inputs true | 0.06 m (the tool's own residual) |
 
 Map: 259 landmarks, 121 confirmed, 202 more than 3 m from any object of their kind; confirmed
 landmarks seen from within 6 m: mean 1.99 m, max 2.68 m.
 
+D1 + D2 (R1.7, 2026-11-01), same route and seed, legacy chain re-run for the comparison:
+
+| | Legacy chain (`survey_legacy`) | D1 + D2 (`survey_d1d2`) |
+|---|---|---|
+| Mean sighting error, as recorded | 3.06 m | 1.39 m |
+| Same, GPS true | 2.43 m | 0.52 m |
+| Range error left (distance used - true) | -0.56 to -3.20 m, worse off-axis | -0.18 to -0.30 m at every angle (front surface instead of centre) |
+| Absolute map, confirmed seen from <= 6 m | mean 2.33 m, max 2.89 m | mean 1.06 m, max 2.83 m (GPS drift ~1.25 m this run) |
+| Measurement-chain map, same | mean 1.74 m, max 2.66 m: FAIL | **mean 0.28 m, max 0.63 m: PASS** |
+| Confirmed ghosts (absolute / chain) | 80 / 66 | 12 / 9 |
+
+What is left in the chain: heading lag in fast turns (mean |error| 9 deg above 30 deg/s), the
+~0.2 m front-surface offset, and duplicates (130 unconfirmed ghosts). These runs used the
+antenna at 0.89 m behind the camera, before the tape measurement; model and settings now use
+0.75 m.
+
 Fixes to the RoboBoat measurement chain (`measure_boxes`, the mapper), each a parameter so the
 report measures it alone; the TEKNOFEST chain and the golden tests are not touched:
 
 | | Fix | Error it removes |
 |---|---|---|
-| D1 | Place from the camera, not the GPS antenna (0.89 m behind it) | Constant along-heading offset |
-| D2 | ZED depth -> distance: depth / cos(pixel angle) | Objects off the image centre placed too close (~30 % at 45 deg) |
+| D1 | Place from the camera, not the GPS antenna (0.75 m behind and 0.50 m above it, measured 2026-11-01). Done (R1.7): `detection_from_camera`, `camera_from_antenna_m` | Constant along-heading offset |
+| D2 | ZED depth -> distance: depth / cos(pixel angle). Done (R1.7): `detection_true_distance` | Objects off the image centre placed too close (~30 % at 45 deg) |
 | D3 | Boat position at the frame time: last fix + speed x age along the heading | GPS age (2 Hz + delay, up to ~0.8 m at 1.3 m/s) |
 | D4 | Less weight for sightings while turning fast | Heading filter lag in turns, duplicates |
 | D5 | No new landmark next to a confirmed one of another kind | Ghosts from YOLO class confusion |

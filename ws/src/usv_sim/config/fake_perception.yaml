@@ -36,8 +36,21 @@ fake_perception:
     # Left lens (the ZED reports the left image), body frame x fwd / y left / z up.
     # 0.29 m ahead of the hull centre, 0.18 m above water, level (team, 2026-10-30).
     camera_mount_m: [0.29, 0.06, 0.18]
-    # Must match the navsat sensor in models/usv_boat/model.sdf (true boat pose from it)
-    gnss_antenna_mount_m: [-0.60, 0.0, 0.75]
+    # Must match the navsat sensor in models/usv_boat/model.sdf (true boat pose from it).
+    # Measured on the boat 2026-11-01: 0.75 m behind and 0.50 m above the ZED (centre line
+    # ASSUMED for both). survey_drive gets it from here too (sim.launch.py).
+    gnss_antenna_mount_m: [-0.46, 0.0, 0.68]
+
+    # ---------------------------------------------------------------- measurement chain
+    # RoboBoat /usv/detections only (phase 6 R1.7); the TEKNOFEST /usv/buoys chain stays
+    # legacy. false = as legacy. The boat's perception gets the same three settings.
+    detection_true_distance: true        # D2: distance = ZED depth / cos(pixel angle)
+    detection_from_camera: true          # D1: place objects from the camera, not the antenna
+    # Camera (left lens) from the GPS antenna, boat frame x forward / y left: what the boat
+    # is TOLD. Tape measurement 2026-11-01: 0.75 m ahead; 0.06 m = the left lens beside the
+    # ZED's centre. Same as camera_mount_m minus gnss_antenna_mount_m, i.e. exact here;
+    # change it to try a wrong measurement.
+    camera_from_antenna_m: [0.75, 0.06]
 
     # ---------------------------------------------------------------- YOLO, ASSUMED
     max_range_m: 20.0                    # the video showed detections out to ~14 m

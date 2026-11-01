@@ -12,7 +12,8 @@ config/fake_perception.yaml):
                          (/usv/fix), exactly as camera_process does it. TEKNOFEST courses.
   /usv/detections        usv_interfaces/DetectionArray, once per camera frame, RoboBoat
                          courses: every box measured (usv_core.detection.measure_boxes),
-                         for the mapper.
+                         for the mapper; the chain fixes of phase 6 R1.7 (true distance,
+                         placed from the camera) are the detection_* parameters.
   /usv/heading/zed       std_msgs/Float32 (deg)  once per camera frame, like camera_process:
                          magnetometer -> magnetic heading (tilt compensated) -> the legacy
                          Kalman filter -> + declination (usv_core.heading, unchanged code).
@@ -99,7 +100,12 @@ class FakePerception(Node):
             depth_pixel_noise=p('depth_pixel_noise', 0.005).value,
             depth_nan_prob=p('depth_nan_prob', 0.10).value,
             class_ids=self.course.class_ids())
-        self.antenna_mount = tuple(p('gnss_antenna_mount_m', [-0.60, 0.0, 0.75]).value)
+        self.antenna_mount = tuple(p('gnss_antenna_mount_m', [-0.46, 0.0, 0.68]).value)
+        # Measurement chain of /usv/detections (phase 6 R1.7, usv_core.detection.measure_boxes)
+        self.true_distance = p('detection_true_distance', False).value
+        offset = list(p('camera_from_antenna_m', [0.75, 0.06]).value)
+        self.camera_offset = (tuple(offset[:2]) if p('detection_from_camera', False).value
+                              else (0.0, 0.0))
         self.origin = self.course.origin
         # Everything the camera can report: buoys, indicators, vessel marks, slip banners
         self.buoys = self.course.targets
@@ -134,6 +140,11 @@ class FakePerception(Node):
             f'declination {mf["declination_deg"]:+.1f} deg; perception adds '
             f'{self.declination:+.1f} deg, compass offset {self.compass_offset:+.1f} deg, '
             f'hard iron {hard_iron_uT} uT')
+        if not self.legacy_buoys:
+            distance = 'depth / cos(angle)' if self.true_distance else 'depth (legacy)'
+            origin = (f'camera {self.camera_offset} m from the antenna'
+                      if any(self.camera_offset) else 'antenna (legacy)')
+            self.get_logger().info(f'detections: distance = {distance}, placed from the {origin}')
 
     # ------------------------------------------------------------------ inputs
     def on_imu(self, msg):
@@ -189,7 +200,9 @@ class FakePerception(Node):
         """Every box of this frame, measured as perception measures it (/usv/detections)."""
         measured = measure_boxes(frame.boxes(), frame.depth_at, self.cam.width,
                                  self.cam.height, self.cam.cx, self.cam.fx, self.heading,
-                                 lat, lon, self.course.class_names)
+                                 lat, lon, self.course.class_names,
+                                 true_distance=self.true_distance,
+                                 camera_offset=self.camera_offset)
         out = DetectionArray()
         out.header.stamp = now.to_msg()
         out.header.frame_id = 'zed_left'
@@ -197,12 +210,14 @@ class FakePerception(Node):
         out.boat_latitude = float(lat)
         out.boat_longitude = float(lon)
         out.heading_deg = float('nan') if self.heading is None else float(self.heading)
+        out.origin_forward_m, out.origin_left_m = map(float, self.camera_offset)
         for m in measured:
             d = Detection()
             d.class_name = m['class_name']
             d.class_id = m['class_id']
             d.confidence = 1.0
             d.x1, d.y1, d.x2, d.y2 = m['box']
+            d.depth_m = float(m['depth_m'])
             d.distance_m = float(m['distance_m'])
             d.bearing_deg = float(m['bearing_deg'])
             d.position_ok = bool(m['position_ok'])
