@@ -1,4 +1,4 @@
-"""Port check for usv_core.object_memory against code extracted from legacy camera_process.py."""
+"""Port check for usv_core.teknofest_object_memory against legacy camera_process.py code."""
 
 import os
 import random
@@ -9,8 +9,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'legacy'))
 import config as legacy_config  # noqa: E402
 import object_memory_extract as legacy  # noqa: E402
 import pytest  # noqa: E402
-from usv_core import object_memory  # noqa: E402
-from usv_core.object_memory import (  # noqa: E402
+from usv_core import teknofest_object_memory as object_memory  # noqa: E402
+from usv_core.teknofest_object_memory import (  # noqa: E402
     CID_TO_COLOR, DEFAULT_CONFIG, ObjectMemoryManager)
 
 BUOY = 3   # ProtoEnum.OBJECT_BUOY

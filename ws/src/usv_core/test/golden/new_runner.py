@@ -1,5 +1,5 @@
 """
-Run a golden scenario through the new usv_core.navigator.Navigator.
+Run a golden scenario through the new usv_core.teknofest_navigator.TeknofestNavigator.
 
 Every cycle is recorded exactly as legacy_runner records the legacy loop, so the two
 record lists can be compared with ==.
@@ -29,7 +29,7 @@ from scenario import BoatModel, mavlink_deg, Perception  # noqa: E402
 
 from usv_core import planner  # noqa: E402
 from usv_core.nav_config import NavConfig  # noqa: E402
-from usv_core.navigator import Navigator  # noqa: E402
+from usv_core.teknofest_navigator import TeknofestNavigator  # noqa: E402
 
 T0 = 1_000_000.0
 
@@ -73,8 +73,8 @@ def run_new(scenario, log=None):
     try:
         t = T0
         gps, heading = sense()
-        nav = Navigator(nc, start_time=t, mission_started=sc.mission_started,
-                        manual=sc.manual, log=log)
+        nav = TeknofestNavigator(nc, start_time=t, mission_started=sc.mission_started,
+                                 manual=sc.manual, log=log)
         nav.task = sc.start_task
         vision = perception.update(boat, t)
         records = []

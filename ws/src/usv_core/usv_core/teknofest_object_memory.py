@@ -1,5 +1,5 @@
 """
-Buoy track memory, ported from legacy core/camera_process.py (commit 5df3f5b).
+TEKNOFEST buoy track memory, ported from legacy core/camera_process.py (commit 5df3f5b).
 
 What changed in the port, and only this:
   * Settings come from ObjectMemoryConfig instead of the global `config` module. Defaults

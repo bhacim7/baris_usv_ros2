@@ -15,7 +15,7 @@ the known buoy positions. Same code, so both see the same geometry and the same 
   bearing_deg            lines 591-594: heading + angle of the pixel column
   detection_position     line 596: navigation.calculate_obj_gps from the boat's GPS fix
   process_frame          lines 534-605: one frame of boxes through all of the above into
-                         the object memory (usv_core.object_memory)
+                         the object memory (usv_core.teknofest_object_memory)
   memory_snapshot        lines 648-675: what is handed to the navigation every frame
   measure_boxes          new (RoboBoat): every box of a frame measured, nothing remembered
 
@@ -30,7 +30,7 @@ import statistics
 
 from usv_core.classes import OBJECT_RADIUS_M
 from usv_core.navigation import calculate_obj_gps
-from usv_core.object_memory import CID_TO_COLOR
+from usv_core.teknofest_object_memory import CID_TO_COLOR
 
 DEPTH_SAMPLE_FROM_BOTTOM = 0.15
 ROI_HALF_SIZE = 2            # 5 x 5 window

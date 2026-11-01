@@ -3,8 +3,9 @@ navigator: the autonomy loop - legacy core/nav_process.py nav_worker as a ROS 2 
 
 All decisions are made in usv_core; this node only feeds them and publishes what they
 decide. Parameter `competition` picks the rule book (phase 6 R2.1):
-  teknofest   usv_core.navigator.Navigator, ported cycle for cycle and tested against the
-              legacy loop; GPS points from the GCS, the object memory (/usv/buoys)
+  teknofest   usv_core.teknofest_navigator.TeknofestNavigator, ported cycle for cycle and
+              tested against the legacy loop; GPS points from the GCS, the object memory
+              (/usv/buoys)
   roboboat    usv_core.roboboat_navigator.RoboBoatNavigator: the run (entry gates, the
               chosen tasks, return, exit gates) from the world map (/usv/map) and the camera
               frames (/usv/detections); roboboat.* parameters; no GPS points
@@ -50,9 +51,9 @@ from std_msgs.msg import Float32, Int8
 from std_srvs.srv import SetBool, Trigger
 from usv_core.mixer import NEUTRAL
 from usv_core.nav_config import WAYPOINT_NAMES
-from usv_core.navigator import Navigator
 from usv_core.roboboat_navigator import Perception, RoboBoatNavigator
 from usv_core.safety import preflight_ready
+from usv_core.teknofest_navigator import TeknofestNavigator
 from usv_interfaces.msg import (BuoyArray, DetectionArray, LandmarkArray, NavStatus,
                                 ThrusterPwm, Waypoint, WaypointArray)
 from usv_interfaces.srv import SetTargetColor, SetTask, SetWaypoint
@@ -91,8 +92,9 @@ class NavigatorNode(Node):
                                          mission_started=False, manual=start_manual,
                                          log=self.get_logger().info)
         else:
-            self.nav = Navigator(self.cfg, start_time=self.now_s(), mission_started=False,
-                                 manual=start_manual, log=self.get_logger().info)
+            self.nav = TeknofestNavigator(self.cfg, start_time=self.now_s(),
+                                          mission_started=False, manual=start_manual,
+                                          log=self.get_logger().info)
         self.fix = None
         self.speed = None
         self.heading = None

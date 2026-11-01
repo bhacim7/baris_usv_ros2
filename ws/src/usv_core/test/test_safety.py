@@ -1,12 +1,12 @@
 """
-Emergency stop latch and pre-flight check (usv_core.safety), and how the Navigator uses them.
+Emergency stop latch and pre-flight check (usv_core.safety), and how TeknofestNavigator uses them.
 
 Run: cd /ws/src/usv_core && python3 -m pytest test/test_safety.py -v
 """
 
 from usv_core.nav_config import NavConfig
-from usv_core.navigator import Navigator
 from usv_core.safety import EmergencyLatch, preflight_ready
+from usv_core.teknofest_navigator import TeknofestNavigator
 
 NEUTRAL = (1500, 1500, 1500, 1500, 1500)
 BOAT = (40.8085, 29.2615)        # ~70 m south-west of the legacy T1_GATE_ENTER
@@ -18,12 +18,12 @@ def pwm(cmd):
 
 
 class Run:
-    """A Navigator in AUTO, Task 1, standing still at BOAT and heading north."""
+    """A TeknofestNavigator in AUTO, Task 1, standing still at BOAT and heading north."""
 
     def __init__(self):
         self.t = 100.0
-        self.nav = Navigator(NavConfig(), start_time=self.t, mission_started=True,
-                             manual=False)
+        self.nav = TeknofestNavigator(NavConfig(), start_time=self.t,
+                                      mission_started=True, manual=False)
 
     def step(self, *commands):
         for c in commands:

@@ -1,5 +1,5 @@
 """
-Conversions between the ROS side and usv_core.navigator.Navigator.
+Conversions between the ROS side and usv_core.teknofest_navigator.TeknofestNavigator.
 
 Kept apart from the node so they can be tested without a running ROS graph:
 

@@ -1,9 +1,10 @@
 """
 What every navigator profile shares (phase 6 R2.1).
 
-The TEKNOFEST navigator (usv_core.navigator.Navigator, ported cycle for cycle from legacy)
-and the RoboBoat navigator (usv_core.roboboat_navigator.RoboBoatNavigator) are two rule
-books for one driver. Everything that is not a rule of the competition lives here, once:
+The TEKNOFEST navigator (usv_core.teknofest_navigator.TeknofestNavigator, ported cycle for
+cycle from legacy) and the RoboBoat navigator
+(usv_core.roboboat_navigator.RoboBoatNavigator) are two rule books for one driver.
+Everything that is not a rule of the competition lives here, once:
 
   GCS commands     queued by the node, drained at the start of a cycle (CommandFilter)
   manual / auto    set_manual; mission_active = pre-flight passed and not manual
@@ -12,8 +13,8 @@ books for one driver. Everything that is not a rule of the competition lives her
   relay request    set_relay is only recorded; whoever owns the flight controller link acts
   mixer            the thruster mixer both profiles drive
 
-The methods were moved here from Navigator unchanged; the golden tests (legacy loop vs
-Navigator, cycle by cycle) guard that. What differs per profile is behind three hooks:
+The methods were moved here from TeknofestNavigator unchanged; the golden tests (legacy loop vs
+TeknofestNavigator, cycle by cycle) guard that. What differs per profile is behind three hooks:
 _select_task (what set_task means), set_waypoint (TEKNOFEST GPS points) and
 _fresh_guidance (state rebuilt when the emergency latch is released).
 """

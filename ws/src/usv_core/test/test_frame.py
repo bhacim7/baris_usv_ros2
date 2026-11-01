@@ -17,7 +17,7 @@ import numpy as np  # noqa: E402
 import object_memory_extract as legacy_memory  # noqa: E402
 import pytest  # noqa: E402
 from usv_core.detection import intrinsics_from_hfov, memory_snapshot, process_frame  # noqa: E402
-from usv_core.object_memory import ObjectMemoryManager  # noqa: E402
+from usv_core.teknofest_object_memory import ObjectMemoryManager  # noqa: E402
 from utils.navigasyon import calculate_obj_gps  # noqa: E402
 
 WIDTH, HEIGHT = 1280, 720

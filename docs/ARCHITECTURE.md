@@ -42,7 +42,7 @@ These are not cleaned up during the port, because the gains were tuned against t
 | Package | Build type | Content |
 |---|---|---|
 | `usv_interfaces` | ament_cmake | Custom messages and services |
-| `usv_core` | ament_python | ROS-free library: `navigation`, `planner`, `object_memory`, `mixer`, `heading`, `detection`, the navigator brain (`nav_config`, `costmap`, `guidance`, `mission`, `task3`, `commands`, `navigator`, `safety`, `relay`), the shared navigator base (`nav_base`), RoboBoat `classes`, `world_map`, `roboboat_run`, `roboboat_navigator`. Unit and golden tests |
+| `usv_core` | ament_python | ROS-free library. Shared: `navigation`, `planner`, `mixer`, `heading`, `detection`, `classes`, `nav_config`, `commands`, `safety`, `relay`, `nav_base`; TEKNOFEST only (prefix `teknofest_`, renamed 2026-11-01): `teknofest_navigator`, `teknofest_mission`, `teknofest_task3`, `teknofest_object_memory`, and for now `guidance`, `costmap` (parts to be shared in R2.3); RoboBoat only (prefix `roboboat_`, plus `world_map`): `roboboat_run`, `roboboat_navigator`, `world_map`. Unit and golden tests |
 | `usv_nodes` | ament_python | `navigator`, `heading_source`, `mapper` (written); `fc_bridge`, `perception`, `telemetry_bridge`, `recorder` (phase 7) |
 | `usv_sim` | ament_python | `sim_bridge`, `fake_perception`, `survey_drive`, course files (`courses/*.yaml`) and world generator, boat model, `sim.launch.py` |
 | `usv_gz_plugins` | ament_cmake | Gazebo systems (C++): `HullBuoyancy`, buoyancy from the hull mesh. Simulation only; skipped where VRX is absent |
@@ -353,7 +353,7 @@ Phase 4 progress (2026-10-30): **done criteria met** (boat driven in simulation 
 | Course `golcuk_2026_10_14` (provisional, from the video) + world generator | Written: `courses/*.yaml` is the single source; `make_course_world.py` builds the world (site origin, magnetic field, buoys) |
 | `fake_perception` | Done and tested: heading, attitude, FPS, buoys (simulated ZED + YOLO -> the boat's own detection code -> `/usv/buoys` at 30 Hz) |
 
-Phase 5 progress (2026-10-31): the navigator brain is ported to `usv_core` (`nav_config`, `costmap`, `guidance`, `mission`, `task3`, `commands`, `navigator`, `safety`, `relay`) and matches the legacy loop cycle for cycle on every golden scenario (`test/golden/`). Deliberate changes: the emergency stop latches as in section 9 (neutral from the same cycle; released by relay on + `set_task`) instead of ending the program; relay retries move to `fc_bridge`. 5.5: the `navigator` node runs in `sim.launch.py`.
+Phase 5 progress (2026-10-31): the navigator brain is ported to `usv_core` (`nav_config`, `costmap`, `guidance`, `mission`, `task3`, `commands`, `navigator`, `safety`, `relay`; since 2026-11-01 `teknofest_mission`, `teknofest_task3`, `teknofest_navigator`) and matches the legacy loop cycle for cycle on every golden scenario (`test/golden/`). Deliberate changes: the emergency stop latches as in section 9 (neutral from the same cycle; released by relay on + `set_task`) instead of ending the program; relay retries move to `fc_bridge`. 5.5: the `navigator` node runs in `sim.launch.py`.
 
 Phase 5 **done criteria met** (2026-11-01): Golcuk course in Gazebo from Task 1 to FINISHED, no corridor contact with the default simulated sensors. 5.6 comparison with the 2026-10-14 video (`ws/tools/run_report.py`, `ws/tools/golcuk_2026_10_14_reference.yaml`), single runs each:
 

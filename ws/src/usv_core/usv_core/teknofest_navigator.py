@@ -1,7 +1,7 @@
 """
-The navigation loop, ported from legacy core/nav_process.py nav_worker (commit 5df3f5b).
+TEKNOFEST navigation loop, ported from legacy core/nav_process.py nav_worker (5df3f5b).
 
-Navigator.step() is one pass of legacy's while loop, minus everything that touched the
+TeknofestNavigator.step() is one pass of legacy's while loop, minus everything that touched the
 outside world:
 
   inputs    the caller passes the fix, ground speed, the selected heading and the object
@@ -29,17 +29,17 @@ Two things differ from legacy on purpose (ARCHITECTURE.md section 9):
                    flight controller link (usv_core.relay.RelayRetry, used by fc_bridge).
 """
 
-from usv_core import mission as mission_mod
+from usv_core import teknofest_mission as mission_mod
 from usv_core.costmap import LocalCostmap, LocalFrame
 from usv_core.guidance import WaypointGuidance
-from usv_core.mission import Mission
 from usv_core.nav_base import NavigatorBase
 from usv_core.nav_config import NavConfig, WAYPOINT_NAMES
+from usv_core.teknofest_mission import TeknofestMission
 
 TASK3_SEARCH = mission_mod.TASK3_SEARCH
 
 
-class Navigator(NavigatorBase):
+class TeknofestNavigator(NavigatorBase):
     """The TEKNOFEST rule book; commands, modes and the emergency latch: NavigatorBase."""
 
     def __init__(self, cfg=None, start_time=0.0, mission_started=True, manual=False, log=None):
@@ -49,7 +49,7 @@ class Navigator(NavigatorBase):
         self.costmap = LocalCostmap(cfg.costmap_res_m_per_px, cfg.crop_radius_m,
                                     cfg.buoy_radius_m)
         self.guidance = WaypointGuidance(cfg, self.mixer, self.log)
-        self.mission = Mission(cfg, self.mixer, self.log)
+        self.mission = TeknofestMission(cfg, self.mixer, self.log)
 
         self.waypoints = {name: tuple(cfg.waypoints[name]) for name in WAYPOINT_NAMES}
         self.task = cfg.start_task

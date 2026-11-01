@@ -1,5 +1,5 @@
 """
-Task 3 search and kamikaze run, ported from legacy core/nav_process.py (commit 5df3f5b).
+TEKNOFEST Task 3 search and kamikaze run, ported from legacy core/nav_process.py (5df3f5b).
 
 Task3Search.step() is the TASK3_SEARCH_KAMIKAZE branch of the mission router, one call per
 cycle while the mission is active. In priority order:

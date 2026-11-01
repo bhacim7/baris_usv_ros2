@@ -1,8 +1,8 @@
 """
-Mission state router, ported from legacy core/nav_process.py section E (commit 5df3f5b).
+TEKNOFEST mission state router, ported from legacy core/nav_process.py section E (5df3f5b).
 
-Mission.route() decides, once per cycle, which task state the boat is in and which point it
-steers to:
+TeknofestMission.route() decides, once per cycle, which task state the boat is in and which
+point it steers to:
 
   Task 1    three gate points in a row, 3 m acceptance
   Task 2    entry -> mid -> end, 3 m acceptance; on the way to the entry an approach point set
@@ -15,17 +15,17 @@ When the mission is not active (not started, or manual) any state change is roll
 the target is still returned, so the GCS keeps seeing distance and bearing to the next point.
 
 The Task 3 search itself (pattern, lock, visual servo, the collision that ends the run) is
-usv_core.task3.Task3Search, run only while the mission is active.
+usv_core.teknofest_task3.Task3Search, run only while the mission is active.
 """
 
 import math
 
 from usv_core import navigation as nav
-from usv_core.task3 import TASK3_SEARCH, Task3Search
+from usv_core.teknofest_task3 import TASK3_SEARCH, Task3Search
 COLOR_TO_CID = {'red': 0, 'yellow': 1, 'black': 2, 'orange': 3, 'green': 4}
 
 
-class Mission:
+class TeknofestMission:
 
     def __init__(self, cfg, mixer, log=None):
         self.cfg = cfg

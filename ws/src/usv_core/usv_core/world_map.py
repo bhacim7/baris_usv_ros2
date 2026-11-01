@@ -1,9 +1,9 @@
 """
 The world map: every object perception has seen since power-on, one landmark per object.
 
-Unlike the legacy object memory (usv_core.object_memory), which forgets a buoy a few seconds
-after it leaves the view (a list of obstacles around the boat), the world map forgets
-nothing: RoboBoat tasks are found from it (no waypoints are set from the GCS), and Task 2
+Unlike the legacy object memory (usv_core.teknofest_object_memory), which forgets a buoy a
+few seconds after it leaves the view (a list of obstacles around the boat), the world map
+forgets nothing: RoboBoat tasks are found from it (no waypoints are set from the GCS), and Task 2
 reports the position of every debris buoy from it. Mapping starts at power-on, also while
 the boat is driven by hand.
 

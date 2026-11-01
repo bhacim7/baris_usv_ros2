@@ -47,7 +47,7 @@ from sensor_msgs.msg import Imu, NavSatFix
 from std_msgs.msg import Float32
 from usv_core.detection import measure_boxes, memory_snapshot, process_frame
 from usv_core.heading import HeadingFilter, LEGACY_DECLINATION_DEG, zed_heading
-from usv_core.object_memory import ObjectMemoryManager
+from usv_core.teknofest_object_memory import ObjectMemoryManager
 from usv_interfaces.msg import Buoy as BuoyMsg, BuoyArray, Detection, DetectionArray
 from usv_sim import course as course_mod
 from usv_sim.camera import CameraModel, Frame, Settings
