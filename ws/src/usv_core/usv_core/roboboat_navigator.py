@@ -52,6 +52,9 @@ def course_summary(view):
         found.add(f'marina slips: {len(view.slips)}')
     if view.best_slip is not None:
         found.add(f'best slip {view.best_slip.dock}{view.best_slip.number}')
+    elif view.best_slip_so_far is not None:
+        s = view.best_slip_so_far
+        found.add(f'best slip so far {s.dock or "?"}{s.number} (marina not complete)')
     found.update(f'zone {name[len("task6_zone_"):]}' for name in view.zones)
     return found
 

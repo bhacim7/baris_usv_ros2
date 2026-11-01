@@ -21,10 +21,11 @@ with the handbook's sizes (2026, section 3.2) as the only prior:
                  round the yellow buoy (red: counter-clockwise, green: clockwise)
   marina         the slip number banners (digit_1..3); for each, the indicator next to it
                  and whether a vessel lies in the slip. The best slip: green indicator, no
-                 vessel, lowest number (handbook 3.2.5). Banners closer than dock_link_m
-                 belong to one dock; with two docks seen, the northern one (by compass) is
-                 N. With one dock seen its name is not known yet ('', 'marina_second_dock'
-                 missing)
+                 vessel, lowest number (handbook 3.2.5), over ALL six slips: given only
+                 once the marina is complete (best_slip_so_far before; 'marina_incomplete'
+                 missing). Banners closer than dock_link_m belong to one dock; with two
+                 docks seen, the northern one (by compass) is N. With one dock seen its
+                 name is not known yet ('', 'marina_second_dock' missing)
   Task 6 zones   the yellow buoy of Task 3 and the yellow buoy nearest the marina
 
 Only confirmed landmarks are used unless use_unconfirmed. Everything works in the map's
@@ -151,9 +152,26 @@ class CourseView:
     missing: list = field(default_factory=list)
 
     @property
-    def best_slip(self):
+    def marina_complete(self):
+        """Return True once both docks and all six slips, each with its indicator, are seen."""
+        named = {(s.dock, s.number) for s in self.slips if s.dock and s.indicator}
+        return named >= {(d, n) for d in 'NS' for n in (1, 2, 3)}
+
+    @property
+    def best_slip_so_far(self):
+        """Return the best slip among those seen (green, no vessel, lowest number)."""
         free = [s for s in self.slips if s.indicator == 'green' and not s.occupied]
-        return min(free, key=lambda s: s.number) if free else None
+        return min(free, key=lambda s: (s.number, s.dock)) if free else None
+
+    @property
+    def best_slip(self):
+        """
+        Return the slip to dock in (handbook 3.2.5), or None while the marina is incomplete.
+
+        The lowest number available counts over every slip: an unseen slip could be better
+        than all the seen ones.
+        """
+        return self.best_slip_so_far if self.marina_complete else None
 
     def expected(self, hint):
         """Return the map position of a hint (ahead_m, left_m); None without the gates."""
@@ -361,6 +379,8 @@ class CourseModel:
             if slip is not None:
                 slip.occupied = True
         v.slips = sorted(slips.values(), key=lambda s: (s.dock, s.number))
+        if not v.marina_complete:
+            v.missing.append('marina_incomplete')
 
     # ------------------------------------------------------------------ Task 6 zones
     def _zones(self, v, by_kind):

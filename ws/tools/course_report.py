@@ -178,8 +178,9 @@ def main():
     missing = sorted(set(true_slips) - found)
     if missing:
         print(f'   slips not found: {missing}')
-    b, wb = got.best_slip, want.best_slip
-    print(f'   best slip: {f"{b.dock}{b.number}" if b else "-"} '
+    b, wb, sf = got.best_slip, want.best_slip, got.best_slip_so_far
+    so_far = '' if b or not sf else f', so far {sf.dock or "?"}{sf.number}: marina not complete'
+    print(f'   best slip: {f"{b.dock}{b.number}" if b else "-"}{so_far} '
           f'(true {f"{wb.dock}{wb.number}" if wb else "-"})')
 
     print('\n-- Task 6 zones')

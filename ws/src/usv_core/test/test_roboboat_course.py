@@ -118,6 +118,7 @@ def test_marina_slips_and_the_best_one():
     south_dock = 'S' if north_dock == 'N' else 'N'
     assert slips[(south_dock, 1)].occupied and slips[(north_dock, 3)].occupied
     assert slips[(south_dock, 2)].indicator == 'green' and not slips[(south_dock, 2)].occupied
+    assert v.marina_complete and 'marina_incomplete' not in v.missing
     assert v.best_slip.number == 1 and v.best_slip.dock == north_dock
     assert v.zones['task6_zone_marina']['id'] == 27
 
@@ -139,4 +140,6 @@ def test_one_dock_seen_has_no_name_yet():
                   ('digit_1', 'digit_2', 'digit_3', 'indicator', 'plus') and item[1] > 29.0]
     v = CourseModel().view(landmarks(drop=north_dock), start=START)
     assert len(v.slips) == 3 and {s.dock for s in v.slips} == {''}
-    assert 'marina_second_dock' in v.missing
+    assert 'marina_second_dock' in v.missing and 'marina_incomplete' in v.missing
+    # S2 is green and free, but the unseen dock could have a lower free number: no answer
+    assert v.best_slip is None and v.best_slip_so_far.number == 2
