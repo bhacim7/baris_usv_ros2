@@ -20,23 +20,30 @@ POLES = [('pole_red', -4.33, 0.0), ('pole_green', 4.33, 0.0),
          ('pole_red', -4.33, 7.95), ('pole_green', 4.33, 7.95)]
 
 
-def landmarks(turn_deg):
+# The roboboat_2026 channel, from the first Task 1 gate's centre: 2.5 m gates, 6 m apart
+CHANNEL = []
+for cx, y in ((1.52, 21.13), (2.12, 27.13), (2.72, 33.13), (3.72, 39.13)):
+    CHANNEL += [('buoy_red', cx - 1.25, y), ('buoy_green', cx + 1.25, y)]
+
+
+def landmarks(turn_deg, items=POLES):
     c, s = math.cos(math.radians(turn_deg)), math.sin(math.radians(turn_deg))
     return [{'id': i, 'kind': k, 'color': '', 'east': x * c - y * s, 'north': x * s + y * c,
-             'confirmed': True, 'sightings': 30} for i, (k, x, y) in enumerate(POLES)]
+             'confirmed': True, 'sightings': 30} for i, (k, x, y) in enumerate(items)]
 
 
-def run_task1(turn_deg=0.0, seconds=200.0, dt=0.04):
+def run_task1(turn_deg=0.0, seconds=200.0, dt=0.04, items=POLES, task_order=(),
+              hints=None, until=FINISHED):
     """Start 8 m before the first gate, facing it; course drawn heading north, turned."""
-    every = landmarks(turn_deg)
+    every = landmarks(turn_deg, items)
     c, s = math.cos(math.radians(turn_deg)), math.sin(math.radians(turn_deg))
     boat = (0.0 * c - (-8.0) * s, 0.0 * s + (-8.0) * c)
     heading = (0.0 - turn_deg) % 360.0                 # north, turned counter-clockwise
-    run = RoboBoatRun(RunConfig(task_order=()), default_phases(CFG))
+    run = RoboBoatRun(RunConfig(task_order=task_order), default_phases(CFG, hints=hints))
     model = CourseModel()
     ctx = RunContext(now=0.0, boat_xy=boat, heading=heading)
     seen, track = set(), [boat]
-    while ctx.now < seconds and run.phase != FINISHED:
+    while ctx.now < seconds and run.phase != until:
         for lm in every:
             if math.hypot(lm['east'] - ctx.boat_xy[0], lm['north'] - ctx.boat_xy[1]) <= 12.0:
                 seen.add(lm['id'])
@@ -92,3 +99,20 @@ def test_task1_entry_return_exit():
         assert mem['t1_entry']['through'] and mem['t1_exit']['through']
         true_heading = (0.0 - turn) % 360.0
         assert abs((mem['t1_heading'] - true_heading + 180.0) % 360.0 - 180.0) < 3.0
+
+
+def test_task2_through_the_channel():
+    """Go through all four channel gates, with an exact hint and with one 3 m off."""
+    for hint in ((21.1, -1.5), (21.1 + 2.1, -1.5 + 2.1)):
+        run, track, every = run_task1(0.0, seconds=300.0, items=POLES + CHANNEL,
+                                      task_order=('task2',), hints={'task2': hint},
+                                      until='RETURN')
+        assert run.phase == 'RETURN', (hint, run.events[-3:])
+        assert ('phase_done', 'task2') in [(k, d.get('phase')) for _, k, d in run.events]
+        for k in range(4):
+            red, green = every[4 + 2 * k], every[5 + 2 * k]
+            xs = crossings(track, red, green)
+            assert [d for d, _, _ in xs] == ['in'], (hint, k, xs)
+            # the whole hull between the buoys: 0.39 m half beam + 0.10 m buoy radius
+            assert abs(xs[0][1]) < xs[0][2] / 2.0 - 0.49, (hint, k, xs)
+        assert run.memory['task2']['gates'] == 4

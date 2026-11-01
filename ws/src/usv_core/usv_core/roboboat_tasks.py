@@ -20,6 +20,19 @@ through the same two, the other way.
   T1Exit         PassGate through the second gate, then the first, both reversed (red on
                  the right). Memory: 't1_exit' (time, lat, lon at the first gate)
 
+Task 2 (handbook 3.2.2): through the channel into the debris field, scan it, circle the
+green indicator, report every debris, back out through the channel.
+
+  Task2          (R3.1-R3.2 so far) find the channel: on the map already, else go to the
+                 team's hint (read in the Task 1 gate frame) and search round it, else search
+                 ahead of the gates. Then to channel_approach_m before the entry gate (the end
+                 nearer to Task 1) and through the gates one by one, each a PassGate refined
+                 from the camera, the gates further on joining the map as the boat comes
+                 near; between gates the boat runs on along the channel. The way through a
+                 gate is the channel's direction, whatever side red is on. The channel ends
+                 when no next gate shows up within channel_end_m past the last one. Memory
+                 'task2': entry time and position, gates passed (and whether cleanly)
+
 A gate kept in memory is matched again to the course view (centre within MATCH_GATE_M) so
 the newest map position is used; the camera refines it further inside PassGate.
 """
@@ -27,7 +40,7 @@ the newest map position is used; the camera refines it further inside PassGate.
 import math
 
 from usv_core.roboboat_course import Gate
-from usv_core.roboboat_drive import DriveTo, PassGate, Search
+from usv_core.roboboat_drive import DriveConfig, DriveTo, PassGate, Search
 from usv_core.roboboat_run import DONE, RUNNING, SKIPPED
 
 MATCH_GATE_M = 3.0
@@ -212,7 +225,145 @@ class T1Exit:
         return DONE, None
 
 
-def default_phases(cfg, drive=None):
+class Task2:
+
+    def __init__(self, cfg, hint=None, drive=None, channel_approach_m=4.0, channel_end_m=9.0,
+                 gate_approach_m=2.5, gate_exit_m=1.5):
+        self.cfg = cfg
+        self.hint = hint
+        self.drive = drive or DriveConfig()
+        self.channel_approach_m = channel_approach_m
+        self.channel_end_m = channel_end_m
+        self.gate_approach_m = gate_approach_m
+        self.gate_exit_m = gate_exit_m
+
+    def start(self, ctx):
+        self.stage = 'find'
+        self.move = None
+        self.passed = []              # centres of the gates passed
+        self.through = []             # each gate passed cleanly (PassGate's own reading)
+        self.direction = None         # unit vector along the channel, entry to exit
+        self.channel_in = None
+
+    # ------------------------------------------------------------------ helpers
+    def _channel(self, ctx):
+        return ctx.course.channel if ctx.course is not None else []
+
+    def _next_gate(self, ctx):
+        """Return the nearest channel gate ahead of the last passed one, not yet passed."""
+        ref = self.passed[-1] if self.passed else None
+        best = None
+        for g in self._channel(ctx):
+            c = _centre(g)
+            if any(math.hypot(c[0] - p[0], c[1] - p[1]) < 1.5 for p in self.passed):
+                continue
+            if ref is not None:
+                d = (c[0] - ref[0], c[1] - ref[1])
+                along = d[0] * self.direction[0] + d[1] * self.direction[1]
+                if along < 1.0 or along > self.channel_end_m:
+                    continue
+                dist = along
+            else:
+                dist = math.hypot(c[0] - ctx.boat_xy[0], c[1] - ctx.boat_xy[1])
+            if best is None or dist < best[0]:
+                best = (dist, g)
+        return best[1] if best else None
+
+    # ------------------------------------------------------------------ stages
+    def step(self, ctx):
+        if ctx.boat_xy is None:
+            return RUNNING, None
+        if self.stage == 'find':
+            chan = self._channel(ctx)
+            if len(chan) >= 2:
+                a, b = _centre(chan[0]), _centre(chan[1])
+                n = math.hypot(b[0] - a[0], b[1] - a[1]) or 1.0
+                self.direction = ((b[0] - a[0]) / n, (b[1] - a[1]) / n)
+                self.stage, self.move = 'approach', None
+            else:
+                return self._find(ctx)
+        if self.stage == 'approach':
+            c = _centre(self._channel(ctx)[0]) if self._channel(ctx) else None
+            if c is None:
+                self.stage = 'find'
+                return RUNNING, None
+            if not isinstance(self.move, DriveTo):
+                goal = (c[0] - self.direction[0] * self.channel_approach_m,
+                        c[1] - self.direction[1] * self.channel_approach_m)
+                self.move = DriveTo(self.cfg, goal, arrive_m=1.5, drive=self.drive)
+                self.move.start(ctx)
+            state, cmd = self.move.step(ctx)
+            if state == RUNNING:
+                return RUNNING, cmd
+            self.stage, self.move = 'channel', None
+            self.channel_in = {'time': ctx.now, 'lat': ctx.lat, 'lon': ctx.lon}
+        if self.stage == 'channel':
+            return self._channel_step(ctx)
+        return SKIPPED, None
+
+    def _find(self, ctx):
+        view = ctx.course
+        if not isinstance(self.move, (DriveTo, Search)):
+            target = view.expected(self.hint) if view is not None else None
+            if target is not None:
+                self.move = DriveTo(self.cfg, target, arrive_m=3.0, drive=self.drive)
+            else:
+                centre = view.frame.to_map(15.0, 0.0) if view is not None and view.frame \
+                    else ctx.boat_xy
+                self.move = Search(self.cfg, centre, lambda c: len(self._channel(c)) >= 2,
+                                   drive=self.drive)
+            self.move.start(ctx)
+        state, cmd = self.move.step(ctx)
+        if state == DONE and isinstance(self.move, DriveTo):
+            self.move = Search(self.cfg, self.move.goal, lambda c: len(self._channel(c)) >= 2,
+                               drive=self.drive)
+            self.move.start(ctx)
+            return RUNNING, None
+        if state == SKIPPED:
+            return SKIPPED, None
+        return RUNNING, cmd if state == RUNNING else None
+
+    def _channel_step(self, ctx):
+        if isinstance(self.move, PassGate):
+            state, cmd = self.move.step(ctx)
+            if state == RUNNING:
+                return RUNNING, cmd
+            c, _, _, _ = self.move.geometry()
+            self.passed.append(c)
+            self.through.append(bool(self.move.result.get('through')))
+            self.move = None
+        gate = self._next_gate(ctx)
+        if gate is not None:
+            reverse = (gate.through[0] * self.direction[0]
+                       + gate.through[1] * self.direction[1]) < 0
+            self.move = PassGate(self.cfg, gate, reverse=reverse,
+                                 approach_m=self.gate_approach_m, exit_m=self.gate_exit_m,
+                                 drive=self.drive, lookahead_m=self.drive.channel_lookahead_m)
+            self.move.start(ctx)
+            return RUNNING, self.move.step(ctx)[1]
+        # No next gate on the map: run on along the channel; past channel_end_m it has ended
+        last = self.passed[-1] if self.passed else ctx.boat_xy
+        d = (ctx.boat_xy[0] - last[0], ctx.boat_xy[1] - last[1])
+        if self.passed and d[0] * self.direction[0] + d[1] * self.direction[1] \
+                > self.channel_end_m:
+            ctx.memory['task2'] = {'channel_in': self.channel_in, 'gates': len(self.passed),
+                                   'through': self.through,
+                                   'channel_out_xy': ctx.boat_xy,
+                                   'direction': self.direction}
+            return DONE, None
+        if not isinstance(self.move, DriveTo):
+            goal = (last[0] + self.direction[0] * (self.channel_end_m + 2.0),
+                    last[1] + self.direction[1] * (self.channel_end_m + 2.0))
+            self.move = DriveTo(self.cfg, goal, arrive_m=1.0, avoid=False, drive=self.drive,
+                                lookahead_m=self.drive.channel_lookahead_m)
+            self.move.start(ctx)
+        state, cmd = self.move.step(ctx)
+        return RUNNING, cmd if state == RUNNING else None
+
+
+def default_phases(cfg, drive=None, hints=None):
     """Return the phases written so far, by run phase name; the rest stay Pending."""
+    hints = hints or {}
     return {'T1_ENTRY': T1Entry(cfg, drive=drive), 'RETURN': ReturnToGates(cfg, drive=drive),
-            'T1_EXIT': T1Exit(cfg, drive=drive)}
+            'T1_EXIT': T1Exit(cfg, drive=drive),
+            'task2': Task2(cfg, hint=hints.get('task2'), drive=drive)}

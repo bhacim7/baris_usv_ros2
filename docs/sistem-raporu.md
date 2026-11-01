@@ -367,6 +367,7 @@ Testte harita kapıyı 1,5 m yanlış yerde gösterirken tekne gerçek ortadan g
 | `T1Entry` | Kapı yoksa arar. İlk kapıdan geçer. İkinci kapı başta haritada değil (16 m uzakta, harita 12 m'ye kadar alır): ilk kapının 8 m ötesine düz gider, ikinci kapı haritaya girince ondan geçer. Aradaki düz kısımda pusulayı örnekler → çerçevenin yönü. Giriş zamanı ve konumunu hafızaya yazar |
 | `ReturnToGates` | İkinci kapının 6 m parkur tarafına `DriveTo` (A*) |
 | `T1Exit` | Önce ikinci, sonra ilk kapıdan, ters yönde (kırmızı sağda). Çıkış zamanı ve konumunu yazar |
+| `Task2` (R3.1–R3.2) | Kanal haritada yoksa ipucunun gösterdiği yere gider ve orada arar (ipucu yoksa kapıların 15 m önünde). Kanal bulununca Görev 1'e yakın uçtaki ilk kapının 4 m önüne gider, kapıları sırayla kamera ile düzelterek geçer (bakış mesafesi 2,5 m); ilerideki kapılar yaklaştıkça haritaya girer. Son kapıdan 9 m sonra kapı yoksa kanal bitmiştir. Geçiş yönü kanalın yönünden; kırmızının hangi tarafta olduğuna bakmaz |
 
 ### 4.11 TEKNOFEST beyni (donmuş)
 
@@ -481,6 +482,8 @@ RViz, ölçüm pilotu, kayıt. Ctrl+C hepsini kapatır (harita JSON'u o anda yaz
 | `compass_offset_deg:=8.0`, `detect_prob:=0.5`, `max_range_m:=10.0` | Deney: pusula hatası, YOLO kaçırması, menzil |
 | `true_distance:=false`, `from_camera:=false`, `add_radius:=false` | D2, D1, D6'yı kapat (eski hal) |
 | `lookahead_m:=4.0` | RoboBoat yol izleyicisinin bakış mesafesi |
+| `channel_lookahead_m:=2.5` | Görev 2 kanalında bakış mesafesi |
+| `hint_error_m:=3` | İpuçlarını rastgele yönde kaydır (kıyıdan tahmin taklidi) |
 | `course_east:= course_north:= course_heading:=` | Parkuru başka yere koy |
 
 ### 7.3 Sık kullandığımız komutlar

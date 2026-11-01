@@ -11,7 +11,7 @@ manual / auto, emergency latch, relay request, mixer); what differs is the missi
            the gate frame, channel, Task 3, marina, zones; new finds are logged
   mission  usv_core.roboboat_run.RoboBoatRun: entry gates, the chosen tasks, return, exit;
            the phases written so far from usv_core.roboboat_tasks (Task 1: entry, return,
-           exit), the rest skipped
+           exit; Task 2: the channel so far), the rest skipped
   set_task the name of a run phase (T1_ENTRY, task2 ..., RETURN, T1_EXIT, FINISHED, or
            WAIT_START to start over) jumps there; as in TEKNOFEST it also releases the
            emergency latch while the relay is on
@@ -68,8 +68,9 @@ class RoboBoatNavigator(NavigatorBase):
                  manual=False, log=None, phases=None, drive_cfg=None):
         cfg = cfg or NavConfig()
         super().__init__(cfg, start_time, mission_started, manual, log)
-        self.run = RoboBoatRun(run_cfg or RunConfig(),
-                               {**default_phases(cfg, drive_cfg), **(phases or {})}, self.log)
+        run_cfg = run_cfg or RunConfig()
+        self.run = RoboBoatRun(run_cfg, {**default_phases(cfg, drive_cfg, run_cfg.hints),
+                                         **(phases or {})}, self.log)
         self.course_model = CourseModel()
         self.course = None                  # latest CourseView
         self.course_found = set()

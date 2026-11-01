@@ -46,7 +46,9 @@ What starts, in this order:
 Ctrl+C stops everything.
 """
 
+import math
 import os
+import random
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
@@ -114,6 +116,23 @@ def setup(context):
     lookahead = LaunchConfiguration('lookahead_m').perform(context)
     if lookahead:
         navigator_overrides['roboboat.drive.lookahead_m'] = float(lookahead)
+    channel_lookahead = LaunchConfiguration('channel_lookahead_m').perform(context)
+    if channel_lookahead:
+        navigator_overrides['roboboat.drive.channel_lookahead_m'] = float(channel_lookahead)
+    # The course file's hints are worked out from its layout, i.e. exact; a team member on
+    # the shore is metres off. hint_error_m moves each hint that far in a random direction
+    # (the same directions for the same seed), to test the boat finds the task itself.
+    hint_error = LaunchConfiguration('hint_error_m').perform(context)
+    if hint_error and float(hint_error) > 0:
+        rng = random.Random(int(LaunchConfiguration('seed').perform(context) or 0) + 7)
+        for key in [k for k in navigator_overrides if k.startswith('roboboat.hint.')]:
+            text = str(navigator_overrides[key]).strip()
+            if not text:
+                continue
+            ahead, left = (float(v) for v in text.split(','))
+            a = rng.uniform(0.0, 2.0 * math.pi)
+            navigator_overrides[key] = (f'{ahead + float(hint_error) * math.cos(a):.2f},'
+                                        f'{left + float(hint_error) * math.sin(a):.2f}')
     navigator_overrides['start_manual'] = \
         LaunchConfiguration('auto').perform(context).lower() != 'true'
 
@@ -245,6 +264,12 @@ def generate_launch_description():
         DeclareLaunchArgument('lookahead_m', default_value='',
                               description='RoboBoat path following: Pure Pursuit look-ahead '
                               '(m); empty = navigator.yaml'),
+        DeclareLaunchArgument('channel_lookahead_m', default_value='',
+                              description='RoboBoat: Pure Pursuit look-ahead through the '
+                              'Task 2 channel (m); empty = navigator.yaml'),
+        DeclareLaunchArgument('hint_error_m', default_value='',
+                              description="RoboBoat: move each of the course file's hints "
+                              'this far in a random direction (seeded); empty = exact'),
         DeclareLaunchArgument('seed', default_value='',
                               description='sensor noise seed for sim_bridge and '
                               'fake_perception; empty = YAML value'),

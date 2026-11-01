@@ -180,6 +180,8 @@ Bir node çökerse 2 saniye sonra kendiliğinden yeniden başlar (teknedeki gibi
 | `from_camera:=false` | YAML (`true`) | RoboBoat tespitleri: antenden konumlanır (eski hal, D1 kapalı) |
 | `add_radius:=false` | YAML (`true`) | RoboBoat tespitleri: nesnenin ön yüzü, yarıçap eklenmez (D6 kapalı) |
 | `lookahead_m:=4.0` | YAML (4,0) | RoboBoat yol izleyicisinin bakış mesafesi (m); kısa = salınım |
+| `channel_lookahead_m:=2.5` | YAML (2,5) | Görev 2 kanalında bakış mesafesi (m) |
+| `hint_error_m:=3` | yok (kusursuz) | Parkur dosyasındaki ipuçlarını rastgele yönde bu kadar kaydır (kıyıdan göz kararı taklidi; aynı seed aynı yön) |
 | `record:=<ad>` | kayıt yok | `/ws/bags/<ad>` klasörüne kayıt. Ad daha önce kullanılmamış olmalı |
 | `compass_offset_deg:=8.0` | YAML | ZED pusulası 8° fazla okur (deney) |
 | `detect_prob:=0.5` | YAML | YOLO bir nesneyi karelerin yarısında bulur (deney) |
@@ -323,8 +325,8 @@ cp /ws/bags/map_roboboat_2026.json /ws/bags/map_roboboat_2026_<ad>.json
 
 ### 6.1b RoboBoat koşusu: Görev 1 (R2.4)
 
-Tekne kendi başına: iki giriş kapısı → (Görev 2, 3, 5 henüz yok, atlanır) → kapılara dönüş →
-iki kapıdan ters yönde çıkış → `FINISHED`. Kaydederek başlat:
+Tekne kendi başına: iki giriş kapısı → Görev 2 (şimdilik: kanalı bul ve dört kapıdan geç) →
+(Görev 3, 5 henüz yok, atlanır) → kapılara dönüş → iki kapıdan ters yönde çıkış → `FINISHED`. Kaydederek başlat:
 
 ```bash
 ros2 launch usv_sim sim.launch.py course:=roboboat_2026 auto:=true record:=t1_<ad>

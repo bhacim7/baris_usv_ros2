@@ -67,6 +67,9 @@ class DriveConfig:
 
     lookahead_m: float = 4.0
     avoid_lookahead_m: float = 2.0
+    # channel_lookahead_m: through the Task 2 channel (2.5 m gates ~6 m apart), where a far
+    # aim point may cut from gate to gate; to be measured (R3.2)
+    channel_lookahead_m: float = 2.5
 
 
 def to_planner(p):
@@ -201,8 +204,10 @@ class Move:
 
 class DriveTo(Move):
 
-    def __init__(self, cfg, goal, arrive_m=1.5, replan_s=0.2, avoid=True, drive=None):
-        super().__init__(cfg, drive)
+    def __init__(self, cfg, goal, arrive_m=1.5, replan_s=0.2, avoid=True, drive=None,
+                 lookahead_m=None):
+        super().__init__(cfg, drive, lookahead_m)
+        self.straight_lookahead = lookahead_m or self.drive.lookahead_m
         self.goal, self.arrive_m, self.replan_s, self.avoid = goal, arrive_m, replan_s, avoid
         self.grid = LandmarkGrid(cfg.costmap_res_m_per_px, cfg.crop_radius_m,
                                  cfg.buoy_radius_m) if avoid else None
@@ -223,8 +228,9 @@ class DriveTo(Move):
             self.path = self._plan(ctx)
             self.planned_at = ctx.now
         # A bent (A*) path is followed closely; a straight one smoothly
-        self.follower.set_lookahead(self.drive.lookahead_m if len(self.path) <= 2
-                                    else self.drive.avoid_lookahead_m)
+        self.follower.set_lookahead(self.straight_lookahead if len(self.path) <= 2
+                                    else min(self.straight_lookahead,
+                                             self.drive.avoid_lookahead_m))
         return RUNNING, self._follow(self.path, ctx, dt)
 
     def _plan(self, ctx):
@@ -249,8 +255,9 @@ class DriveTo(Move):
 
 class PassGate(Move):
 
-    def __init__(self, cfg, gate, reverse=False, approach_m=4.0, exit_m=2.0, drive=None):
-        super().__init__(cfg, drive)
+    def __init__(self, cfg, gate, reverse=False, approach_m=4.0, exit_m=2.0, drive=None,
+                 lookahead_m=None):
+        super().__init__(cfg, drive, lookahead_m)
         self.red = (gate.red['east'], gate.red['north'])
         self.green = (gate.green['east'], gate.green['north'])
         self.red_class = 'pole_red' if gate.red['kind'] == 'pole_red' else 'buoy_red'

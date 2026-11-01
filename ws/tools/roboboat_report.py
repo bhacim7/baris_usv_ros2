@@ -179,7 +179,7 @@ def plot(path, track, fixes, imu, pwm, used, changes, view, buoys, t0, seen=()):
     print(f'\nplot: {path}')
 
 
-def gate_crossings(track, gate, t0):
+def gate_crossings(track, gate, t0, marker_r=0.457 / 2.0):
     """Return [(t, 'in'/'out', offset_m, whole_hull_between)] for one gate line."""
     r = (gate.red['east'], gate.red['north'])
     g = (gate.green['east'], gate.green['north'])
@@ -187,7 +187,7 @@ def gate_crossings(track, gate, t0):
     left = ((r[0] - g[0]) / w, (r[1] - g[1]) / w)
     through = (left[1], -left[0])
     c = ((r[0] + g[0]) / 2.0, (r[1] + g[1]) / 2.0)
-    pole_r = 0.457 / 2.0
+    pole_r = marker_r
     out = []
     for (ta, ea, na, _), (tb, eb, nb, yaw) in zip(track, track[1:]):
         da = (ea - c[0]) * through[0] + (na - c[1]) * through[1]
@@ -250,6 +250,30 @@ def main():
           f'{", clean" if entry and all(c for _, _, _, c in seq[:2]) else ""}')
     print(f'   exit (gate 2 out, gate 1 out): {"YES" if exit_ else "no"}'
           f'{", clean" if exit_ and all(c for _, _, _, c in seq[-2:]) else ""}')
+
+    if view.channel:
+        print('\n-- Task 2 channel (true hull; in = towards the debris field)')
+        rows = []
+        for k, gate in enumerate(view.channel):
+            xs = gate_crossings(track, gate, t0, marker_r=0.203 / 2.0)
+            through = gate.through
+            if k + 1 < len(view.channel):
+                nxt = view.channel[k + 1]
+                d = (nxt.red['east'] - gate.red['east'], nxt.red['north'] - gate.red['north'])
+                if d[0] * through[0] + d[1] * through[1] < 0:     # red on the right going in
+                    xs = [(t, 'out' if dd == 'in' else 'in', -side, c) for t, dd, side, c in xs]
+            text = ', '.join(f'{t:.1f} s {dd} {side:+.2f} m{"" if c else " NOT CLEAN"}'
+                             for t, dd, side, c in xs) or 'never crossed'
+            print(f'   gate {k + 1}: {text}')
+            rows.append(xs)
+        ins = [next((x for x in xs if x[1] == 'in'), None) for xs in rows]
+        ok_in = all(ins) and all(x[3] for x in ins) and \
+            all(a[0] < b[0] for a, b in zip(ins, ins[1:]))
+        outs = [next((x for x in xs if x[1] == 'out'), None) for xs in rows]
+        ok_out = all(outs) and all(x[3] for x in outs)
+        print(f'   channel in (every gate, in order, clean): {"YES" if ok_in else "no"}')
+        print(f'   channel out (every gate the other way, clean): {"YES" if ok_out else "no"}'
+              f'{"" if any(outs) else " (not attempted yet)"}')
 
     _, buoys = run_report.load_course(args.course) if not args.course_file else (None, [])
     if buoys:

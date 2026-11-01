@@ -117,9 +117,9 @@ def test_jump_and_restart():
 
 # ---------------------------------------------------------------- navigator
 def make_nav(phases=None, **kw):
-    """Navigator with the Task 1 phases left unwritten, unless phases says otherwise."""
+    """Navigator with the written phases left out, unless phases says otherwise."""
     logs = []
-    skeleton = {name: Pending(name) for name in (T1_ENTRY, RETURN, T1_EXIT)}
+    skeleton = {name: Pending(name) for name in (T1_ENTRY, 'task2', RETURN, T1_EXIT)}
     skeleton.update(phases or {})
     nav = RoboBoatNavigator(run_cfg=RunConfig(task_order=('task2',)), manual=True,
                             log=logs.append, phases=skeleton, **kw)

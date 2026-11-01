@@ -22,6 +22,7 @@ navigator:
                                           # 1.3 / 2.5 / 4.0 measured, 4.0 best (Task 1)
         avoid_lookahead_m: 2.0            # while A* bends the path round obstacles (a far
                                           # aim point cuts the corner)
+        channel_lookahead_m: 2.5          # through the Task 2 channel (to be measured)
       # Where to start looking for each task, seen from the shore before the run:
       # "ahead_m,left_m" from the Task 1 entry gates (ahead = first gate -> second gate).
       # '' = no hint: the boat explores
