@@ -127,7 +127,8 @@ class RoboBoatNavigator(NavigatorBase):
                          speed=self.speed_mps, landmarks=perception.landmarks,
                          detections=perception.detections,
                          detections_time=perception.detections_time,
-                         boat_xy=boat_xy, course=self.course)
+                         boat_xy=boat_xy, map_origin=perception.origin,
+                         course=self.course)
         command = self.run.step(ctx, self.mission_active)
         if command is None:
             self.mixer.mix(1500, 0)

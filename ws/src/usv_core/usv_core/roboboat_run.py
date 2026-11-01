@@ -61,6 +61,7 @@ class RunContext:
     detections_time: float = 0.0
     memory: dict = field(default_factory=dict)
     boat_xy: tuple = None           # the fix in the map's east / north metres (None: no map)
+    map_origin: tuple = None        # the map's origin (lat, lon), for the camera detections
     course: object = None           # usv_core.roboboat_course.CourseView, updated at 2 Hz
 
 

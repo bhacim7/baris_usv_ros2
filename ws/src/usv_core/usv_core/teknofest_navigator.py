@@ -30,10 +30,10 @@ Two things differ from legacy on purpose (ARCHITECTURE.md section 9):
 """
 
 from usv_core import teknofest_mission as mission_mod
-from usv_core.costmap import LocalCostmap, LocalFrame
-from usv_core.guidance import WaypointGuidance
 from usv_core.nav_base import NavigatorBase
 from usv_core.nav_config import NavConfig, WAYPOINT_NAMES
+from usv_core.teknofest_costmap import LocalFrame, TeknofestCostmap
+from usv_core.teknofest_guidance import WaypointGuidance
 from usv_core.teknofest_mission import TeknofestMission
 
 TASK3_SEARCH = mission_mod.TASK3_SEARCH
@@ -46,8 +46,8 @@ class TeknofestNavigator(NavigatorBase):
         cfg = cfg or NavConfig()
         super().__init__(cfg, start_time, mission_started, manual, log)
         self.frame = LocalFrame()
-        self.costmap = LocalCostmap(cfg.costmap_res_m_per_px, cfg.crop_radius_m,
-                                    cfg.buoy_radius_m)
+        self.costmap = TeknofestCostmap(cfg.costmap_res_m_per_px, cfg.crop_radius_m,
+                                        cfg.buoy_radius_m)
         self.guidance = WaypointGuidance(cfg, self.mixer, self.log)
         self.mission = TeknofestMission(cfg, self.mixer, self.log)
 

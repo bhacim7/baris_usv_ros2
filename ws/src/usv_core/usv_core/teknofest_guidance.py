@@ -1,5 +1,5 @@
 """
-Going to a target point, ported from legacy core/nav_process.py sections F and G.
+TEKNOFEST guidance: going to a target point, from legacy core/nav_process.py sections F, G.
 
 Source: commit 5df3f5b.
 
@@ -22,7 +22,7 @@ import math
 
 from usv_core import navigation as nav
 from usv_core import planner
-from usv_core.costmap import confirmed_boundary_local, task2_axis_local
+from usv_core.teknofest_costmap import confirmed_boundary_local, task2_axis_local
 
 TASK3_SEARCH = 'TASK3_SEARCH_KAMIKAZE'
 
