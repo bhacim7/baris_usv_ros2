@@ -235,12 +235,15 @@ class CourseModel:
     def __init__(self, cfg=CourseConfig()):
         self.cfg = cfg
 
-    def view(self, landmarks, start=None):
+    def view(self, landmarks, start=None, frame_heading=None):
         """
         Recognise the course on a map snapshot.
 
         landmarks: world map dicts (kind, color, east, north, confirmed, sightings, id);
-        start: map (east, north) where the run started, to tell the first Task 1 gate.
+        start: map (east, north) where the run started, to tell the first Task 1 gate;
+        frame_heading: compass heading (deg) of the way through the Task 1 gates measured
+        by the boat (usv_core.roboboat_tasks.T1Entry): when given, it is the gate frame's
+        direction instead of the mapped gates' (no GPS drift in it).
         """
         cfg = self.cfg
         lms = [lm for lm in landmarks if lm['confirmed'] or cfg.use_unconfirmed]
@@ -248,7 +251,7 @@ class CourseModel:
         for lm in lms:
             by_kind.setdefault(lm['kind'], []).append(lm)
         v = CourseView()
-        self._task1(v, by_kind, start)
+        self._task1(v, by_kind, start, frame_heading)
         small = _pairs(by_kind.get('buoy_red', []), by_kind.get('buoy_green', []),
                        cfg.buoy_gate_width_m, cfg.buoy_gate_nominal_m)
         self._channel(v, small, lms)
@@ -258,7 +261,7 @@ class CourseModel:
         return v
 
     # ------------------------------------------------------------------ Task 1
-    def _task1(self, v, by_kind, start):
+    def _task1(self, v, by_kind, start, frame_heading=None):
         cfg = self.cfg
         lo, hi = cfg.t1_gate_width_m
         gates = _pairs(by_kind.get('pole_red', []), by_kind.get('pole_green', []),
@@ -290,6 +293,9 @@ class CourseModel:
             if start is not None and _dot(_sub(g1.centre, start), ahead) < 0:
                 ahead = (-ahead[0], -ahead[1])
             v.missing.append('t1_second_gate')
+        if frame_heading is not None:
+            h = math.radians(frame_heading)
+            ahead = (math.sin(h), math.cos(h))
         v.frame = GateFrame(g1.centre, ahead)
 
     # ------------------------------------------------------------------ Task 2

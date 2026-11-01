@@ -7,7 +7,7 @@ Run: cd /ws/src/usv_core && python3 -m pytest test/test_roboboat_run.py -v
 import pytest
 from usv_core.mixer import NEUTRAL
 from usv_core.roboboat_navigator import Perception, RoboBoatNavigator
-from usv_core.roboboat_run import (DONE, FINISHED, RETURN, RoboBoatRun, RunConfig,
+from usv_core.roboboat_run import (DONE, FINISHED, Pending, RETURN, RoboBoatRun, RunConfig,
                                    RunContext, RUNNING, T1_ENTRY, T1_EXIT, WAIT_START)
 
 
@@ -116,10 +116,13 @@ def test_jump_and_restart():
 
 
 # ---------------------------------------------------------------- navigator
-def make_nav(**kw):
+def make_nav(phases=None, **kw):
+    """Navigator with the Task 1 phases left unwritten, unless phases says otherwise."""
     logs = []
+    skeleton = {name: Pending(name) for name in (T1_ENTRY, RETURN, T1_EXIT)}
+    skeleton.update(phases or {})
     nav = RoboBoatNavigator(run_cfg=RunConfig(task_order=('task2',)), manual=True,
-                            log=logs.append, **kw)
+                            log=logs.append, phases=skeleton, **kw)
     return nav, logs
 
 

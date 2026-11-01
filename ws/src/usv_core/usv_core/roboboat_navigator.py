@@ -9,7 +9,9 @@ manual / auto, emergency latch, relay request, mixer); what differs is the missi
            frame (/usv/detections), handed in as a Perception
   course   usv_core.roboboat_course.CourseModel on the map every 0.5 s: Task 1 gates and
            the gate frame, channel, Task 3, marina, zones; new finds are logged
-  mission  usv_core.roboboat_run.RoboBoatRun: entry gates, the chosen tasks, return, exit
+  mission  usv_core.roboboat_run.RoboBoatRun: entry gates, the chosen tasks, return, exit;
+           the phases written so far from usv_core.roboboat_tasks (Task 1: entry, return,
+           exit), the rest skipped
   set_task the name of a run phase (T1_ENTRY, task2 ..., RETURN, T1_EXIT, FINISHED, or
            WAIT_START to start over) jumps there; as in TEKNOFEST it also releases the
            emergency latch while the relay is on
@@ -26,6 +28,7 @@ from usv_core.nav_base import NavigatorBase
 from usv_core.nav_config import NavConfig
 from usv_core.roboboat_course import CourseModel
 from usv_core.roboboat_run import RoboBoatRun, RunConfig, RunContext
+from usv_core.roboboat_tasks import default_phases
 from usv_core.world_map import enu
 
 COURSE_PERIOD_S = 0.5
@@ -65,7 +68,8 @@ class RoboBoatNavigator(NavigatorBase):
                  manual=False, log=None, phases=None):
         cfg = cfg or NavConfig()
         super().__init__(cfg, start_time, mission_started, manual, log)
-        self.run = RoboBoatRun(run_cfg or RunConfig(), phases, self.log)
+        self.run = RoboBoatRun(run_cfg or RunConfig(), {**default_phases(cfg), **(phases or {})},
+                               self.log)
         self.course_model = CourseModel()
         self.course = None                  # latest CourseView
         self.course_found = set()
@@ -122,7 +126,8 @@ class RoboBoatNavigator(NavigatorBase):
         if self.last_course_time is None or now - self.last_course_time >= COURSE_PERIOD_S:
             self.last_course_time = now
             self._update_course(perception.landmarks,
-                                self.run.memory.get('start_xy') or boat_xy)
+                                self.run.memory.get('start_xy') or boat_xy,
+                                self.run.memory.get('t1_heading'))
         ctx = RunContext(now=now, lat=gps[0], lon=gps[1], heading=heading,
                          speed=self.speed_mps, landmarks=perception.landmarks,
                          detections=perception.detections,
@@ -135,8 +140,8 @@ class RoboBoatNavigator(NavigatorBase):
         else:
             self.mixer.mix(*command)
 
-    def _update_course(self, landmarks, start):
-        self.course = self.course_model.view(landmarks, start)
+    def _update_course(self, landmarks, start, frame_heading=None):
+        self.course = self.course_model.view(landmarks, start, frame_heading)
         found = course_summary(self.course)
         new = sorted(found - self.course_found)
         if new:
