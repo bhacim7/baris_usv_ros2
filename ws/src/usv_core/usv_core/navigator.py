@@ -15,6 +15,9 @@ cycle: commands (B), local frame (C), vision read at VISION_READ_HZ, costmap (D)
 router (E), guidance values (F), control (G). Any exception neutralises the thrusters and
 the loop carries on, as legacy did.
 
+GCS commands, manual / auto, the emergency latch and the relay request are shared with the
+RoboBoat navigator and live in usv_core.nav_base (moved there unchanged in phase 6 R2.1).
+
 Two things differ from legacy on purpose (ARCHITECTURE.md section 9):
   emergency_stop   latches (usv_core.safety.EmergencyLatch): neutral from the cycle the
                    command arrives; commands are still taken in, nothing else runs. Legacy
@@ -27,45 +30,29 @@ Two things differ from legacy on purpose (ARCHITECTURE.md section 9):
 """
 
 from usv_core import mission as mission_mod
-from usv_core.commands import CommandFilter
 from usv_core.costmap import LocalCostmap, LocalFrame
 from usv_core.guidance import WaypointGuidance
 from usv_core.mission import Mission
-from usv_core.mixer import Mixer, MixerConfig
+from usv_core.nav_base import NavigatorBase
 from usv_core.nav_config import NavConfig, WAYPOINT_NAMES
-from usv_core.safety import EmergencyLatch
 
 TASK3_SEARCH = mission_mod.TASK3_SEARCH
 
 
-class Navigator:
+class Navigator(NavigatorBase):
+    """The TEKNOFEST rule book; commands, modes and the emergency latch: NavigatorBase."""
 
     def __init__(self, cfg=None, start_time=0.0, mission_started=True, manual=False, log=None):
-        self.cfg = cfg = cfg or NavConfig()
-        self.log = log or (lambda msg: None)
-        self.mixer = Mixer(MixerConfig(base_pwm=cfg.base_pwm, steer_max_pwm=cfg.steer_max_pwm,
-                                       steer_min_pwm=cfg.steer_min_pwm,
-                                       max_pwm_change=cfg.max_pwm_change))
+        cfg = cfg or NavConfig()
+        super().__init__(cfg, start_time, mission_started, manual, log)
         self.frame = LocalFrame()
         self.costmap = LocalCostmap(cfg.costmap_res_m_per_px, cfg.crop_radius_m,
                                     cfg.buoy_radius_m)
         self.guidance = WaypointGuidance(cfg, self.mixer, self.log)
         self.mission = Mission(cfg, self.mixer, self.log)
-        self.commands = CommandFilter(cfg.vehicle_id)
 
         self.waypoints = {name: tuple(cfg.waypoints[name]) for name in WAYPOINT_NAMES}
         self.task = cfg.start_task
-        self.manual = manual
-        self.mission_started = mission_started
-        self.drone_target_color = None
-        self.emergency = EmergencyLatch()
-        self.relay_on = None                # 1/0 read back from RELAY_STATUS, None = unknown
-        self.relay_request = None           # 1/0 from set_relay, for whoever owns the relay
-        self.send_telemetry = False
-
-        self.now = start_time
-        self.speed_mps = 0.0
-        self.last_loop_time = start_time
         self.vision_period = 1.0 / max(1.0, cfg.vision_read_hz)
         self.last_vision_read = 0.0
         self.vision_objects = []
@@ -75,34 +62,10 @@ class Navigator:
                        'adviced_course': None, 'target_dist': None, 'target_lat': None,
                        'target_lon': None}
 
-    # ------------------------------------------------------------------ API
-    @property
-    def mission_active(self):
-        return self.mission_started and not self.manual
-
-    def submit(self, cmd):
-        """Queue a GCS command (dict, legacy format); it is handled at the next step()."""
-        self.commands.submit(cmd)
-
-    def set_task(self, task):
-        if not task:
-            return
+    # ------------------------------------------------------------------ profile hooks
+    def _select_task(self, task):
         self.task = task
         self.log(f'Task updated to {task}')
-        if self.emergency.active:
-            if self.relay_on == 1:
-                self.reset_emergency()
-            else:
-                self.log('Emergency stop stays latched: turn the relay on, then set the task '
-                         'again.')
-
-    def set_manual(self, value):
-        if value is True:
-            self.manual = True
-            self.log('Switched to MANUAL mode.')
-        elif value is False:
-            self.manual = False
-            self.log('Switched to AUTO mode.')
 
     def set_waypoint(self, index, lat, lon):
         """GCS index 1..8 = GPS1..GPS8."""
@@ -111,46 +74,17 @@ class Navigator:
                 self.waypoints[name] = (lat, lon)
         self.log(f'Updated GPS Point {index}')
 
-    def set_target_color(self, color):
-        if color:
-            self.drone_target_color = color
-            self.log(f'Drone target color updated to {color}')
-
-    def reset_emergency(self):
-        """
-        Release the emergency latch (set_task does this once the relay is on).
-
-        Guidance starts from fresh state - initial alignment, PID, path - as a restarted
-        legacy program would have; task, waypoints and the manual/auto mode are kept.
-        """
-        if not self.emergency.active:
-            return
-        self.emergency.reset()
+    def _fresh_guidance(self):
+        """Start alignment, PID and path over, as a restarted legacy program would."""
         self.guidance = WaypointGuidance(self.cfg, self.mixer, self.log)
-        self.log('Emergency stop released.')
+
+    def plan_path(self):
+        """Return the A* path being followed (local x = North, y = East), for /usv/plan."""
+        return self.guidance.path
 
     def mission_points(self):
         return {f'GPS{i}': (float(self.waypoints[n][0]), float(self.waypoints[n][1]))
                 for i, n in enumerate(WAYPOINT_NAMES, 1)}
-
-    def _dispatch(self, cmd):
-        cmd_str = cmd.get('cmd')
-        if cmd_str == 'set_relay':
-            self.relay_request = 1 if cmd.get('value') else 0
-            self.log(f"Relay command received: {'ON' if self.relay_request else 'OFF'}")
-        elif cmd_str == 'emergency_stop':
-            self.log('Emergency Stop Received!')
-            self.emergency.trip('GCS emergency_stop', self.now)
-        elif cmd_str == 'report_status':
-            self.send_telemetry = True
-        elif cmd_str == 'set_gps':
-            self.set_waypoint(cmd.get('index'), cmd.get('lat'), cmd.get('lon'))
-        elif cmd_str == 'set_task':
-            self.set_task(cmd.get('task_name'))
-        elif cmd_str == 'set_manual':
-            self.set_manual(cmd.get('value'))
-        elif cmd_str == 'set_target_color':
-            self.set_target_color(cmd.get('color'))
 
     # ------------------------------------------------------------------ loop
     def step(self, now, gps, speed, heading, vision_objects):
@@ -160,12 +94,7 @@ class Navigator:
         except Exception as e:
             self.log(f'Iteration failed: {e}')
             self.mixer.neutral()
-        self.status.update(manual_mode=self.manual, mission_started=self.mission_started,
-                           last_cmd_ack=self.commands.last_ack,
-                           drone_target_color=self.drone_target_color,
-                           horizontal_speed=self.speed_mps,
-                           emergency=self.emergency.active,
-                           emergency_reason=self.emergency.reason)
+        self.status.update(self._status_common())
         return self.mixer.last
 
     def _step(self, now, gps, speed, heading, vision_objects):

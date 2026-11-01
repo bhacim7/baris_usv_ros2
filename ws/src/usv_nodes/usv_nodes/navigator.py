@@ -1,17 +1,26 @@
 """
 navigator: the autonomy loop - legacy core/nav_process.py nav_worker as a ROS 2 node.
 
-All decisions are made by usv_core.navigator.Navigator (ported cycle for cycle and tested
-against the legacy loop); this node only feeds it and publishes what it decides.
+All decisions are made in usv_core; this node only feeds them and publishes what they
+decide. Parameter `competition` picks the rule book (phase 6 R2.1):
+  teknofest   usv_core.navigator.Navigator, ported cycle for cycle and tested against the
+              legacy loop; GPS points from the GCS, the object memory (/usv/buoys)
+  roboboat    usv_core.roboboat_navigator.RoboBoatNavigator: the run (entry gates, the
+              chosen tasks, return, exit gates) from the world map (/usv/map) and the camera
+              frames (/usv/detections); roboboat.* parameters; no GPS points
+Both share the GCS services, manual / auto and the emergency latch (usv_core.nav_base).
 
   in   /usv/fix           sensor_msgs/NavSatFix      GPS fix (fc_bridge / sim_bridge)
        /usv/speed         std_msgs/Float32           ground speed, m/s
        /usv/heading       std_msgs/Float32           selected heading (heading_source)
-       /usv/buoys         usv_interfaces/BuoyArray   object memory (perception)
+       /usv/buoys         usv_interfaces/BuoyArray   object memory (perception), teknofest
+       /usv/map           usv_interfaces/LandmarkArray  world map (mapper), roboboat
+       /usv/detections    usv_interfaces/DetectionArray camera frames (perception), roboboat
        /usv/relay_state   std_msgs/Int8              -1 unknown, 0 off, 1 on
   out  /usv/thrusters/pwm usv_interfaces/ThrusterPwm every cycle (loop_hz, 25 Hz)
        /usv/nav_status    usv_interfaces/NavStatus   status_hz (10 Hz)
        /usv/mission/waypoints  WaypointArray, latched, on start and on every change
+                               (teknofest)
        /usv/plan          nav_msgs/Path              A* path, ENU metres from the first fix
                                                      (frame usv_local), status_hz
   services (the GCS commands; each is queued and handled at the start of the next cycle,
@@ -42,12 +51,15 @@ from std_srvs.srv import SetBool, Trigger
 from usv_core.mixer import NEUTRAL
 from usv_core.nav_config import WAYPOINT_NAMES
 from usv_core.navigator import Navigator
+from usv_core.roboboat_navigator import Perception, RoboBoatNavigator
 from usv_core.safety import preflight_ready
-from usv_interfaces.msg import (BuoyArray, NavStatus, ThrusterPwm, Waypoint,
-                                WaypointArray)
+from usv_interfaces.msg import (BuoyArray, DetectionArray, LandmarkArray, NavStatus,
+                                ThrusterPwm, Waypoint, WaypointArray)
 from usv_interfaces.srv import SetTargetColor, SetTask, SetWaypoint
 
-from usv_nodes.navigator_io import buoy_to_object, nav_config_from, path_points, target_color
+from usv_nodes.navigator_io import (buoy_to_object, detections_to_dicts, landmark_to_dict,
+                                    nav_config_from, path_points, run_config_from,
+                                    target_color)
 
 NAN = float('nan')
 
@@ -61,23 +73,42 @@ class NavigatorNode(Node):
     def __init__(self):
         super().__init__('navigator')
         any_type = ParameterDescriptor(dynamic_typing=True)
-        self.cfg = nav_config_from(
-            lambda name, default: self.declare_parameter(name, default, any_type).value)
+
+        def lookup(name, default):
+            return self.declare_parameter(name, default, any_type).value
+
+        self.cfg = nav_config_from(lookup)
         start_manual = self.declare_parameter('start_manual', True).value
         status_hz = self.declare_parameter('status_hz', 10.0).value
+        self.competition = self.declare_parameter('competition', 'teknofest').value
+        if self.competition not in ('teknofest', 'roboboat'):
+            raise ValueError(f'competition {self.competition!r}: teknofest or roboboat')
+        self.roboboat = self.competition == 'roboboat'
 
-        self.nav = Navigator(self.cfg, start_time=self.now_s(), mission_started=False,
-                             manual=start_manual, log=self.get_logger().info)
+        if self.roboboat:
+            run_cfg = run_config_from(lookup)
+            self.nav = RoboBoatNavigator(self.cfg, run_cfg, start_time=self.now_s(),
+                                         mission_started=False, manual=start_manual,
+                                         log=self.get_logger().info)
+        else:
+            self.nav = Navigator(self.cfg, start_time=self.now_s(), mission_started=False,
+                                 manual=start_manual, log=self.get_logger().info)
         self.fix = None
         self.speed = None
         self.heading = None
         self.buoys = []
+        self.perception = Perception()
         self.published_waypoints = None
 
         self.create_subscription(NavSatFix, '/usv/fix', self.on_fix, 10)
         self.create_subscription(Float32, '/usv/speed', self.on_speed, 10)
         self.create_subscription(Float32, '/usv/heading', self.on_heading, 10)
-        self.create_subscription(BuoyArray, '/usv/buoys', self.on_buoys, 10)
+        if self.roboboat:
+            self.create_subscription(LandmarkArray, '/usv/map', self.on_map, 10)
+            self.create_subscription(DetectionArray, '/usv/detections', self.on_detections,
+                                     10)
+        else:
+            self.create_subscription(BuoyArray, '/usv/buoys', self.on_buoys, 10)
         self.create_subscription(Int8, '/usv/relay_state', self.on_relay, 10)
 
         self.pwm_pub = self.create_publisher(ThrusterPwm, '/usv/thrusters/pwm', 10)
@@ -95,9 +126,16 @@ class NavigatorNode(Node):
 
         self.create_timer(1.0 / max(1.0, self.cfg.loop_hz), self.tick)
         self.create_timer(1.0 / status_hz, self.publish_status)
-        self.publish_waypoints()
+        if self.roboboat:
+            run = self.nav.run
+            self.get_logger().info(
+                f'navigator: RoboBoat run {run.plan}, task timeout '
+                f'{run.cfg.task_timeout_s:.0f} s, run timeout {run.cfg.run_timeout_s:.0f} s, '
+                f'hints {run.cfg.hints or "none"}')
+        else:
+            self.publish_waypoints()
         self.get_logger().info(
-            f'navigator: {self.cfg.loop_hz:.0f} Hz, task {self.nav.task}, '
+            f'navigator: {self.competition}, {self.cfg.loop_hz:.0f} Hz, task {self.nav.task}, '
             f"{'MANUAL' if start_manual else 'AUTO'}, waiting for the pre-flight check "
             '(GPS fix and heading)')
 
@@ -116,6 +154,13 @@ class NavigatorNode(Node):
 
     def on_buoys(self, msg):
         self.buoys = [buoy_to_object(b) for b in msg.buoys]
+
+    def on_map(self, msg):
+        self.perception.landmarks = [landmark_to_dict(lm) for lm in msg.landmarks]
+
+    def on_detections(self, msg):
+        self.perception.detections, self.perception.detections_time = \
+            detections_to_dicts(msg)
 
     def on_relay(self, msg):
         self.nav.relay_on = None if msg.data < 0 else int(msg.data)
@@ -164,9 +209,10 @@ class NavigatorNode(Node):
         if not self.nav.mission_started and preflight_ready(lat, heading):
             self.nav.mission_started = True
             self.get_logger().info('Pre-flight check passed: GPS fix and heading online.')
-        cmd = self.nav.step(self.now_s(), (lat, lon), self.speed, heading, self.buoys)
+        seen = self.perception if self.roboboat else self.buoys
+        cmd = self.nav.step(self.now_s(), (lat, lon), self.speed, heading, seen)
         self.publish_pwm(cmd)
-        if self.nav.waypoints != self.published_waypoints:
+        if not self.roboboat and self.nav.waypoints != self.published_waypoints:
             self.publish_waypoints()
 
     def publish_pwm(self, cmd):
@@ -201,7 +247,7 @@ class NavigatorNode(Node):
         path = Path()
         path.header.stamp = msg.header.stamp
         path.header.frame_id = 'usv_local'
-        for east, north in path_points(self.nav.guidance.path):
+        for east, north in path_points(self.nav.plan_path()):
             pose = PoseStamped()
             pose.header = path.header
             pose.pose.position.x = east

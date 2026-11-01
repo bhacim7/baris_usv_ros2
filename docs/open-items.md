@@ -45,8 +45,8 @@ RoboBoat simülasyonda** (ARCHITECTURE.md §15–16).
 | R1.1–R1.3 | 13 sınıf, ortak parkur okuyucu, gemiler ve iskeleler, `roboboat_2026` parkuru Nathan Benderson Park'ta | Bitti (commit `d951ade`) |
 | R1.4–R1.5 | Kare başına tespitler (`/usv/detections`), kalıcı dünya haritası (`mapper`), RViz | Bitti (`79aca43`) |
 | R1.6 | Sabit ölçüm rotası (`survey_drive`), `map_report.py`, ilk ölçüm (`survey_base`) | Bitti (`f98e8cc`) |
-| R1.7 | Ölçüm zinciri düzeltmeleri, her biri ayrı ayar. D2 (derinlik → mesafe) + D1 (kameradan konumla): ölçüm zinciri haritası 1,74 → 0,28 m, hedef geçti. D4 (dönüş) + D5 (sınıf karışması, aynı karede görülme kuralı): `survey_r17`'de ort. 0,25 m / en fazla 0,42 m, onaylı hayalet 2. **D6** (sınıf yarıçapı, ön yüz → merkez) yazıldı, koşu bekliyor. D3 (GPS yaşı, 0,14 m) ertelendi: gerçek GPS hızı (`.param`) görülünce | Bitiyor |
-| **R2** | **Navigator'a yarışma profili (RoboBoat)**: plan koddan önce sunulacak | **Sıradaki iş** |
+| R1.7 | Ölçüm zinciri düzeltmeleri, her biri ayrı ayar. D2 (derinlik → mesafe) + D1 (kameradan konumla): ölçüm zinciri haritası 1,74 → 0,28 m, hedef geçti. D4 (dönüş) + D5 (sınıf karışması, aynı karede görülme kuralı): `survey_r17`'de ort. 0,25 m / en fazla 0,42 m, onaylı hayalet 2. D6 (sınıf yarıçapı, ön yüz → merkez): `survey1_d6`'da ölçüm zinciri haritası ort. **0,14 m / en fazla 0,30 m**, onaylı kopya 3, onaylı hayalet 3; mutlak harita ort. 1,17 m (GPS kayması). D3 (GPS yaşı, 0,14 m) ertelendi: gerçek GPS hızı (`.param`) görülünce | **Bitti** (R1 kapandı) |
+| **R2** | **Navigator'a yarışma profili (RoboBoat).** Kararlar (1 Kasım): aynı `navigator` düğümü, `competition` anahtarı; görev yerleri Görev 1 giriş kapılarına göre isteğe bağlı ipucu, yoksa keşif; tekne ilk kapının ≥1,8 m önüne kapıya bakarak konur. R2.1 iskelet (ortak taban `nav_base`, koşu yöneticisi, ROS bağlantıları) **yazıldı**, test bekliyor. Sonra R2.2 parkur modeli (haritadan kapılar, kanal...), R2.3 hareketler (git, kapıdan geç, etrafında dön, ara), R2.4 Görev 1 giriş + çıkış simülasyonda | **Sıradaki iş** |
 | R3 | Görevler: 1 → 2 → 3 → 6 → 5 → 4 | |
 | R4 | RoboCommand raporlama (protobuf / TCP, 1 Hz heartbeat) | |
 | R5 | Eşdeğerlik sonrası düzeltmeler (ARCHITECTURE §14 listesi), simülasyonda ölçülerek | |
@@ -67,3 +67,4 @@ Bu satırlar eski kodla döngü döngü karşılaştırılmadı; bir taşıma ha
 |---|---|---|
 | Görev 3 çapa + devriye (`task3.py`: GOTO_STANDOFF, PATROL_1/2) | TEKNOFEST'e özgü; RoboBoat'ta değişecek (31 Ekim kararı) | TEKNOFEST'e tekrar gidilirse `task3_anchor` senaryosu yazılır |
 | Röle tekrar denemeleri | Eski kodla karşılaştırmalı birim testi var (`test_relay.py`); gerçek uçuş kontrolcüsüyle değil | Faz 7, `fc_bridge` iskelede |
+

@@ -108,6 +108,9 @@ def setup(context):
     if start_task:
         navigator_overrides['start_task'] = start_task
     with_navigator = LaunchConfiguration('navigator').perform(context).lower() == 'true'
+    # The rule book follows the course: RoboBoat classes -> the RoboBoat run (phase 6 R2)
+    navigator_overrides['competition'] = (
+        'roboboat' if course_data.get('classes') == 'roboboat' else 'teknofest')
     navigator_overrides['start_manual'] = \
         LaunchConfiguration('auto').perform(context).lower() != 'true'
 

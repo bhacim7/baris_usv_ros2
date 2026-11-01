@@ -42,7 +42,7 @@ These are not cleaned up during the port, because the gains were tuned against t
 | Package | Build type | Content |
 |---|---|---|
 | `usv_interfaces` | ament_cmake | Custom messages and services |
-| `usv_core` | ament_python | ROS-free library: `navigation`, `planner`, `object_memory`, `mixer`, `heading`, `detection`, the navigator brain (`nav_config`, `costmap`, `guidance`, `mission`, `task3`, `commands`, `navigator`, `safety`, `relay`), RoboBoat `classes` and `world_map`. Unit and golden tests |
+| `usv_core` | ament_python | ROS-free library: `navigation`, `planner`, `object_memory`, `mixer`, `heading`, `detection`, the navigator brain (`nav_config`, `costmap`, `guidance`, `mission`, `task3`, `commands`, `navigator`, `safety`, `relay`), the shared navigator base (`nav_base`), RoboBoat `classes`, `world_map`, `roboboat_run`, `roboboat_navigator`. Unit and golden tests |
 | `usv_nodes` | ament_python | `navigator`, `heading_source`, `mapper` (written); `fc_bridge`, `perception`, `telemetry_bridge`, `recorder` (phase 7) |
 | `usv_sim` | ament_python | `sim_bridge`, `fake_perception`, `survey_drive`, course files (`courses/*.yaml`) and world generator, boat model, `sim.launch.py` |
 | `usv_gz_plugins` | ament_cmake | Gazebo systems (C++): `HullBuoyancy`, buoyancy from the hull mesh. Simulation only; skipped where VRX is absent |
@@ -70,7 +70,7 @@ These are not cleaned up during the port, because the gains were tuned against t
 | `fc_bridge` | `USVController` | Wraps the existing pymavlink class. Publishes position, speed, FC heading and relay state. Applies `ThrusterPwm` with the legacy write thinning. Neutralises thrusters if no command arrives for 0.5 s. Handles relay and emergency stop |
 | `perception` | `camera_process` | ZED (pyzed) + YOLO + object memory in one process. Publishes buoys, ZED heading, attitude and FPS. Writes the HUD video (frames never leave the process) |
 | `heading_source` | heading selection in `nav_process` | Selects ZED, FC or fused heading (`HEADING_SOURCE`) and publishes `/usv/heading` |
-| `navigator` | `nav_process` | 25 Hz timer: mission state machine, local costmap, A*, Task 2 corridor, LOS/PID and Pure Pursuit, mixer. Publishes `ThrusterPwm` and `NavStatus` |
+| `navigator` | `nav_process` | 25 Hz timer: mission state machine, local costmap, A*, Task 2 corridor, LOS/PID and Pure Pursuit, mixer. Publishes `ThrusterPwm` and `NavStatus`. Parameter `competition` picks the rule book: `teknofest` (legacy, GPS points, `/usv/buoys`) or `roboboat` (the run from `/usv/map` and `/usv/detections`); GCS services, modes and the emergency latch are shared (`usv_core.nav_base`) |
 | `telemetry_bridge` | `telem_process`, `utils/telem.py` | RFD900x JSON protocol unchanged. Turns GCS commands into service calls and echoes `aq` after a successful call |
 | `recorder` | CSV + `CostmapRecorder` | Competition deliverables: vehicle CSV (2 Hz, legacy header) and costmap record |
 | `sim_bridge` | new | Stands in for `fc_bridge`: commands to Gazebo, FC-side sensors back, with the real hardware's rates and errors (section 10) |
@@ -381,7 +381,7 @@ adaptation comes first, in simulation; the boat phases follow and then run along
 | 7 | Boat image (arm64, Thor), `fc_bridge`, `perception`, `heading_source`, `telemetry_bridge`, `recorder`, audio | Sensors flowing on land and at the pier; GCS connects unchanged |
 | 8 | Sea trials, then alongside the simulation | The ROS 2 version completes RoboBoat tasks on the water |
 
-Phase 6 progress (2026-11-01): R1.1-R1.6 done, R1.7 D1 + D2 done (measurement-chain target met), D4 + D5 done, D6 written; D3 deferred (fix age now 0.14 m; the real GPS rate is in the unseen `.param`). 13 RoboBoat classes; one course reader for
+Phase 6 progress (2026-11-01): R1.1-R1.6 done, R1.7 D1 + D2 done (measurement-chain target met), D4 + D5 + D6 done, R1 closed; R2.1 (navigator base split, RoboBoat run skeleton, profile switch) written; D3 deferred (fix age now 0.14 m; the real GPS rate is in the unseen `.param`). 13 RoboBoat classes; one course reader for
 the world generator and `fake_perception`; `roboboat_2026` at Nathan Benderson Park (vessels,
 docks, indicators); per-frame detections and the persistent world map (`mapper`, RViz); the
 fixed survey route and `map_report.py`. First measurement in section 16. Next: R1.7, the
@@ -403,6 +403,9 @@ is expected around November 2026; differences are adapted when it appears.
 | Docking with the camera only; a 3D LiDAR may come later; the legacy 2D RPLidar is never used | Hardware decision |
 | The boat is the four-thruster Thor boat of this port | Same model as in simulation |
 | Task order: 1, 2, 3, 6, 5, 4 | Task 1 is mandatory; Task 2 is closest to TEKNOFEST Task 2 and scores most |
+| One `navigator` node, two rule books (`competition: teknofest / roboboat`); commands, modes, emergency latch and relay shared in `usv_core.nav_base` | The safety logic exists once; TEKNOFEST can be removed later by dropping its rule book |
+| Task 1 "entry" and "exit" are the same two gates, passed at the start and, the other way, at the end. The boat is put down at least 6 ft before the first gate, facing it, so it sees both gates at the start; the map brings it back to them for the exit | Handbook 3.2.1, 3.5; team practice |
+| Where tasks are: optional hints given before the run as "ahead_m,left_m" from the first Task 1 gate (seen from the shore; the jury gives no map), else the boat explores; it recognises the task itself either way | No GPS points by eye; hints relative to the gates carry no GPS error |
 | Microphone for Task 6 exists (worked in 2026 with an FFT); ported as a node in phase 7, a simulated sound event until then | |
 
 ### Map quality (R1.6)
@@ -469,6 +472,12 @@ absolute map: buoys seen while the fix was ~3 m off went to separate landmarks (
 measurement chain is now limited by the front-surface offset (-0.18 to -0.33 m) and the
 heading lag above 30 deg/s (mean 5.5 deg); fix age adds 0.14 m.
 
+D6 (`survey1_d6`, every fix on): range error left -0.08 to -0.15 m (poles -0.12, buoys -0.09;
+flat marks -0.2 to -0.35 m, seen obliquely). Chain map: confirmed seen from <= 6 m **mean
+0.14 m, max 0.30 m**; 3 confirmed duplicates, 3 confirmed ghosts. Absolute map: mean 1.17 m,
+max 2.20 m with the receiver drifting 1.36 m on average. R1 is done: what is left of the map
+error is the GPS receiver, which needs real data first (open-items 4f).
+
 Fixes to the RoboBoat measurement chain (`measure_boxes`, the mapper), each a parameter so the
 report measures it alone; the TEKNOFEST chain and the golden tests are not touched:
 
@@ -478,8 +487,9 @@ report measures it alone; the TEKNOFEST chain and the golden tests are not touch
 | D2 | ZED depth -> distance: depth / cos(pixel angle). Done (R1.7): `detection_true_distance` | Objects off the image centre placed too close (~30 % at 45 deg) |
 | D3 | Boat position at the frame time: last fix + speed x age along the heading | GPS age (2 Hz + delay, up to ~0.8 m at 1.3 m/s) |
 | D4 | Turning: sigma += distance x tan(heading_lag_s x yaw rate); no new landmark above new_landmark_max_turn_dps. Written (R1.7), yaw rate from `/usv/imu` | Heading filter lag in turns, duplicates |
-| D6 | + the class radius (`usv_core.classes.OBJECT_RADIUS_M`, handbook sizes; flat marks 0): the ZED sees the front, the map wants the centre. Written (R1.7): `detection_add_radius` | The -0.2 to -0.3 m left after D2 |
+| D6 | + the class radius (`usv_core.classes.OBJECT_RADIUS_M`, handbook sizes; flat marks 0): the ZED sees the front, the map wants the centre. Done (R1.7): `detection_add_radius` | The -0.2 to -0.3 m left after D2 |
 | D5 | A landmark is not confirmed while a landmark of another kind within confusion_radius_m has confusion_ratio x its sightings and the two were never in the same frame (a real neighbour, e.g. a black buoy 0.65 m from a red one, is seen in the same frames as a box of its own). Written (R1.7) | Ghosts from YOLO class confusion |
 
 Not fixable here: the receiver's own drift without RTK (~1 m wandering over a minute); the
 map says where to look, the camera says exactly where it is.
+

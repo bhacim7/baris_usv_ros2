@@ -42,6 +42,19 @@ magnetic_field: {declination_deg: -6.0, inclination_deg: 55.5, strength_uT: 45.5
 
 boat: {east: 2.0, north: -8.0, heading_deg: 0.0}
 
+# Navigator settings for this course (sim.launch.py passes them on; competition: roboboat
+# follows from `classes`). The hints are what a team member on the shore would give:
+# "ahead_m,left_m" from the centre of the first Task 1 gate, ahead = towards the second gate
+# (here north). Worked out from the layout below, so they are exact; on the water they are
+# a guess, and the boat must find the task itself either way.
+mission:
+  roboboat.task_order: [task2, task3, task5]
+  roboboat.hint.task2: '21.1,-1.5'          # first channel gate
+  roboboat.hint.task3: '27.0,-26.0'         # Task 3 gate
+  roboboat.hint.task5: '-10.0,-21.0'        # between the docks
+  roboboat.hint.task6_zone_t3: '27.0,-46.0'       # Task 3 yellow buoy
+  roboboat.hint.task6_zone_marina: '-2.0,-21.0'   # yellow buoy north of the marina
+
 buoy_types:
   # Task 1: Taylor Made Sur-Mark, 18 in wide, 39 in above the water
   pole_red:        {class: pole_red,        shape: pole,      diameter: 0.457, height: 0.99,  color: red}

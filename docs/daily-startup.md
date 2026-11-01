@@ -286,9 +286,11 @@ Nathan Benderson Park'taki RoboBoat 2026 parkuru. Parkurun yeri parkur dosyasın
 (`placement`): tekne Gazebo dünyasında (-189,17; 947,45) noktasından batıya bakarak başlar.
 
 Gölcük'ten farkları:
-- RoboBoat görevleri navigator'a henüz eklenmedi (R2–R3). Bu yüzden RoboBoat'ta navigator ya
-  kapalı (`navigator:=false`) ya da yerine `survey:=true` kullanılır. Navigator açık kalırsa
-  manuel modda sürekli 1500 yayınlar ve elle sürmeyi engeller.
+- Navigator burada RoboBoat beyniyle açılır (`competition: roboboat`, parkur dosyasından).
+  Koşu: `WAIT_START → T1_ENTRY → task2 → task3 → task5 → RETURN → T1_EXIT → FINISHED`.
+  Görevler henüz yazılmadı (R2.4, R3): otomatiğe alınca her aşama "skipped" deyip geçilir,
+  tekne nötrde kalır. Elle sürmek ya da ölçüm rotası için navigator kapalı olmalı
+  (`navigator:=false` ya da `survey:=true`): açıkken manuel modda sürekli 1500 yayınlar.
 - `fake_perception` burada `/usv/buoys` değil `/usv/detections` yayınlar (13 sınıf, her kutu
   ölçülmüş haliyle). `mapper` bunlardan kalıcı haritayı (`/usv/map`) kurar.
 - Harita sistem açıldığı anda başlar, manuel sürüşte de çalışır.
@@ -316,6 +318,23 @@ kapattıktan sonra kopyala:
 ```bash
 cp /ws/bags/map_roboboat_2026.json /ws/bags/map_roboboat_2026_<ad>.json
 ```
+
+### 6.1b RoboBoat koşu iskeleti (R2.1)
+
+Navigator'ın RoboBoat beynini görmek (Gazebo penceresiz yeter):
+
+```bash
+ros2 launch usv_sim sim.launch.py course:=roboboat_2026 gui:=false
+```
+Beklenen: `navigator: RoboBoat run ['T1_ENTRY', 'task2', 'task3', 'task5', 'RETURN', 'T1_EXIT']`
+ve ipuçları. Otomatiğe al:
+
+```bash
+ros2 service call /usv/set_manual std_srvs/srv/SetBool "{data: false}"
+```
+Aşamalar sırayla `Phase ...` / `...: skipped` diye geçer, sonunda `Run FINISHED`. Baştan almak
+ya da bir aşamaya atlamak: `/usv/set_task` ile aşama adı (`WAIT_START`, `T1_ENTRY`, `task2`,
+`RETURN`, `T1_EXIT` ...).
 
 ### 6.2 Ölçüm koşusu: sabit rota + harita kalitesi raporu (R1.6)
 
@@ -368,8 +387,13 @@ python3 /ws/tools/map_report.py /ws/bags/survey_d1d2 --map heading_lag_s=0 --map
 İlk ölçüm (`survey_base`, 31 Ekim): tespit başına ortalama 2,75 m. Paylar: mesafe 1,74 m
 (derinliği mesafe sanmak), GPS 1,01 m (çoğu alıcı kayması), anten/kamera farkı 0,94 m, pusula
 0,34 m (dönüşlerde 9°'ye kadar). Ayrıntı ve düzeltme sırası: `ARCHITECTURE.md` §16,
-"Map quality". D2 + D1 sonrası (`survey_d1d2`, 1 Kasım): tespit başına 1,39 m, ölçüm zinciri haritası 0,28 m
-(hedef geçti), mutlak harita 1,06 m (GPS kayması).
+"Map quality".
+
+Bütün düzeltmelerle (`survey1_d6`, 1 Kasım): tespit başına 1,29 m (neredeyse tamamı GPS),
+ölçüm zinciri haritası ort. 0,14 m / en fazla 0,30 m (hedef geçti), mutlak harita 1,17 m.
+
+Bilgisayar çok yavaşlarsa: `gui:=false` ile Gazebo penceresiz açılır, RViz'i de açma; ölçüm ve
+rapor aynı çıkar.
 
 ### 6.3 Elle sürmek
 
@@ -604,7 +628,7 @@ yeniden başlatır.
 | Yeni node ya da launch seçeneği bulunamıyor | Yeni dosya eklendi ama derlenmedi | `cd /ws && colcon build --symlink-install` |
 | Kayıt başlamıyor: `already exists` | Aynı `record:=` adı daha önce kullanıldı | Yeni ad ver |
 | Elle `topic pub` ile tekne kıpırdamıyor | Navigator da açık, manuel modda 1500 yayınlıyor | `navigator:=false` ile aç (`ros2 topic info /usv/thrusters/pwm` iki yayıncı gösterir) |
-| RoboBoat'ta navigator hiçbir şey yapmıyor | RoboBoat görevleri henüz yok, `/usv/buoys` yayınlanmıyor | Beklenen. `navigator:=false` ya da `survey:=true` |
+| RoboBoat'ta navigator otomatikte hareket etmiyor, aşamalar "skipped" | Görevler henüz yazılmadı (R2.4, R3) | Beklenen |
 | Harita dosyası önceki koşununki gibi değil | `map_<parkur>.json` her koşuda üzerine yazılır | Saklamak için kopyala (6.1) |
 | Parkur suda değil, karanın altında ya da hiç görünmüyor | Yer alttan bakarak seçilmiş (kara alttan görünmez) | Konumu yukarıdan bakarak seç (6.4) |
 | `test_flake8` / `test_pep257` kırmızı | Stil hatası (import sırası, docstring biçimi) | Çıktıyı Claude'a gönder |
@@ -661,3 +685,4 @@ Docker'ın kapladığı yer:
 ```bash
 docker system df
 ```
+

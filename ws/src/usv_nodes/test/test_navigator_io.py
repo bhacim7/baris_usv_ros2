@@ -10,19 +10,29 @@ from types import SimpleNamespace
 
 import pytest
 from usv_core.nav_config import NavConfig
-from usv_nodes.navigator_io import (buoy_to_object, nav_config_from, path_points,
-                                    target_color)
+from usv_core.roboboat_run import HINTED, RunConfig
+from usv_nodes.navigator_io import (buoy_to_object, detections_to_dicts, landmark_to_dict,
+                                    nav_config_from, parse_hint, path_points,
+                                    run_config_from, target_color)
 import yaml
 
 CONFIG = os.path.join(os.path.dirname(__file__), '..', 'config', 'navigator.yaml')
-NODE_ONLY = {'start_manual', 'status_hz'}
+NODE_ONLY = {'start_manual', 'status_hz', 'competition'}
 
 
 def yaml_params():
     with open(CONFIG) as f:
         params = yaml.safe_load(f)['navigator']['ros__parameters']
-    flat = {k: v for k, v in params.items() if k != 'waypoints'}
+    flat = {k: v for k, v in params.items() if k not in ('waypoints', 'roboboat')}
     flat.update({'waypoints.' + k: v for k, v in params['waypoints'].items()})
+    return flat
+
+
+def roboboat_params():
+    with open(CONFIG) as f:
+        rb = yaml.safe_load(f)['navigator']['ros__parameters']['roboboat']
+    flat = {'roboboat.' + k: v for k, v in rb.items() if k != 'hint'}
+    flat.update({'roboboat.hint.' + k: v for k, v in rb['hint'].items()})
     return flat
 
 
@@ -88,3 +98,41 @@ def test_target_colour_source():
     assert target_color(cfg, 'red') == ('red', 'drone')
     off = dataclasses.replace(cfg, drone_active=False)
     assert target_color(off, 'red') == ('black', 'cfg')
+
+
+# ---------------------------------------------------------------- RoboBoat profile
+def test_roboboat_yaml_is_the_run_defaults_with_no_hints():
+    params = roboboat_params()
+    cfg = run_config_from(lambda name, default: params.get(name, default))
+    assert cfg == RunConfig()
+    assert {k[len('roboboat.hint.'):] for k in params if k.startswith('roboboat.hint.')} \
+        == set(HINTED)
+
+
+def test_hints_and_task_order_from_parameters():
+    params = {'roboboat.task_order': ['task3', 'task2'], 'roboboat.hint.task2': '21, -1.5',
+              'roboboat.hint.task5': ''}
+    cfg = run_config_from(lambda name, default: params.get(name, default))
+    assert cfg.task_order == ('task3', 'task2')
+    assert cfg.hints == {'task2': (21.0, -1.5)}
+    assert parse_hint('') is None
+    with pytest.raises(ValueError):
+        parse_hint('3,4,5')
+
+
+def stamp(t):
+    return SimpleNamespace(sec=int(t), nanosec=int((t % 1) * 1e9))
+
+
+def test_landmark_and_detections_become_dicts():
+    lm = SimpleNamespace(id=7, kind='pole_red', color='', latitude=27.1, longitude=-82.4,
+                         east_m=3.0, north_m=4.0, sigma_m=0.2, sightings=12, confirmed=True,
+                         closest_m=4.5, first_seen=stamp(10.5), last_seen=stamp(20.25))
+    d = landmark_to_dict(lm)
+    assert d['kind'] == 'pole_red' and d['confirmed'] and d['last_seen'] == 20.25
+    det = SimpleNamespace(class_name='buoy_red', class_id=2, x1=1, y1=2, x2=3, y2=4,
+                          depth_m=5.0, distance_m=5.1, bearing_deg=90.0, position_ok=True,
+                          latitude=27.1, longitude=-82.4)
+    frame = SimpleNamespace(header=SimpleNamespace(stamp=stamp(33.5)), detections=[det])
+    dets, t = detections_to_dicts(frame)
+    assert t == 33.5 and dets[0]['box'] == (1, 2, 3, 4) and dets[0]['distance_m'] == 5.1

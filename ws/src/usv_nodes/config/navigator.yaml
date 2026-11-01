@@ -7,6 +7,25 @@ navigator:
     # --- node ---
     start_manual: true            # legacy main_orchestrator starts in MANUAL
     status_hz: 10.0               # /usv/nav_status and /usv/plan (NAV_PUBLISH_HZ)
+    # teknofest (legacy rule book, GPS points) or roboboat (run from the world map, phase 6);
+    # sim.launch.py sets it from the course file's classes
+    competition: teknofest
+
+    # --- RoboBoat run (competition: roboboat; usv_core/roboboat_run.py) ---
+    roboboat:
+      task_order: [task2, task3, task5]   # after the entry gates; Task 6 interrupts (R3)
+      task_timeout_s: 240.0               # a task taking longer is skipped
+      run_timeout_s: 900.0                # then back to the gates and out; 0 = never
+      # Where to start looking for each task, seen from the shore before the run:
+      # "ahead_m,left_m" from the Task 1 entry gates (ahead = first gate -> second gate).
+      # '' = no hint: the boat explores
+      hint:
+        task2: ''
+        task3: ''
+        task4: ''
+        task5: ''
+        task6_zone_t3: ''
+        task6_zone_marina: ''
 
     # --- loop ---
     loop_hz: 25.0                 # [NAV_LOOP_HZ]
