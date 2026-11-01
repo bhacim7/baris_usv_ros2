@@ -30,6 +30,7 @@ Hızlı yol:
 | `~/usv_ros2/ws/src` | Paketler (container'da `/ws/src`) |
 | `~/usv_ros2/ws/tools` | Rapor araçları: `run_report.py` (Gölcük koşusu), `map_report.py` (harita kalitesi) |
 | `~/usv_ros2/ws/bags` | Kayıtlar, rapor resimleri, harita dosyaları. Git'e girmez |
+| `~/usv_ros2/docs/sistem-raporu.md` | Bütün sistemin açıklaması: kod, veri akışı, PWM, haritalar, ölçümler, komutlar |
 | `~/usv_ros2/docs/ARCHITECTURE.md` | Onaylanmış mimari, kararlar, yol haritası (İngilizce) |
 | `~/usv_ros2/docs/open-items.md` | Senden beklenenler, sıradaki işler |
 | `~/usv_legacy` | Eski multiprocess kod. Yalnızca başvuru için; içinde değişiklik yapma |
@@ -135,7 +136,7 @@ eski navigator ile döngü döngü eşitlik) yaklaşık 25 saniye sürer. Test e
 ```bash
 cd /ws/src/usv_nodes && python3 -m pytest test/
 ```
-Beklenen: `8 passed`.
+Beklenen: `12 passed`.
 
 ```bash
 cd /ws/src/usv_sim && python3 -m pytest test/

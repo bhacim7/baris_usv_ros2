@@ -57,8 +57,11 @@ These are not cleaned up during the port, because the gains were tuned against t
     │  ▲          │                       │  ▲            │
     ▼  │          ▼   same topics, same messages          ▼
  ┌─────────────────────────────────────────────────────────────┐
- │ /usv/fix  /usv/speed  /usv/heading  /usv/buoys              │
- │                        navigator                            │
+ │ /usv/fix  /usv/speed  /usv/heading/fc  /usv/heading/zed     │
+ │ /usv/buoys (TEKNOFEST)  /usv/detections  /usv/imu (RoboBoat)│
+ │        heading_source -> /usv/heading                       │
+ │        mapper (/usv/detections -> /usv/map)                 │
+ │        navigator (competition: teknofest | roboboat)        │
  │ /usv/thrusters/pwm   /usv/nav_status   /usv/plan            │
  └─────────────────────────────────────────────────────────────┘
        ▲ services                          │
@@ -251,8 +254,9 @@ Open: detecting a node that is alive but stuck (legacy heartbeat watchdog). Not 
   emergency stop services. Sensors: `/usv/fix` (non-RTK drift, 2 Hz as in the video, 1e-7
   deg), `/usv/speed`, `/usv/heading/fc`, `/usv/relay_state`. Gazebo NavSat, IMU and
   odometry reach it through `ros_gz_bridge` on `/usv/sim/*`.
-- **`fake_perception`** stands in for `perception` (ZED 2i): `/usv/buoys`, `/usv/heading/zed`,
-  `/usv/attitude`, `/usv/perception/fps`. The real `heading_source` then makes
+- **`fake_perception`** stands in for `perception` (ZED 2i): `/usv/buoys` (TEKNOFEST courses)
+  or `/usv/detections` (RoboBoat courses, every box measured with the R1.7 fixes),
+  `/usv/heading/zed`, `/usv/imu` (gyro), `/usv/attitude`, `/usv/perception/fps`. The real `heading_source` then makes
   `/usv/heading`, in simulation as on the boat.
   Buoys come from known world positions within the camera FOV and range, with ZED-like
   errors, because the real YOLO model does not recognise simulated buoys: this layer
@@ -381,7 +385,7 @@ adaptation comes first, in simulation; the boat phases follow and then run along
 | 7 | Boat image (arm64, Thor), `fc_bridge`, `perception`, `heading_source`, `telemetry_bridge`, `recorder`, audio | Sensors flowing on land and at the pier; GCS connects unchanged |
 | 8 | Sea trials, then alongside the simulation | The ROS 2 version completes RoboBoat tasks on the water |
 
-Phase 6 progress (2026-11-01): R1.1-R1.6 done, R1.7 D1 + D2 done (measurement-chain target met), D4 + D5 + D6 done, R1 closed; R2.1 (navigator base split, RoboBoat run skeleton, profile switch) done; R2.2 (course model on the map: Task 1 gates and gate frame, channel and debris, Task 3, marina slips, Task 6 zones; `ws/tools/course_report.py`) done: on `survey1_d6` with the GPS true, gates and channel within 0.11-0.14 m, frame 0.8 deg, hints 0.24-0.61 m; on the boat's own map (GPS drift) gates 0.8-1.5 m, frame 4.6 deg, hints 0.9-4.0 m. The best slip is given only once the whole marina is seen. Next for R2.4: take the frame's direction from the compass while passing straight through the Task 1 gates, free of the GPS; R2.3 (`roboboat_drive`: one Pure Pursuit path follower with the TEKNOFEST tuning, moves DriveTo with A* on the map's landmarks, PassGate and Circle refined from the camera frame, Search) written; `guidance` / `costmap` split into the shared grid and `teknofest_guidance` / `teknofest_costmap`; R2.4 (`roboboat_tasks`: Task 1 entry through both gates with the frame's direction from the compass, return to the gates with A*, exit the other way; `ws/tools/roboboat_report.py`: gate crossings, contacts and steering from the ground truth) done in Gazebo: entry and exit clean, no contact (t1_run1/2), but weaving on straight legs (~10 s period, +/-30-40 deg) with the TEKNOFEST Pure Pursuit look-ahead (~1.3 m): RoboBoat gets its own `roboboat.drive.lookahead_m`, to be chosen by measurement; D3 deferred (fix age now 0.14 m; the real GPS rate is in the unseen `.param`). 13 RoboBoat classes; one course reader for
+Phase 6 progress (2026-11-01): R1.1-R1.6 done, R1.7 D1 + D2 done (measurement-chain target met), D4 + D5 + D6 done, R1 closed; R2.1 (navigator base split, RoboBoat run skeleton, profile switch) done; R2.2 (course model on the map: Task 1 gates and gate frame, channel and debris, Task 3, marina slips, Task 6 zones; `ws/tools/course_report.py`) done: on `survey1_d6` with the GPS true, gates and channel within 0.11-0.14 m, frame 0.8 deg, hints 0.24-0.61 m; on the boat's own map (GPS drift) gates 0.8-1.5 m, frame 4.6 deg, hints 0.9-4.0 m. The best slip is given only once the whole marina is seen. Next for R2.4: take the frame's direction from the compass while passing straight through the Task 1 gates, free of the GPS; R2.3 (`roboboat_drive`: one Pure Pursuit path follower with the TEKNOFEST tuning, moves DriveTo with A* on the map's landmarks, PassGate and Circle refined from the camera frame, Search) written; `guidance` / `costmap` split into the shared grid and `teknofest_guidance` / `teknofest_costmap`; R2.4 (`roboboat_tasks`: Task 1 entry through both gates with the frame's direction from the compass, return to the gates with A*, exit the other way; `ws/tools/roboboat_report.py`: gate crossings, contacts and steering from the ground truth) done in Gazebo: entry and exit clean, no contact (t1_run1/2), but weaving on straight legs (~10 s period, +/-30-40 deg) with the TEKNOFEST Pure Pursuit look-ahead (~1.3 m): RoboBoat gets its own `roboboat.drive.lookahead_m`: 1.3 / 2.5 / 4.0 m measured on Task 1 (run 54.6 / 46.0 / 43.5 s), 4.0 chosen, 2.0 m on A*-bent paths (4.0 cut a buoy wall's corner). **R2 done** (2026-11-01): Task 1 entry and exit clean with no contact on three seeds (runs 43.5 / 45.5 / 46.5 s). Next: R3, Task 2; D3 deferred (fix age now 0.14 m; the real GPS rate is in the unseen `.param`). 13 RoboBoat classes; one course reader for
 the world generator and `fake_perception`; `roboboat_2026` at Nathan Benderson Park (vessels,
 docks, indicators); per-frame detections and the persistent world map (`mapper`, RViz); the
 fixed survey route and `map_report.py`. First measurement in section 16. Next: R1.7, the
