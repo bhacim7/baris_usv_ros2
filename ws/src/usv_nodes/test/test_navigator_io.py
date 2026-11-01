@@ -135,9 +135,14 @@ def test_landmark_and_detections_become_dicts():
     det = SimpleNamespace(class_name='buoy_red', class_id=2, x1=1, y1=2, x2=3, y2=4,
                           depth_m=5.0, distance_m=5.1, bearing_deg=90.0, position_ok=True,
                           latitude=27.1, longitude=-82.4)
-    frame = SimpleNamespace(header=SimpleNamespace(stamp=stamp(33.5)), detections=[det])
+    cut = SimpleNamespace(**{**vars(det), 'x1': 1200, 'x2': 1279})
+    frame = SimpleNamespace(header=SimpleNamespace(stamp=stamp(33.5)), image_width=1280,
+                            detections=[det, cut])
     dets, t = detections_to_dicts(frame)
     assert t == 33.5 and dets[0]['box'] == (1, 2, 3, 4) and dets[0]['distance_m'] == 5.1
+    assert dets[0]['edge'] and dets[1]['edge']             # x1 = 1 and x2 = 1279 touch
+    frame.detections[0] = SimpleNamespace(**{**vars(det), 'x1': 5, 'x2': 30})
+    assert not detections_to_dicts(frame)[0][0]['edge']
 
 
 def test_drive_settings_from_yaml_and_override():

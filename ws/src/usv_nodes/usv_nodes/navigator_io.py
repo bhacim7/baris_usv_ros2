@@ -22,7 +22,9 @@ RoboBoat profile (phase 6 R2):
   landmark_to_dict(lm)      one usv_interfaces/Landmark as the dict usv_core.world_map
                             snapshots give (id, kind, color, lat, lon, east, north, sigma,
                             sightings, confirmed, closest, first_seen, last_seen)
-  detections_to_dicts(msg)  a DetectionArray as measure_boxes dicts, plus its frame time
+  detections_to_dicts(msg)  a DetectionArray as measure_boxes dicts, plus its frame time;
+                            'edge' = the box touches the image's side (cut off: its centre,
+                            and so its bearing, is off)
 """
 
 import dataclasses
@@ -147,9 +149,11 @@ def landmark_to_dict(lm):
 
 def detections_to_dicts(msg):
     """Return (detections, frame time): one dict per box, as measure_boxes gives them."""
+    width = int(getattr(msg, 'image_width', 0))
     out = [{'class_name': d.class_name, 'class_id': int(d.class_id),
             'box': (int(d.x1), int(d.y1), int(d.x2), int(d.y2)),
             'depth_m': float(d.depth_m), 'distance_m': float(d.distance_m),
             'bearing_deg': float(d.bearing_deg), 'position_ok': bool(d.position_ok),
-            'lat': float(d.latitude), 'lon': float(d.longitude)} for d in msg.detections]
+            'lat': float(d.latitude), 'lon': float(d.longitude),
+            'edge': width > 0 and (d.x1 <= 1 or d.x2 >= width - 2)} for d in msg.detections]
     return out, _stamp(msg.header.stamp)

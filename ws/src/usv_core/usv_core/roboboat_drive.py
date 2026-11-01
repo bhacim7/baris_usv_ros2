@@ -19,9 +19,15 @@ So every move steers the same way, and a steering fix is made in one place.
             the hull (free_gap), not the gate's centre. With avoid (the channel, R3.2c)
             the way there and through is planned round every obstacle near the gate by
             A* on a visibility graph (usv_core.roboboat_avoid), with walls along the gate's
-            line beyond its buoys so the path cannot go round the gate; the map's objects
-            are moved by the camera's shift of the gate (the GPS drift since they were
-            mapped) and a camera detection replaces a map copy of the same kind
+            line beyond its buoys so the path cannot go round the gate. Planned round
+            the map's confirmed objects only (a single frame's boxes can be mislabelled:
+            t2c_s1 saw digits on the channel buoys), each put where this frame's camera
+            sees one of its kind within OBJECT_MATCH_M, else moved by the camera's shift
+            of the gate (the GPS drift since it was mapped). The camera refines the gate
+            only with boxes clear of the image's sides, within 0.4 x its width of a
+            marker, keeping its width within WIDTH_TOL_M of the map's (t2c_s1: the black
+            and the red, each once labelled green, pulled the green 1.4 m in), and not
+            in the last GATE_FREEZE_M before the line
   Circle    round an object at radius_m, clockwise or counter-clockwise, until laps x 360
             deg are swept round it; the object refined from the camera as for PassGate
   Search    look for something: one turn on the spot, then an expanding square round a
@@ -32,9 +38,11 @@ DONE / SKIPPED (usv_core.roboboat_run), command (forward_pwm, yaw_pwm) for the m
 None for neutral. Moves read ctx.boat_xy, ctx.heading, ctx.speed, ctx.now, ctx.landmarks,
 ctx.detections and ctx.map_origin; results for later phases go to self.result.
 
-DriveTo and PassGate are watched for being stuck (Move._guard): pushing forward STUCK_S
-without getting STUCK_M further, the boat backs off BACK_S astern, a bump goes where the
-bow was and the path is planned again; past MAX_STUCK the move is SKIPPED.
+DriveTo and PassGate are watched for being stuck (Move._guard): no STUCK_M of progress
+(along the gate's way; path left to the goal) in STUCK_S, whatever the commands (t2c_s1
+pivoted round a buoy, then turned on the spot, for 35 s), the boat backs off BACK_S
+astern, a bump goes where the bow was and the path is planned again; past MAX_STUCK the
+move is SKIPPED.
 
 Frames: map east / north metres here; the planner's own x = North, y = East inside
 (to_planner / from_planner).
@@ -59,7 +67,11 @@ OBSTACLE_RADIUS_M = {
     'plus': 0.85, 'digit_1': 0.5, 'digit_2': 0.5, 'digit_3': 0.5,
 }
 DETECTION_MAX_AGE_S = 0.5
-MATCH_M = 2.0                 # a detection replaces a map position within this
+MATCH_M = 2.0                 # a detection replaces a map position within this ...
+GATE_MATCH_SHARE = 0.4        # ... and within this share of a gate's width
+WIDTH_TOL_M = 0.6             # a gate refined to a width further from the map's is not
+GATE_FREEZE_M = 1.0           # the gate is not refined in the last metre before its line
+OBJECT_MATCH_M = 1.0          # avoid: a detection places a map object of its kind within
 HALF_BEAM_M = 0.39            # half the hull's width (0.78 m)
 GAP_MARGIN_M = 0.15           # kept clear of each side of a gap in a gate
 GATE_LINE_M = 1.5             # obstacles this close to a gate's line narrow it
@@ -72,9 +84,10 @@ GATE_KINDS = ('pole_red', 'pole_green', 'buoy_red', 'buoy_green')
 WALL_M = 3.0
 AVOID_RANGE_M = 12.0          # objects further from the boat are not planned round
 BENT_CRUISE = 0.6             # share of the cruise PWM while an avoid path bends round
+PATH_DETOUR = 1.5             # avoid paths longer than this x straight + 2 m are refused
 # Stuck watch (Move._guard)
-STUCK_S = 3.0                 # pushing forward this long ...
-STUCK_M = 0.3                 # ... without getting this far is stuck
+STUCK_S = 6.0                 # this long ...
+STUCK_M = 0.3                 # ... without this much progress is stuck
 BACK_S = 1.5                  # then astern this long (the mixer reverses below 1450)
 BACK_PWM = 1350
 MAX_STUCK = 3                 # back-offs before the move gives up (SKIPPED)
@@ -121,19 +134,28 @@ def _dist(a, b):
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
 
+def _length(path):
+    return sum(_dist(a, b) for a, b in zip(path, path[1:]))
+
+
 def detections_xy(ctx):
-    """Return (class_name, (east, north)) of the fresh, placed detections of this frame."""
+    """
+    Return (class_name, (east, north)) of the fresh, placed detections of this frame.
+
+    Boxes touching the image's side are left out: cut off, their centre (the bearing) is
+    off, more so the nearer the object.
+    """
     if ctx.map_origin is None or ctx.now - ctx.detections_time > DETECTION_MAX_AGE_S:
         return []
     return [(d['class_name'], enu(d['lat'], d['lon'], *ctx.map_origin))
-            for d in ctx.detections if d['position_ok']]
+            for d in ctx.detections if d['position_ok'] and not d.get('edge')]
 
 
-def refine(position, class_name, ctx, alpha=0.5):
+def refine(position, class_name, ctx, alpha=0.5, match_m=MATCH_M):
     """Move a map position towards this frame's nearest detection of that class."""
     best = None
     for name, xy in detections_xy(ctx):
-        if name == class_name and _dist(xy, position) <= MATCH_M:
+        if name == class_name and _dist(xy, position) <= match_m:
             if best is None or _dist(xy, position) < _dist(best, position):
                 best = xy
     if best is None:
@@ -183,6 +205,7 @@ class PathFollower:
     def reset(self):
         self.prev_error = 0.0
         self.spot_turn = False
+        self.spot_dir = 1.0
         self.path_idx = 0
         self.path_id = None
 
@@ -204,9 +227,11 @@ class PathFollower:
                 self.spot_turn = False
         elif abs(err) > cfg.pp_spot_turn_enter_deg:
             self.spot_turn = True
+            self.spot_dir = 1.0 if err > 0 else -1.0
         if self.spot_turn:
-            spot = cfg.spot_turn_pwm
-            return cfg.base_pwm, int(math.copysign(spot, err)) if err else 0
+            # One way until done: an aim point near behind flips err's sign from cycle to
+            # cycle, and the boat turned left, right, left on the spot (t2c_s1)
+            return cfg.base_pwm, int(self.spot_dir * cfg.spot_turn_pwm)
         taper = max(cfg.pp_throttle_taper_min, math.cos(math.radians(min(abs(err), 90.0))))
         return cfg.base_pwm + offset * taper, steer
 
@@ -228,28 +253,34 @@ class Move:
         self.bumps = []               # where the bow was held, for the moves that avoid
         self.stuck = 0
         self._back_until = None
-        self._progress = None         # [position, seconds pushed forward since]
+        self._progress = None         # [best progress, seconds since it last grew]
 
     def replan_now(self):
         """Drop the current path (after a back-off); the moves that plan override it."""
+
+    def progress(self, ctx):
+        """Return how far on the move is (m, growing as it goes); moves override it."""
+        return 0.0
 
     def _guard(self, ctx, cmd, dt):
         """
         Return (state, command) after the stuck watch.
 
-        Pushing forward for STUCK_S without getting STUCK_M further means the hull is held
-        (by a buoy the map has not got, or has in the wrong place): back off BACK_S straight
-        astern, put a bump BUMP_AHEAD_M ahead of where the boat was and plan again. One hold
-        more than MAX_STUCK and the move gives up: SKIPPED, result 'stuck'.
+        No STUCK_M of progress (self.progress) for STUCK_S, whatever was commanded, means
+        the hull is held (by a buoy the map has not got, or has in the wrong place) or the
+        boat goes round in circles: back off BACK_S straight astern, put a bump
+        BUMP_AHEAD_M ahead of where the boat was and plan again. One hold more than
+        MAX_STUCK and the move gives up: SKIPPED, result 'stuck'.
         """
         if self._back_until is not None:
             if ctx.now < self._back_until:
                 return RUNNING, (BACK_PWM, 0)
             self._back_until, self._progress = None, None
             self.replan_now()
-        if self._progress is None or _dist(ctx.boat_xy, self._progress[0]) >= STUCK_M:
-            self._progress = [ctx.boat_xy, 0.0]
-        elif cmd is not None and cmd[0] > self.cfg.base_pwm:
+        p = self.progress(ctx)
+        if self._progress is None or p >= self._progress[0] + STUCK_M:
+            self._progress = [p, 0.0]
+        else:
             self._progress[1] += dt
             if self._progress[1] >= STUCK_S:
                 self.stuck += 1
@@ -290,6 +321,13 @@ class DriveTo(Move):
 
     def replan_now(self):
         self.path = None
+
+    def progress(self, ctx):
+        """Return minus the path left (it starts at the boat), else minus the distance."""
+        if self.path and len(self.path) >= 2:
+            return -(_dist(ctx.boat_xy, self.path[1])
+                     + sum(_dist(a, b) for a, b in zip(self.path[1:], self.path[2:])))
+        return -_dist(ctx.boat_xy, self.goal)
 
     def step(self, ctx):
         dt = self._dt(ctx)
@@ -337,6 +375,8 @@ class PassGate(Move):
         self.red = (gate.red['east'], gate.red['north'])
         self.green = (gate.green['east'], gate.green['north'])
         self.map_red, self.map_green = self.red, self.green
+        self.map_width = _dist(self.red, self.green)
+        self.match_m = min(MATCH_M, GATE_MATCH_SHARE * self.map_width)
         self.red_class = 'pole_red' if gate.red['kind'] == 'pole_red' else 'buoy_red'
         self.green_class = 'pole_green' if gate.green['kind'] == 'pole_green' else 'buoy_green'
         self.reverse, self.approach_m, self.exit_m = reverse, approach_m, exit_m
@@ -363,9 +403,13 @@ class PassGate(Move):
         self.path = None
         self.planned_at = None
         self.offset = 0.0
+        self.along = None
 
     def replan_now(self):
         self.planned_at = None
+
+    def progress(self, ctx):
+        return self.along if self.along is not None else 0.0
 
     def shift(self):
         """Return how far the camera has moved the gate from the map (the GPS drift)."""
@@ -376,13 +420,11 @@ class PassGate(Move):
         dt = self._dt(ctx)
         if ctx.boat_xy is None:
             return RUNNING, None
-        self.red, seen_r = refine(self.red, self.red_class, ctx)
-        self.green, seen_g = refine(self.green, self.green_class, ctx)
-        if seen_r and seen_g:
-            self.result['camera'] = self.result.get('camera', 0) + 1
+        if self.along is None or self.along < -GATE_FREEZE_M:
+            self._refine(ctx)
         c, t, left, w = self.geometry()
         d = (ctx.boat_xy[0] - c[0], ctx.boat_xy[1] - c[1])
-        along = d[0] * t[0] + d[1] * t[1]
+        along = self.along = d[0] * t[0] + d[1] * t[1]
         side = d[0] * left[0] + d[1] * left[1]
         if 'crossed_at' not in self.result and along >= 0.0:
             self.result['crossed_at'] = side       # left of centre at the gate line
@@ -411,6 +453,51 @@ class PassGate(Move):
         cruise = int(self.cfg.cruise_pwm * BENT_CRUISE) if self.bent else None
         return self._guard(ctx, self.follower.follow(self.path, ctx.boat_xy, ctx.heading,
                                                      ctx.speed, dt, cruise), dt)
+
+    def _refine(self, ctx, alpha=0.5):
+        """
+        Move the gate towards where this frame's camera sees it.
+
+        Both markers seen: the pair (each within MATCH_M) whose width is the map's within
+        WIDTH_TOL_M and whose two shifts agree within WIDTH_TOL_M, the smallest shift
+        first: the GPS drift moves both alike, a mislabelled box does not. One marker
+        seen: within GATE_MATCH_SHARE of the gate's width, and the width still right.
+        """
+        dets = detections_xy(ctx)
+        reds = [xy for n, xy in dets if n == self.red_class and _dist(xy, self.red) <= MATCH_M]
+        greens = [xy for n, xy in dets
+                  if n == self.green_class and _dist(xy, self.green) <= MATCH_M]
+        pairs = []
+        for r in reds:
+            for g in greens:
+                sr = (r[0] - self.red[0], r[1] - self.red[1])
+                sg = (g[0] - self.green[0], g[1] - self.green[1])
+                if abs(_dist(r, g) - self.map_width) <= WIDTH_TOL_M and \
+                        _dist(sr, sg) <= WIDTH_TOL_M:
+                    pairs.append((math.hypot(*sr) + math.hypot(*sg), r, g))
+        if pairs:
+            _, r, g = min(pairs)
+            self.result['camera'] = self.result.get('camera', 0) + 1
+        else:
+            r = min((xy for xy in reds if _dist(xy, self.red) <= self.match_m),
+                    key=lambda xy: _dist(xy, self.red), default=None)
+            g = min((xy for xy in greens if _dist(xy, self.green) <= self.match_m),
+                    key=lambda xy: _dist(xy, self.green), default=None)
+            if r is not None and g is not None:
+                g = None if _dist(g, self.green) > _dist(r, self.red) else g
+                r = None if g is not None else r          # one at a time, the nearer
+        if r is None and g is None:
+            if reds or greens:
+                self.result['refused'] = self.result.get('refused', 0) + 1
+            return
+        red = self.red if r is None else ((1 - alpha) * self.red[0] + alpha * r[0],
+                                          (1 - alpha) * self.red[1] + alpha * r[1])
+        green = self.green if g is None else ((1 - alpha) * self.green[0] + alpha * g[0],
+                                              (1 - alpha) * self.green[1] + alpha * g[1])
+        if abs(_dist(red, green) - self.map_width) > WIDTH_TOL_M:
+            self.result['refused'] = self.result.get('refused', 0) + 1
+            return
+        self.red, self.green = red, green
 
     def _waypoints(self, along, t, a, p, e):
         """
@@ -450,6 +537,8 @@ class PassGate(Move):
             points = [ctx.boat_xy] + [w for w in waypoints
                                       if w == self.gap_point or not obstacles.inside(w)]
             path = plan_through(points, obstacles, prefer)
+            if path is not None and _length(path) > PATH_DETOUR * _length(points) + 2.0:
+                path = None                       # round the outside of a wall, or worse
             if path is not None:
                 self.bent = len(path) > len(points)
                 self.follower.set_lookahead(
@@ -484,25 +573,22 @@ class PassGate(Move):
         """
         Return [(kind, (east, north))] near the boat other than the gate's own two markers.
 
-        Map landmarks (seen at least twice) are moved by the camera's shift of the gate, so
-        they sit where this frame's GPS puts them; this frame's detections are taken as they
-        are and replace a map copy of the same kind within MATCH_M.
+        The map's confirmed landmarks only; each is put where this frame's camera sees one
+        of its kind within OBJECT_MATCH_M, else moved by the camera's shift of the gate, so
+        it sits where this frame's GPS puts it.
         """
         own = (self.red_class, self.green_class)
         seen = [(kind_of(name), xy) for name, xy in detections_xy(ctx)]
         sx, sy = self.shift()
-        points = []
+        out = []
         for lm in ctx.landmarks:
-            if not (lm['confirmed'] or lm['sightings'] >= 2):
+            if not lm['confirmed']:
                 continue
             kind = kind_of(lm['kind'])            # indicator_red / _green -> indicator
             xy = (lm['east'] + sx, lm['north'] + sy)
-            if any(k == kind and _dist(xy, s) <= MATCH_M for k, s in seen):
-                continue
-            points.append((kind, xy))
-        points += seen
-        out = []
-        for kind, xy in points:
+            near = [s for k, s in seen if k == kind and _dist(xy, s) <= OBJECT_MATCH_M]
+            if near:
+                xy = min(near, key=lambda s: _dist(xy, s))
             if _dist(xy, ctx.boat_xy) > AVOID_RANGE_M:
                 continue
             if kind in own and min(_dist(xy, self.red), _dist(xy, self.green)) <= MATCH_M:

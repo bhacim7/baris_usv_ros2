@@ -218,3 +218,34 @@ def test_stuck_backs_off_then_gives_up():
     assert sum(1 for f, _ in commands if f == BACK_PWM) > 0
     assert min(p[1] for p in track[len(track) // 2:]) < 4.8     # it did go astern
     assert len(move.bumps) == MAX_STUCK and t < 60.0
+
+
+def test_pass_gate_is_not_fooled_by_mislabelled_boxes():
+    """
+    As in t2c_s1: now and then the black is boxed as green and the green as a digit.
+
+    The gate keeps its place and width (a pair has to be the gate's width, both shifted
+    alike), no digit sign blocks the gap (single frames are not obstacles), and the hull
+    goes by the black.
+    """
+    red, green, black = (-1.25, 10.0), (1.25, 10.0), (-0.65, 10.2)
+    move = PassGate(CFG, Gate(lm(1, 'buoy_red', *red), lm(2, 'buoy_green', *green)),
+                    approach_m=2.5, exit_m=1.5, lookahead_m=2.5, avoid=True)
+    frame = [0]
+
+    def seen(t, boat):
+        frame[0] += 1
+        if boat[1] > 9.0:
+            return []
+        black_as = 'buoy_green' if frame[0] % 5 == 0 else 'buoy_black'
+        green_as = 'digit_1' if frame[0] % 7 == 0 else 'buoy_green'
+        return [detection('buoy_red', red), detection(green_as, green),
+                detection(black_as, black)]
+
+    state, track, _ = drive(move, (0.0, 0.0), 0.0, seen=seen,
+                            landmarks=[lm(3, 'buoy_black', *black)])
+    assert state == DONE and move.result['through']
+    assert math.hypot(move.green[0] - green[0], move.green[1] - green[1]) < 0.3
+    assert move.result['gap_offset'] == pytest.approx(-0.32, abs=0.05)
+    closest = min(math.hypot(p[0] - black[0], p[1] - black[1]) for p in track)
+    assert closest > 0.49 + 0.2
