@@ -6,9 +6,12 @@ it, with the legacy Pure Pursuit (usv_core.planner) and the TEKNOFEST tuning: cr
 spot turn above pp_spot_turn_enter_deg (back below pp_spot_turn_exit_deg), throttle taper.
 So every move steers the same way, and a steering fix is made in one place.
 
-  DriveTo   to a point, round obstacles: A* (usv_core.planner) on a grid of the world
-            map's landmarks around the boat (LandmarkGrid), replanned every replan_s; a
-            straight line when it is clear; straight at the goal when A* finds nothing
+  DriveTo   to a point, round obstacles: A* on a visibility graph (usv_core.roboboat_avoid)
+            round the map's confirmed objects (placed_objects), replanned every replan_s,
+            the side kept; a straight line when it is clear; straight at the goal when
+            nothing is found. (It was A* on a grid with a square 1.0 m inflation, and the
+            channel's run-on had no avoiding at all: t2f_s1 ran into the first debris
+            buoy past the channel's end.)
   PassGate  through a gate: a straight line from approach_m before it, square to it, to
             exit_m past it. Starts from the map's gate; whenever the camera sees the gate's
             poles / buoys, their positions in THAT frame replace it. A frame's detections
@@ -55,9 +58,7 @@ Frames: map east / north metres here; the planner's own x = North, y = East insi
 from dataclasses import dataclass, replace
 import math
 
-import cv2
 from usv_core import planner
-from usv_core.costmap import LocalCostmap
 from usv_core.roboboat_avoid import Obstacles, plan_through
 from usv_core.roboboat_run import DONE, RUNNING, SKIPPED
 from usv_core.world_map import enu, kind_of
@@ -159,6 +160,29 @@ def detections_xy(ctx):
             for d in ctx.detections if d['position_ok'] and not d.get('edge')]
 
 
+def placed_objects(ctx, shift=(0.0, 0.0)):
+    """
+    Return [(kind, (east, north))] of the map's confirmed landmarks, placed for this frame.
+
+    Each is put where this frame's camera sees one of its kind within OBJECT_MATCH_M, else
+    moved by shift (PassGate: the camera's shift of its gate, the GPS drift since mapped).
+    Only confirmed landmarks: a single frame's boxes can be mislabelled (t2c_s1 saw digits
+    on the channel buoys).
+    """
+    seen = [(kind_of(name), xy) for name, xy in detections_xy(ctx)]
+    out = []
+    for lm in ctx.landmarks:
+        if not lm['confirmed']:
+            continue
+        kind = kind_of(lm['kind'])                # indicator_red / _green -> indicator
+        xy = (lm['east'] + shift[0], lm['north'] + shift[1])
+        near = [p for k, p in seen if k == kind and _dist(xy, p) <= OBJECT_MATCH_M]
+        if near:
+            xy = min(near, key=lambda p: _dist(xy, p))
+        out.append((kind, xy))
+    return out
+
+
 def refine(position, class_name, ctx, alpha=0.5, match_m=MATCH_M):
     """Move a map position towards this frame's nearest detection of that class."""
     best = None
@@ -170,25 +194,6 @@ def refine(position, class_name, ctx, alpha=0.5, match_m=MATCH_M):
         return position, False
     return ((1 - alpha) * position[0] + alpha * best[0],
             (1 - alpha) * position[1] + alpha * best[1]), True
-
-
-class LandmarkGrid(LocalCostmap):
-    """The planner's grid, drawn from world map landmarks around the boat."""
-
-    def rebuild(self, boat_xy, landmarks, min_sightings=2):
-        self.center_m = to_planner(boat_xy)
-        self.img.fill(127)
-        reach = self.crop_radius_m * 1.5
-        for lm in landmarks:
-            if not (lm['confirmed'] or lm['sightings'] >= min_sightings):
-                continue
-            xy = (lm['east'], lm['north'])
-            if _dist(xy, boat_xy) > reach:
-                continue
-            p = self.world_to_pixel(*to_planner(xy))
-            if p:
-                r = OBSTACLE_RADIUS_M.get(lm['kind'], 0.25)
-                cv2.circle(self.img, p, max(1, int(round(r / self.res))), 0, -1)
 
 
 class PathFollower:
@@ -325,8 +330,6 @@ class DriveTo(Move):
         super().__init__(cfg, drive, lookahead_m)
         self.straight_lookahead = lookahead_m or self.drive.lookahead_m
         self.goal, self.arrive_m, self.replan_s, self.avoid = goal, arrive_m, replan_s, avoid
-        self.grid = LandmarkGrid(cfg.costmap_res_m_per_px, cfg.crop_radius_m,
-                                 cfg.buoy_radius_m) if avoid else None
         self.path = None
         self.planned_at = None
 
@@ -360,26 +363,21 @@ class DriveTo(Move):
         return self._guard(ctx, self._follow(self.path, ctx, dt), dt)
 
     def _plan(self, ctx):
+        """Return the path to the goal round the obstacles (KEEP_OTHER_M, else KEEP_GATE_M)."""
         here = self.here(ctx)
         straight = [here, self.goal]
         if not self.avoid:
             return straight
-        bumps = [{'kind': 'buoy_black', 'east': b[0], 'north': b[1], 'confirmed': True,
-                  'sightings': 1} for b in self.bumps]
-        self.grid.rebuild(here, list(ctx.landmarks) + bumps)
-        start, goal = to_planner(here), to_planner(self.goal)
-        crop, centre, size = self.grid.crop(*start)
-        nav_map, _ = planner.get_inflated_nav_map(crop)
-        res = self.grid.res
-        if planner.check_line_of_sight(start, goal, nav_map, centre, res, size):
-            return straight
-        path = planner.get_path_plan(start, goal, nav_map, centre, res, size,
-                                     heuristic_weight=self.cfg.a_star_heuristic_weight,
-                                     max_expansions=40000, time_budget_s=0.15)
-        if not path or len(path) < 2:
-            self.result['blind'] = self.result.get('blind', 0) + 1
-            return straight
-        return [from_planner(p) for p in path]
+        reach = _dist(here, self.goal) + AVOID_RANGE_M
+        objects = [(kind, xy) for kind, xy in placed_objects(ctx) if _dist(xy, here) <= reach]
+        for keep in (KEEP_OTHER_M, KEEP_GATE_M):
+            circles = [(xy, OBSTACLE_RADIUS_M.get(kind, 0.25) + keep) for kind, xy in objects]
+            circles += [(b, BUMP_RADIUS_M + keep) for b in self.bumps]
+            path = plan_through(straight, Obstacles(circles), self.path)
+            if path is not None:
+                return path
+        self.result['blind'] = self.result.get('blind', 0) + 1
+        return straight
 
 
 class PassGate(Move):
@@ -591,22 +589,12 @@ class PassGate(Move):
         """
         Return [(kind, (east, north))] near the boat other than the gate's own two markers.
 
-        The map's confirmed landmarks only; each is put where this frame's camera sees one
-        of its kind within OBJECT_MATCH_M, else moved by the camera's shift of the gate, so
-        it sits where this frame's GPS puts it.
+        placed_objects with the camera's shift of the gate, so each sits where this frame's
+        GPS puts it.
         """
         own = (self.red_class, self.green_class)
-        seen = [(kind_of(name), xy) for name, xy in detections_xy(ctx)]
-        sx, sy = self.shift()
         out = []
-        for lm in ctx.landmarks:
-            if not lm['confirmed']:
-                continue
-            kind = kind_of(lm['kind'])            # indicator_red / _green -> indicator
-            xy = (lm['east'] + sx, lm['north'] + sy)
-            near = [s for k, s in seen if k == kind and _dist(xy, s) <= OBJECT_MATCH_M]
-            if near:
-                xy = min(near, key=lambda s: _dist(xy, s))
+        for kind, xy in placed_objects(ctx, self.shift()):
             if _dist(xy, ctx.boat_xy) > AVOID_RANGE_M:
                 continue
             if kind in own and min(_dist(xy, self.red), _dist(xy, self.green)) <= MATCH_M:

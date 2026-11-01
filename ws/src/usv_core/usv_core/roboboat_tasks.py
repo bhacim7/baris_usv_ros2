@@ -150,7 +150,7 @@ class T1Entry:
             pg = PassGate(self.cfg, g)
             c, t, _, _ = pg.geometry()
             self.move = DriveTo(self.cfg, (c[0] + 8.0 * t[0], c[1] + 8.0 * t[1]),
-                                arrive_m=1.0, avoid=False, drive=self.drive)
+                                arrive_m=1.0, drive=self.drive)
             self.move.start(ctx)
         state, cmd = self.move.step(ctx)
         return RUNNING, cmd if state == RUNNING else None
@@ -399,8 +399,10 @@ class Task2:
             if not isinstance(self.move, DriveTo):
                 goal = (last[0] + direction[0] * (end_m + 2.0),
                         last[1] + direction[1] * (end_m + 2.0))
-                self.move = DriveTo(self.cfg, goal, arrive_m=1.0, avoid=False,
-                                    drive=self.drive, lookahead_m=self.drive.channel_lookahead_m)
+                # round obstacles: past the channel the debris field starts (t2f_s1 ran
+                # into its first buoy here, straight)
+                self.move = DriveTo(self.cfg, goal, arrive_m=1.0, drive=self.drive,
+                                    lookahead_m=self.drive.channel_lookahead_m)
                 self.move.start(ctx)
             state, cmd = self.move.step(ctx)
             if state == RUNNING:

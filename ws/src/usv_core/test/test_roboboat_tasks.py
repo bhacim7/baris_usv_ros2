@@ -26,6 +26,7 @@ for cx, y in ((1.52, 21.13), (2.12, 27.13), (2.72, 33.13), (3.72, 39.13)):
     CHANNEL += [('buoy_red', cx - 1.25, y), ('buoy_green', cx + 1.25, y)]
 BLACKS = [('buoy_black', 2.07, 33.33), ('buoy_black', 3.07, 39.43)]   # inside gates 3 and 4
 OFF_LINE = [('buoy_black', 1.82, 24.13)]      # between gates 1 and 2, on the way
+DEBRIS = [('buoy_black', 4.30, 45.13)]        # 6 m past gate 4, on the channel's line
 
 
 def landmarks(turn_deg, items=POLES):
@@ -108,9 +109,9 @@ def test_task2_through_the_channel_and_back():
     Go in through all four channel gates and back out through all four.
 
     With an exact hint and with one 3 m off; a black buoy between gates 1 and 2 on the
-    way, and one inside gates 3 and 4 beside the red.
+    way, one inside gates 3 and 4 beside the red, and one where the debris field starts.
     """
-    items = POLES + CHANNEL + BLACKS + OFF_LINE
+    items = POLES + CHANNEL + BLACKS + OFF_LINE + DEBRIS
     for hint in ((21.1, -1.5), (21.1 + 2.1, -1.5 + 2.1)):
         run, track, every = run_task1(0.0, seconds=400.0, items=items,
                                       task_order=('task2',), hints={'task2': hint},
@@ -126,5 +127,5 @@ def test_task2_through_the_channel_and_back():
         mem = run.memory['task2']
         assert mem['gates'] == 4 and mem['back_gates'] == 4 and mem['stuck'] == 0
         assert all(mem['through']) and all(mem['back_through'])
-        for b in every[12:15]:                # no touch: 0.39 half beam + 0.10 buoy
+        for b in every[12:16]:                # no touch: 0.39 half beam + 0.10 buoy
             assert min(math.hypot(p[0] - b['east'], p[1] - b['north']) for p in track) > 0.6

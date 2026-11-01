@@ -79,7 +79,6 @@ def test_drive_to_a_point_in_the_open():
 
 
 def test_drive_to_goes_round_a_wall_of_buoys():
-    pytest.importorskip('cv2')
     wall = [lm(i, 'buoy_black', -3.0 + i * 0.5, 10.0) for i in range(13)]   # x -3 .. 3
     state, track, _ = drive(DriveTo(CFG, (0.0, 20.0)), (0.0, 0.0), 0.0, landmarks=wall)
     assert state == DONE
