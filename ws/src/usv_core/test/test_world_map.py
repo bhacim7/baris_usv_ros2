@@ -196,6 +196,17 @@ def test_wrong_class_on_top_of_a_buoy_is_not_confirmed():
     assert all(lm['confirmed'] for lm in off.snapshot())
 
 
+def test_one_frame_together_does_not_make_a_wrong_label_real():
+    """D5: once in the same frame as the red (another buoy's wrong label): still suspect."""
+    m = fresh_map(confusion_ratio=5.0)
+    for k in range(30):
+        frame = [sighting('buoy_red', 0.0, 0.0)] if k % 10 else [sighting('digit_1', 0.1, 0.0)]
+        m.add_frame(frame, k * 0.1)
+    m.add_frame([sighting('buoy_red', 0.0, 0.0), sighting('digit_1', 0.1, 0.0)], 3.0)
+    by_kind = {lm['kind']: lm for lm in m.snapshot()}
+    assert by_kind['digit_1']['sightings'] == 4 and not by_kind['digit_1']['confirmed']
+
+
 def test_real_neighbour_of_another_kind_is_confirmed():
     """D5: a black buoy 0.6 m from a red one, both boxes in the same frames, is kept."""
     m = fresh_map(confusion_ratio=5.0)
@@ -206,6 +217,47 @@ def test_real_neighbour_of_another_kind_is_confirmed():
         m.add_frame(frame, k * 0.1)
     by_kind = {lm['kind']: lm for lm in m.snapshot()}
     assert by_kind['buoy_black']['sightings'] == 3 and by_kind['buoy_black']['confirmed']
+
+
+def drifted_copy(m):
+    """
+    Map a red buoy at 0, then 1.6 m east (a new copy), then back to 1.2 m.
+
+    Once a frame has a box at both places (a wrong class on something beside it): one
+    frame together does not make two buoys.
+    """
+    for k in range(20):
+        m.add_frame([sighting('buoy_red', 0.0, 0.0)], k * 0.1)
+    for k in range(5):
+        m.add_frame([sighting('buoy_red', 1.6, 0.0)], 2.0 + k * 0.1)
+    m.add_frame([sighting('buoy_red', 0.0, 0.0), sighting('buoy_red', 1.6, 0.0)], 2.5)
+    for k in range(10):
+        m.add_frame([sighting('buoy_red', 1.2, 0.0)], 3.0 + k * 0.1)
+
+
+def test_a_copy_from_the_gps_drift_is_folded_in():
+    """D7: once the drift has brought the copy back within 1.5 m, the two are one."""
+    m = fresh_map(copy_merge_radius_m=2.0)
+    drifted_copy(m)
+    (lm,) = m.snapshot()
+    assert lm['sightings'] == 37 and m.copies_merged >= 1
+    assert 0.0 < lm['east'] < 1.2                 # weighted mean, more of the 20 at 0
+    off = fresh_map()
+    drifted_copy(off)
+    assert len(off.snapshot()) == 2
+
+
+def test_two_real_buoys_seen_together_are_not_folded():
+    """D7: two black buoys 1.7 m apart, in the same frames, stay two as they drift closer."""
+    m = fresh_map(copy_merge_radius_m=2.0)
+    for k in range(10):
+        m.add_frame([sighting('buoy_black', 0.0, 0.0), sighting('buoy_black', 1.7, 0.0)],
+                    k * 0.1)
+    for k in range(10):                           # the second one seen alone, nearer
+        m.add_frame([sighting('buoy_black', 1.3, 0.0)], 1.0 + k * 0.1)
+    blacks = m.snapshot()
+    assert len(blacks) == 2 and m.copies_merged == 0
+    assert math.hypot(blacks[0]['east'] - blacks[1]['east'], 0.0) <= 1.5
 
 
 def test_measure_boxes_adds_the_class_radius():

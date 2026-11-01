@@ -16,5 +16,10 @@ mapper:
     new_landmark_max_turn_dps: 20.0   # D4: turning faster, sightings start no landmark
     confusion_ratio: 5.0      # D5: not confirmed while another kind within the radius has
     confusion_radius_m: 1.0   # this many times its sightings and was never in the same frame
+    copy_merge_radius_m: 2.0  # D7 (R3.5): landmarks of a kind this close, not seen in 3
+                              # frames together, are one buoy mapped twice (GPS drift):
+                              # folded together. Maps rebuilt from bags: objects mapped
+                              # twice t2d_s1 16 -> 0, t2c_s1 11 -> 0, survey1_d6 10 -> 0;
+                              # the dock indicators 2 m apart stay two (world_map.py D7)
     publish_hz: 2.0
     map_file: ''              # JSON written on shutdown; '' = not saved

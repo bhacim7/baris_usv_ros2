@@ -64,7 +64,9 @@ class MapperNode(Node):
             new_landmark_max_turn_dps=p('new_landmark_max_turn_dps',
                                         defaults.new_landmark_max_turn_dps).value,
             confusion_ratio=p('confusion_ratio', defaults.confusion_ratio).value,
-            confusion_radius_m=p('confusion_radius_m', defaults.confusion_radius_m).value))
+            confusion_radius_m=p('confusion_radius_m', defaults.confusion_radius_m).value,
+            copy_merge_radius_m=p('copy_merge_radius_m',
+                                  defaults.copy_merge_radius_m).value))
         self.map_file = p('map_file', '').value
         publish_hz = p('publish_hz', 2.0).value
 
@@ -129,6 +131,11 @@ class MapperNode(Node):
 
     def markers(self, snapshot, now):
         arr = MarkerArray()
+        # Landmarks can go (D7 folds copies together): clear RViz, then draw them all again
+        clear = Marker()
+        clear.header.frame_id, clear.header.stamp = FRAME, now
+        clear.action = Marker.DELETEALL
+        arr.markers.append(clear)
         for lm in snapshot:
             rgb = COLORS.get(lm['color'] or lm['kind'], (0.6, 0.6, 0.6))
             alpha = 1.0 if lm['confirmed'] else 0.35
