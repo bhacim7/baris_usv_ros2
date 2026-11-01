@@ -20,6 +20,8 @@ config/fake_perception.yaml):
                          The magnetometer reading is computed here from the course file's
                          Earth field and the IMU attitude; Gazebo's magnetometer is not used
                          (see zed.py: it gets the field wrong).
+  /usv/imu               sensor_msgs/Imu, the ZED's gyro, at the Gazebo IMU rate (50 Hz):
+                         angular velocity with noise; no orientation (covariance[0] = -1)
   /usv/attitude          geometry_msgs/Vector3Stamped, x = roll, y = pitch (deg), 5 Hz;
                          ROS convention: roll + = starboard down, pitch + = bow down
   /usv/perception/fps    std_msgs/Float32, frames in the last second, 1 Hz
@@ -71,6 +73,7 @@ class FakePerception(Node):
                                          mf['strength_uT'])
         self.declination = p('magnetic_declination_deg', LEGACY_DECLINATION_DEG).value
         self.heading_noise = p('magnetometer_noise_deg', 1.0).value
+        self.gyro_noise = math.radians(p('gyro_noise_dps', 0.2).value)
         hard_iron_uT = list(p('hard_iron_body_uT', [0.0, 0.0, 0.0]).value)
         self.hard_iron = [v * 1e-6 for v in hard_iron_uT]
         self.compass_offset = p('compass_offset_deg', 0.0).value
@@ -127,6 +130,7 @@ class FakePerception(Node):
         self.create_subscription(NavSatFix, '/usv/fix', self.on_fix, 10)
         self.heading_pub = self.create_publisher(Float32, '/usv/heading/zed', 10)
         self.attitude_pub = self.create_publisher(Vector3Stamped, '/usv/attitude', 10)
+        self.imu_pub = self.create_publisher(Imu, '/usv/imu', 50)
         self.fps_pub = self.create_publisher(Float32, '/usv/perception/fps', 10)
         self.buoys_pub = self.create_publisher(BuoyArray, '/usv/buoys', 10)
         self.detections_pub = self.create_publisher(DetectionArray, '/usv/detections', 10)
@@ -150,6 +154,16 @@ class FakePerception(Node):
     def on_imu(self, msg):
         q = msg.orientation
         self.orientation = (q.x, q.y, q.z, q.w)
+        # The ZED's own gyro: Gazebo's exact angular velocity plus noise, nothing else
+        out = Imu()
+        out.header.stamp = self.get_clock().now().to_msg()
+        out.header.frame_id = 'zed_imu'
+        out.orientation_covariance[0] = -1.0
+        w = msg.angular_velocity
+        out.angular_velocity.x = w.x + self.rng.gauss(0.0, self.gyro_noise)
+        out.angular_velocity.y = w.y + self.rng.gauss(0.0, self.gyro_noise)
+        out.angular_velocity.z = w.z + self.rng.gauss(0.0, self.gyro_noise)
+        self.imu_pub.publish(out)
 
     def on_true_navsat(self, msg):
         x, y = enu(msg.latitude, msg.longitude, self.origin['lat'], self.origin['lon'])

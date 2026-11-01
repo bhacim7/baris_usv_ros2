@@ -14,6 +14,7 @@ fake_perception:
     # Equal to the course's magnetic_field.declination_deg = a correct compass.
     magnetic_declination_deg: 6.0
     magnetometer_noise_deg: 1.0          # ASSUMED, per frame, before the legacy filter
+    gyro_noise_dps: 0.2                  # ASSUMED, /usv/imu angular velocity noise (1 sigma)
     # Compass error. The 2026-10-14 video suggests the ZED read ~4 deg (heading ~145) to
     # ~8.5 deg (heading ~165) too high: uncertain, so 0 until measured on the boat.
     #   compass_offset_deg: the same error at every heading

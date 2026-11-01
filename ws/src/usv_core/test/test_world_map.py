@@ -155,3 +155,54 @@ def test_measure_boxes_places_from_the_camera():
     (legacy,) = measure_boxes(box, lambda u, v: 5.0, 1280, 720, CX, FX, 90.0, O_LAT, O_LON,
                               ROBOBOAT)
     assert (zero['lat'], zero['lon']) == (legacy['lat'], legacy['lon'])
+
+
+# ---------------------------------------------------------------- D4, D5 (phase 6 R1.7)
+def test_turning_sightings_weigh_less():
+    """D4: a sighting taken at 40 deg/s pulls the landmark less than a steady one."""
+    m = fresh_map(heading_lag_s=0.3)
+    m.add(sighting('buoy_red', 0.0, 0.0, dist=8.0), 0.0)
+    m.add(sighting('buoy_red', 1.0, 0.0, dist=8.0), 0.1, yaw_rate_dps=40.0)
+    (lm,) = m.landmarks
+    assert 0.0 < lm.east < 0.3
+    plain = fresh_map()
+    plain.add(sighting('buoy_red', 0.0, 0.0, dist=8.0), 0.0)
+    plain.add(sighting('buoy_red', 1.0, 0.0, dist=8.0), 0.1, yaw_rate_dps=40.0)
+    assert plain.landmarks[0].east == pytest.approx(0.5)
+
+
+def test_no_new_landmark_while_turning_fast():
+    """D4: in a fast turn a sighting may join a landmark but not start one."""
+    m = fresh_map(new_landmark_max_turn_dps=20.0)
+    assert m.add(sighting('buoy_red', 0.0, 0.0), 0.0, yaw_rate_dps=30.0) is None
+    assert m.add(sighting('buoy_red', 0.0, 0.0), 0.1, yaw_rate_dps=10.0) is not None
+    assert m.add(sighting('buoy_red', 0.5, 0.0), 0.2, yaw_rate_dps=30.0) is not None
+    assert len(m.landmarks) == 1 and m.landmarks[0].sightings == 2
+
+
+def test_wrong_class_on_top_of_a_buoy_is_not_confirmed():
+    """D5: a few digit_1 labels on a red buoy, never in the same frame as it: not confirmed."""
+    m = fresh_map(confusion_ratio=5.0)
+    for k in range(30):
+        frame = [sighting('buoy_red', 0.0, 0.0)] if k % 10 else [sighting('digit_1', 0.1, 0.0)]
+        m.add_frame(frame, k * 0.1)
+    by_kind = {lm['kind']: lm for lm in m.snapshot()}
+    assert by_kind['buoy_red']['confirmed']
+    assert by_kind['digit_1']['sightings'] == 3 and not by_kind['digit_1']['confirmed']
+    off = fresh_map()
+    for k in range(30):
+        frame = [sighting('buoy_red', 0.0, 0.0)] if k % 10 else [sighting('digit_1', 0.1, 0.0)]
+        off.add_frame(frame, k * 0.1)
+    assert all(lm['confirmed'] for lm in off.snapshot())
+
+
+def test_real_neighbour_of_another_kind_is_confirmed():
+    """D5: a black buoy 0.6 m from a red one, both boxes in the same frames, is kept."""
+    m = fresh_map(confusion_ratio=5.0)
+    for k in range(30):
+        frame = [sighting('buoy_red', 0.0, 0.0)]
+        if k % 10 == 0:                     # the black one is seen less often, with the red
+            frame.append(sighting('buoy_black', 0.6, 0.0))
+        m.add_frame(frame, k * 0.1)
+    by_kind = {lm['kind']: lm for lm in m.snapshot()}
+    assert by_kind['buoy_black']['sightings'] == 3 and by_kind['buoy_black']['confirmed']

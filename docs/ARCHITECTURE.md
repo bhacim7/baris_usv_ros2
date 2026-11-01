@@ -95,6 +95,7 @@ All topics use the default reliable QoS (depth 10) unless marked *latched*
 | `/usv/heading/zed` | `std_msgs/Float32` (deg) | `perception` / `fake_perception` | heading_source |
 | `/usv/heading` | `std_msgs/Float32` (deg, 0-360, clockwise from north, declination applied) | `heading_source` | navigator, perception, telemetry_bridge, recorder |
 | `/usv/attitude` | `geometry_msgs/Vector3Stamped` (x = roll deg, y = pitch deg) | `perception` / `fake_perception` | recorder |
+| `/usv/imu` | `sensor_msgs/Imu`, the ZED's gyro (angular velocity only) | `perception` / `fake_perception` | mapper (yaw rate) |
 | `/usv/relay_state` | `std_msgs/Int8` (-1 unknown, 0 off, 1 on) | `fc_bridge` / `sim_bridge` | telemetry_bridge |
 | `/usv/buoys` | `usv_interfaces/BuoyArray` | `perception` / `fake_perception` | navigator, recorder |
 | `/usv/perception/fps` | `std_msgs/Float32` | `perception` | telemetry_bridge |
@@ -380,7 +381,7 @@ adaptation comes first, in simulation; the boat phases follow and then run along
 | 7 | Boat image (arm64, Thor), `fc_bridge`, `perception`, `heading_source`, `telemetry_bridge`, `recorder`, audio | Sensors flowing on land and at the pier; GCS connects unchanged |
 | 8 | Sea trials, then alongside the simulation | The ROS 2 version completes RoboBoat tasks on the water |
 
-Phase 6 progress (2026-11-01): R1.1-R1.6 done, R1.7 D1 + D2 done (measurement-chain target met). 13 RoboBoat classes; one course reader for
+Phase 6 progress (2026-11-01): R1.1-R1.6 done, R1.7 D1 + D2 done (measurement-chain target met), D4 + D5 done. 13 RoboBoat classes; one course reader for
 the world generator and `fake_perception`; `roboboat_2026` at Nathan Benderson Park (vessels,
 docks, indicators); per-frame detections and the persistent world map (`mapper`, RViz); the
 fixed survey route and `map_report.py`. First measurement in section 16. Next: R1.7, the
@@ -450,6 +451,24 @@ What is left in the chain: heading lag in fast turns (mean |error| 9 deg above 3
 antenna at 0.89 m behind the camera, before the tape measurement; model and settings now use
 0.75 m.
 
+D4 + D5 (R1.7), first on the recorded `survey_d1d2` sightings mapped again with the settings
+off and on (`map_report.py --map`), then a new run with every fix and the measured antenna
+(`survey_r17`):
+
+| | `survey_d1d2`, D4 + D5 off | `survey_d1d2`, on | `survey_r17`, on |
+|---|---|---|---|
+| Chain map: confirmed seen from <= 6 m | mean 0.28 m, max 0.63 m | mean 0.26 m, max 0.55 m | **mean 0.25 m, max 0.42 m** |
+| Chain map: confirmed duplicates | 20 | 7 | 11 |
+| Chain map: confirmed ghosts | 9 | 5 | **2** |
+| Absolute map: confirmed duplicates / ghosts | 29 / 12 | 14 / 6 | 9 / 13 |
+| Absolute map: confirmed seen from <= 6 m | mean 1.06 m | mean 1.04 m | mean 1.62 m |
+
+The real black buoys 0.65 m from red ones (#10, #13) stay confirmed with D5 on. In
+`survey_r17` the GPS receiver drifted more (mean 1.51 m, up to 3.6 m), which alone sets the
+absolute map: buoys seen while the fix was ~3 m off went to separate landmarks (e.g. #4). The
+measurement chain is now limited by the front-surface offset (-0.18 to -0.33 m) and the
+heading lag above 30 deg/s (mean 5.5 deg); fix age adds 0.14 m.
+
 Fixes to the RoboBoat measurement chain (`measure_boxes`, the mapper), each a parameter so the
 report measures it alone; the TEKNOFEST chain and the golden tests are not touched:
 
@@ -458,8 +477,8 @@ report measures it alone; the TEKNOFEST chain and the golden tests are not touch
 | D1 | Place from the camera, not the GPS antenna (0.75 m behind and 0.50 m above it, measured 2026-11-01). Done (R1.7): `detection_from_camera`, `camera_from_antenna_m` | Constant along-heading offset |
 | D2 | ZED depth -> distance: depth / cos(pixel angle). Done (R1.7): `detection_true_distance` | Objects off the image centre placed too close (~30 % at 45 deg) |
 | D3 | Boat position at the frame time: last fix + speed x age along the heading | GPS age (2 Hz + delay, up to ~0.8 m at 1.3 m/s) |
-| D4 | Less weight for sightings while turning fast | Heading filter lag in turns, duplicates |
-| D5 | No new landmark next to a confirmed one of another kind | Ghosts from YOLO class confusion |
+| D4 | Turning: sigma += distance x tan(heading_lag_s x yaw rate); no new landmark above new_landmark_max_turn_dps. Written (R1.7), yaw rate from `/usv/imu` | Heading filter lag in turns, duplicates |
+| D5 | A landmark is not confirmed while a landmark of another kind within confusion_radius_m has confusion_ratio x its sightings and the two were never in the same frame (a real neighbour, e.g. a black buoy 0.65 m from a red one, is seen in the same frames as a box of its own). Written (R1.7) | Ghosts from YOLO class confusion |
 
 Not fixable here: the receiver's own drift without RTK (~1 m wandering over a minute); the
 map says where to look, the camera says exactly where it is.

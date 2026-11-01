@@ -7,6 +7,7 @@ Phase 6 R1.6; R1.7 added the chain settings and the measurement-chain target.
 Usage (inside the container, after `source /ws/install/setup.bash`):
     python3 /ws/tools/map_report.py BAG_DIR [--course NAME | --course-file PATH]
                                             [--plot OUT.png] [--max-range M]
+                                            [--map KEY=VALUE ...]
 
 Record the run with sim.launch.py record:=<name>; survey:=true drives the same route every
 time and seed:=<n> keeps the same sensor noise, so two runs can be compared. Needs
@@ -31,20 +32,23 @@ cannot be read: the detection messages gained fields; record them again.
    + age (the fix was measured up to 1/rate + delay before the frame); heading error
    against the yaw rate; range error = ZED noise + the rest (the ZED gives the depth of the
    object's front along the optical axis; legacy uses that as the distance to its centre).
-3. Two maps, each object the camera saw - found, confirmed, error, duplicates - and the
+3. Maps, each object the camera saw - found, confirmed, error, duplicates - and the
    landmarks with no object of their kind within 3 m ("ghosts"):
-     a. absolute: the mapper's own map (last /usv/map). No target: without RTK the GPS
-        receiver's drift sets it.
-     b. measurement chain: the same sightings mapped again here (usv_core.world_map, same
-        settings) with the GPS swapped for the truth. Target: confirmed landmarks seen from
-        within 6 m, mean error < 0.4 m, none above 0.8 m.
+     a. the mapper's own map during the run (last /usv/map)
+     b. absolute: the same sightings mapped again here (usv_core.world_map) with the
+        installed mapper.yaml settings, changed by --map KEY=VALUE (e.g. --map
+        confusion_ratio=0 turns D5 off). No target: without RTK the receiver's drift sets it
+     c. measurement chain: as b, with the GPS swapped for the truth. Target: confirmed
+        landmarks seen from within 6 m, mean error < 0.4 m, none above 0.8 m
+   b and c let a mapper setting be tried on a recorded run without driving it again. The
+   yaw rate for D4 is /usv/imu (the ZED's gyro) when recorded, else Gazebo's.
    Objects of one kind closer than 1.5 m to each other (the two marks of a vessel) count as
    one, as the mapper merges them.
 """
 
 import argparse
 import bisect
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import math
 import os
 import statistics
@@ -63,7 +67,7 @@ from usv_sim.zed import rotate
 import yaml
 
 NEEDED = ('/usv/detections', '/usv/fix', '/usv/sim/navsat', '/usv/sim/imu')
-OPTIONAL = ('/usv/map',)
+OPTIONAL = ('/usv/map', '/usv/imu')
 FACTORS = ('gps', 'heading', 'range', 'origin')
 MATCH_DEG = 4.0               # box column vs true direction
 GHOST_M = 3.0                 # landmark farther than this from any object of its kind
@@ -181,6 +185,7 @@ def sightings(data, setup, objects, max_range):
     navsat = Series([(t, enu(m.latitude, m.longitude, origin['lat'], origin['lon'])
                       + (m.altitude,)) for t, m in data['/usv/sim/navsat']])
     imu = Series([(t, m) for t, m in data['/usv/sim/imu']])
+    gyro = Series([(t, math.degrees(m.angular_velocity.z)) for t, m in data['/usv/imu']])
     fixes = [(t, m.latitude, m.longitude) for t, m in data['/usv/fix']]
     fix_t = [f[0] for f in fixes]
     lever_body = (cam.mount[0] - setup.antenna[0], cam.mount[1] - setup.antenna[1])
@@ -209,6 +214,9 @@ def sightings(data, setup, objects, max_range):
         cam_pos = camera_position(boat, q, cam)
         h_true = compass_deg(yaw_from_quaternion(*q))
         yaw_rate = math.degrees(imu_msg.angular_velocity.z)
+        measured_rate = gyro.latest(t)
+        if measured_rate is None:
+            measured_rate = yaw_rate
         a_fix = enu(frame.boat_latitude, frame.boat_longitude, origin['lat'], origin['lon'])
         sampled = navsat.latest(t_fix - setup.fix_delay) or antenna
         origin_body = (frame.origin_forward_m, frame.origin_left_m)
@@ -221,7 +229,7 @@ def sightings(data, setup, objects, max_range):
             rec = {
                 't': t, 'class_name': d.class_name, 'alpha': alpha, 'd': d.distance_m,
                 'depth': d.depth_m, 'h_used': h_used, 'h_true': h_true,
-                'yaw_rate': yaw_rate, 'a_fix': a_fix, 'a_true': antenna[:2],
+                'yaw_rate': yaw_rate, 'gyro': measured_rate, 'a_fix': a_fix, 'a_true': antenna[:2],
                 'a_sampled': sampled[:2], 'fix_age': t - t_fix + setup.fix_delay,
                 'cam': cam_pos[:2], 'lever_body': lever_body, 'origin_body': origin_body,
                 'recorded': enu(d.latitude, d.longitude, origin['lat'], origin['lon'])}
@@ -452,14 +460,20 @@ def mapper_landmarks(data, setup):
     return out
 
 
-def rebuild_map(every, setup, fixed):
+def rebuild_map(every, setup, fixed, cfg):
     """Map every sighting again (usv_core.world_map), inputs in `fixed` swapped for the truth."""
     origin = setup.course.origin
-    wmap = WorldMap(setup.map_cfg)
+    wmap = WorldMap(cfg)
+    frames = {}
     for r in every:
-        lat, lon = latlon(*position(r, fixed), origin['lat'], origin['lon'])
-        wmap.add({'class_name': r['class_name'], 'position_ok': True, 'distance_m': r['d'],
-                  'lat': lat, 'lon': lon}, r['t'])
+        frames.setdefault(r['t'], []).append(r)
+    for t in sorted(frames):
+        sightings_ = []
+        for r in frames[t]:
+            lat, lon = latlon(*position(r, fixed), origin['lat'], origin['lon'])
+            sightings_.append({'class_name': r['class_name'], 'position_ok': True,
+                               'distance_m': r['d'], 'lat': lat, 'lon': lon})
+        wmap.add_frame(sightings_, t, frames[t][0]['gyro'])
     out = []
     for lm in wmap.snapshot() if wmap.origin else []:
         e, n = enu(lm['lat'], lm['lon'], origin['lat'], origin['lon'])
@@ -469,7 +483,7 @@ def rebuild_map(every, setup, fixed):
     return out
 
 
-def report_map(lms, objects, recs, title, target):
+def report_map(lms, objects, recs, title, target, details=True):
     """Print how well a map matches the objects; return {'groups', 'lms'} for the plot."""
     for lm in lms:
         lm['group'], lm['dist'] = None, math.inf
@@ -493,10 +507,16 @@ def report_map(lms, objects, recs, title, target):
 
     confirmed = [lm for lm in lms if lm['confirmed']]
     print(f'\n-- {title}: {len(lms)} landmarks, {len(confirmed)} confirmed')
-    print('   object              seen from  found  error  sightings  duplicates (confirmed)')
+    if details:
+        print('   object              seen from  found  error  sightings  duplicates (confirmed)')
     errors = []
     for g in sorted(groups, key=lambda g: g['members'][0].index):
         if g['seen'] == math.inf and not g['lms']:
+            continue
+        if not details:
+            main = sorted(g['lms'], key=lambda lm: (not lm['confirmed'], -lm['sightings']))
+            if main and main[0]['confirmed']:
+                errors.append((g, main[0]))
             continue
         lm_sorted = sorted(g['lms'], key=lambda lm: (not lm['confirmed'], -lm['sightings']))
         main = lm_sorted[0] if lm_sorted else None
@@ -515,10 +535,12 @@ def report_map(lms, objects, recs, title, target):
     ghosts = [lm for lm in lms if lm['group'] is None]
     print(f'   ghosts (no object of their kind within {GHOST_M:g} m): {len(ghosts)}, '
           f'confirmed {sum(1 for lm in ghosts if lm["confirmed"])}')
-    for lm in sorted(ghosts, key=lambda lm: -lm['sightings'])[:5]:
+    for lm in sorted(ghosts, key=lambda lm: -lm['sightings'])[:5 if details else 0]:
         if lm['confirmed']:
             print(f'     id {lm["id"]} {lm["kind"]} x{lm["sightings"]}')
 
+    dups = sum(max(0, sum(1 for lm in g['lms'] if lm['confirmed']) - 1) for g in groups)
+    print(f'   confirmed duplicates (more than one confirmed landmark on an object): {dups}')
     if errors:
         de = mean([lm['east'] - g['east'] for g, lm in errors])
         dn = mean([lm['north'] - g['north'] for g, lm in errors])
@@ -610,9 +632,17 @@ def main():
     ap.add_argument('--max-range', type=float, default=12.0,
                     help="sightings farther than this are left out (the mapper's max_range_m)")
     ap.add_argument('--plot', default='')
+    ap.add_argument('--map', action='append', default=[], metavar='KEY=VALUE',
+                    help='change a mapper.yaml setting for maps 3b and 3c (repeatable)')
     args = ap.parse_args()
 
     setup = load_setup(args.course, args.course_file)
+    cfg = setup.map_cfg
+    for item in args.map:
+        key, value = item.split('=', 1)
+        if key not in MapConfig.__dataclass_fields__:
+            sys.exit(f'--map: no setting {key}; have {", ".join(MapConfig.__dataclass_fields__)}')
+        cfg = replace(cfg, **{key: type(getattr(cfg, key))(value)})
     objects = truths(setup.course)
     data = read_bag(args.bag)
     duration = data['/usv/detections'][-1][0] - data['/usv/detections'][0][0] \
@@ -624,17 +654,17 @@ def main():
                                                          args.max_range)
     means = report_sightings(recs, confused, unmatched, skipped, args.max_range)
     report_inputs(recs)
-    map_part = None
     if data['/usv/map']:
-        map_part = report_map(mapper_landmarks(data, setup), objects, recs,
-                              '3a. absolute map (the mapper, last /usv/map)', target=False)
+        report_map(mapper_landmarks(data, setup), objects, recs,
+                   '3a. the mapper during the run (last /usv/map)', target=False, details=False)
     else:
         print('\n-- 3a. no /usv/map in the bag')
-    again = rebuild_map(every, setup, ())
-    print(f'   (mapped again here from the same sightings: {len(again)} landmarks, '
-          f'{sum(1 for lm in again if lm["confirmed"])} confirmed)')
-    report_map(rebuild_map(every, setup, ('gps',)), objects, recs,
-               '3b. measurement-chain map (same sightings, GPS true)', target=True)
+    print('\n   maps 3b and 3c: ' + ', '.join(f'{k} {getattr(cfg, k)}'
+                                             for k in MapConfig.__dataclass_fields__))
+    map_part = report_map(rebuild_map(every, setup, (), cfg), objects, recs,
+                          '3b. absolute map (sightings mapped again here)', target=False)
+    report_map(rebuild_map(every, setup, ('gps',), cfg), objects, recs,
+               '3c. measurement-chain map (same, GPS true)', target=True)
     if args.plot:
         plot(args.plot, data, setup, objects, recs, means, map_part)
 

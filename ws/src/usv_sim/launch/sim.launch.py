@@ -64,7 +64,7 @@ CHAIN_SWITCHES = {'true_distance': 'detection_true_distance',
 # What ws/tools/run_report.py reads, plus what is handy to replay
 RECORD_TOPICS = ('/usv/nav_status', '/usv/thrusters/pwm', '/usv/sim/navsat', '/usv/sim/imu',
                  '/usv/fix', '/usv/heading', '/usv/buoys', '/usv/detections', '/usv/map',
-                 '/usv/speed')
+                 '/usv/speed', '/usv/imu')
 
 
 def setup(context):

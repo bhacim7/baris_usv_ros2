@@ -17,6 +17,21 @@ How a sighting (one measured box, usv_core.detection.measure_boxes) is used:
     error grows with distance and a heading error moves far objects more)
   * a landmark is confirmed after confirm_sightings sightings
 
+Two clean-ups (phase 6 R1.7), each off when its setting is 0:
+  D4 turning   the heading filter lags in turns (measured: mean 9 deg above 30 deg/s), so a
+               sighting taken while turning fast is placed sideways by about
+               distance * tan(heading_lag_s * yaw rate). That is added to its sigma (less
+               weight), and above new_landmark_max_turn_dps it may join a landmark but not
+               start one: in a turn a buoy lands metres aside and would open a duplicate.
+  D5 confusion YOLO now and then gives a box the wrong class, which opens a landmark of
+               another kind on top of the real one. Such a landmark is not confirmed while
+               a landmark of another kind within confusion_radius_m has at least
+               confusion_ratio times its sightings and the two were never seen in the same
+               camera frame. A real neighbour (a black buoy beside a red one) is seen in the
+               same frames as a box of its own, so it is confirmed as usual; a wrong label
+               replaces the real box in its frame, so it never is. Nothing is deleted.
+               Needs the sightings of a frame together (add_frame).
+
 Positions are kept in a local east/north frame (metres) from the map origin, the first GPS
 fix (set_origin), and given back in latitude/longitude too. All numbers in MapConfig are
 first values, to be tuned from the map-quality report (run_report, phase 6 R1.6).
@@ -69,6 +84,10 @@ class MapConfig:
     sigma_per_m: float = 0.1
     confirm_sightings: int = 3
     color_window: int = 15
+    heading_lag_s: float = 0.0            # D4: 0 = off
+    new_landmark_max_turn_dps: float = 0.0    # D4: 0 = off
+    confusion_ratio: float = 0.0          # D5: 0 = off
+    confusion_radius_m: float = 1.0
 
 
 @dataclass
@@ -83,6 +102,7 @@ class Landmark:
     last_seen: float = 0.0
     closest_m: float = math.inf
     colors: deque = field(default_factory=deque)
+    co_seen: dict = field(default_factory=dict)   # other landmark id -> frames seen together
 
     @property
     def east(self):
@@ -116,9 +136,10 @@ class WorldMap:
         if self.origin is None and lat and lon:
             self.origin = (float(lat), float(lon))
 
-    def add(self, det, now):
+    def add(self, det, now, yaw_rate_dps=0.0):
         """Fuse one sighting (a measure_boxes dict); return its Landmark or None."""
         cfg = self.cfg
+        turn = abs(yaw_rate_dps)
         dist = det['distance_m']
         if not det['position_ok'] or not dist <= cfg.max_range_m:
             return None
@@ -132,11 +153,16 @@ class WorldMap:
                 if d <= best_d:
                     best, best_d = lm, d
         if best is None:
+            if cfg.new_landmark_max_turn_dps > 0 and turn > cfg.new_landmark_max_turn_dps:
+                return None           # D4: no new landmark while turning fast
             best = Landmark(self._next_id, kind, first_seen=now,
                             colors=deque(maxlen=cfg.color_window))
             self._next_id += 1
             self.landmarks.append(best)
         sigma = cfg.sigma_base_m + cfg.sigma_per_m * dist
+        if cfg.heading_lag_s > 0:     # D4: sideways error of the lagging heading
+            sigma = math.hypot(sigma, dist * math.tan(math.radians(
+                min(80.0, cfg.heading_lag_s * turn))))
         w = 1.0 / (sigma * sigma)
         best.sum_w += w
         best.sum_we += w * e
@@ -148,8 +174,31 @@ class WorldMap:
             best.colors.append(INDICATOR_COLOR[det['class_name']])
         return best
 
-    def add_frame(self, detections, now):
-        return [self.add(d, now) for d in detections]
+    def add_frame(self, detections, now, yaw_rate_dps=0.0):
+        """Fuse the sightings of one camera frame; remember which landmarks it showed together."""
+        hits = [self.add(d, now, yaw_rate_dps) for d in detections]
+        seen = {lm.landmark_id: lm for lm in hits if lm is not None}
+        for a in seen.values():
+            for b_id in seen:
+                if b_id != a.landmark_id:
+                    a.co_seen[b_id] = a.co_seen.get(b_id, 0) + 1
+        return hits
+
+    def suspect(self, lm):
+        """D5: True if lm looks like a wrong class on top of a landmark of another kind."""
+        cfg = self.cfg
+        if cfg.confusion_ratio <= 0:
+            return False
+        for other in self.landmarks:
+            if other.kind == lm.kind or lm.co_seen.get(other.landmark_id, 0) > 0:
+                continue
+            if other.sightings >= cfg.confusion_ratio * lm.sightings and math.hypot(
+                    other.east - lm.east, other.north - lm.north) <= cfg.confusion_radius_m:
+                return True
+        return False
+
+    def confirmed(self, lm):
+        return lm.sightings >= self.cfg.confirm_sightings and not self.suspect(lm)
 
     def snapshot(self):
         """Return every landmark as a plain dict (for the ROS message and the map file)."""
@@ -160,7 +209,7 @@ class WorldMap:
                 'id': lm.landmark_id, 'kind': lm.kind, 'color': lm.color, 'lat': lat, 'lon': lon,
                 'east': lm.east, 'north': lm.north, 'sigma': lm.sigma,
                 'sightings': lm.sightings,
-                'confirmed': lm.sightings >= self.cfg.confirm_sightings,
+                'confirmed': self.confirmed(lm),
                 'closest': lm.closest_m, 'first_seen': lm.first_seen,
                 'last_seen': lm.last_seen})
         return out

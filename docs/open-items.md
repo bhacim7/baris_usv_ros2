@@ -45,7 +45,7 @@ RoboBoat simülasyonda** (ARCHITECTURE.md §15–16).
 | R1.1–R1.3 | 13 sınıf, ortak parkur okuyucu, gemiler ve iskeleler, `roboboat_2026` parkuru Nathan Benderson Park'ta | Bitti (commit `d951ade`) |
 | R1.4–R1.5 | Kare başına tespitler (`/usv/detections`), kalıcı dünya haritası (`mapper`), RViz | Bitti (`79aca43`) |
 | R1.6 | Sabit ölçüm rotası (`survey_drive`), `map_report.py`, ilk ölçüm (`survey_base`) | Bitti (`f98e8cc`) |
-| **R1.7** | **Ölçüm zinciri düzeltmeleri, her biri ayrı ayar.** D2 (derinlik → mesafe) + D1 (kameradan konumla) **bitti** (1 Kasım): ölçüm zinciri haritası 1,74 → 0,28 m, hedef geçti. Sonra D4 (hızlı dönüşte düşük ağırlık), D5 (sınıf karışması hayaletleri), D3 (GPS yaşı). Her birinden sonra `survey:=true seed:=1` koşusu + rapor. `map_report.py` yeni iki hedefe göre güncellendi (3a mutlak, 3b ölçüm zinciri) | **Sıradaki iş** |
+| **R1.7** | **Ölçüm zinciri düzeltmeleri, her biri ayrı ayar.** D2 (derinlik → mesafe) + D1 (kameradan konumla) **bitti** (1 Kasım): ölçüm zinciri haritası 1,74 → 0,28 m, hedef geçti. D4 (dönüş) + D5 (sınıf karışması, aynı karede görülme kuralı) **bitti**: `survey_r17`'de ölçüm zinciri haritası ort. 0,25 m / en fazla 0,42 m, onaylı hayalet 2. Sonra D4 (hızlı dönüşte düşük ağırlık), D5 (sınıf karışması hayaletleri), D3 (GPS yaşı). Her birinden sonra `survey:=true seed:=1` koşusu + rapor. `map_report.py` yeni iki hedefe göre güncellendi (3a mutlak, 3b ölçüm zinciri) | **Sıradaki iş** |
 | R2 | Navigator'a yarışma profili (RoboBoat) | |
 | R3 | Görevler: 1 → 2 → 3 → 6 → 5 → 4 | |
 | R4 | RoboCommand raporlama (protobuf / TCP, 1 Hz heartbeat) | |

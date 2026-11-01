@@ -4,6 +4,8 @@ mapper: the world map, from power-on (usv_core.world_map).
   in   /usv/detections     usv_interfaces/DetectionArray  every camera frame's measured boxes
        /usv/fix            sensor_msgs/NavSatFix          map origin (first fix), boat marker
        /usv/heading        std_msgs/Float32               boat marker
+       /usv/imu            sensor_msgs/Imu                the ZED's gyro: yaw rate for the
+                                                          turning clean-up (D4); none = 0
   out  /usv/map            usv_interfaces/LandmarkArray   every landmark, publish_hz
        /usv/map/markers    visualization_msgs/MarkerArray the same for RViz, frame usv_map
                            (east/north metres from the map origin), plus the boat and its
@@ -23,7 +25,7 @@ from geometry_msgs.msg import Point
 import rclpy
 from rclpy.node import Node
 from rclpy.signals import SignalHandlerOptions
-from sensor_msgs.msg import NavSatFix
+from sensor_msgs.msg import Imu, NavSatFix
 from std_msgs.msg import ColorRGBA, Float32
 from usv_core.world_map import enu, MapConfig, WorldMap
 from usv_interfaces.msg import DetectionArray, Landmark, LandmarkArray
@@ -57,16 +59,23 @@ class MapperNode(Node):
             sigma_base_m=p('sigma_base_m', defaults.sigma_base_m).value,
             sigma_per_m=p('sigma_per_m', defaults.sigma_per_m).value,
             confirm_sightings=p('confirm_sightings', defaults.confirm_sightings).value,
-            color_window=p('color_window', defaults.color_window).value))
+            color_window=p('color_window', defaults.color_window).value,
+            heading_lag_s=p('heading_lag_s', defaults.heading_lag_s).value,
+            new_landmark_max_turn_dps=p('new_landmark_max_turn_dps',
+                                        defaults.new_landmark_max_turn_dps).value,
+            confusion_ratio=p('confusion_ratio', defaults.confusion_ratio).value,
+            confusion_radius_m=p('confusion_radius_m', defaults.confusion_radius_m).value))
         self.map_file = p('map_file', '').value
         publish_hz = p('publish_hz', 2.0).value
 
         self.fix = None
         self.heading = None
+        self.yaw_rate = 0.0           # deg/s, from /usv/imu
         self.track = []
         self.create_subscription(DetectionArray, '/usv/detections', self.on_detections, 10)
         self.create_subscription(NavSatFix, '/usv/fix', self.on_fix, 10)
         self.create_subscription(Float32, '/usv/heading', self.on_heading, 10)
+        self.create_subscription(Imu, '/usv/imu', self.on_imu, 50)
         self.map_pub = self.create_publisher(LandmarkArray, '/usv/map', 10)
         self.marker_pub = self.create_publisher(MarkerArray, '/usv/map/markers', 10)
         self.create_timer(1.0 / publish_hz, self.publish)
@@ -88,14 +97,16 @@ class MapperNode(Node):
     def on_heading(self, msg):
         self.heading = msg.data
 
+    def on_imu(self, msg):
+        self.yaw_rate = math.degrees(msg.angular_velocity.z)
+
     def on_detections(self, msg):
         if self.map.origin is None:
             return              # no fix yet: nothing could be placed anyway
         now = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
-        for d in msg.detections:
-            self.map.add({'class_name': d.class_name, 'position_ok': d.position_ok,
-                          'distance_m': d.distance_m, 'lat': d.latitude,
-                          'lon': d.longitude}, now)
+        self.map.add_frame([{'class_name': d.class_name, 'position_ok': d.position_ok,
+                             'distance_m': d.distance_m, 'lat': d.latitude,
+                             'lon': d.longitude} for d in msg.detections], now, self.yaw_rate)
 
     # ------------------------------------------------------------------ outputs
     def publish(self):

@@ -9,5 +9,12 @@ mapper:
     sigma_per_m: 0.1
     confirm_sightings: 3      # a landmark is trusted after this many sightings
     color_window: 15          # indicator colour = majority of the last N sightings
+    # Clean-ups (phase 6 R1.7, usv_core/world_map.py); 0 = off
+    heading_lag_s: 0.25       # D4: heading filter lag; a sighting taken while turning gets
+                              # distance * tan(lag * yaw rate) more sigma (measured: mean
+                              # 9 deg heading error above 30 deg/s)
+    new_landmark_max_turn_dps: 20.0   # D4: turning faster, sightings start no landmark
+    confusion_ratio: 5.0      # D5: not confirmed while another kind within the radius has
+    confusion_radius_m: 1.0   # this many times its sightings and was never in the same frame
     publish_hz: 2.0
     map_file: ''              # JSON written on shutdown; '' = not saved

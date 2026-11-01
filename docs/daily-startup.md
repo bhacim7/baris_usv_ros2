@@ -356,6 +356,14 @@ Düzeltmeler (R1.7) `fake_perception.yaml`'da açık; eski hali (karşılaştır
 GPS kusursuzmuş gibi yeniden haritalanması (ölçüm zinciri, `TARGET` satırı burada).
 R1.7'den önce alınan kayıtlar (ör. `survey_base`) yeni raporla okunamaz: mesajlara alan eklendi.
 
+Harita ayarlarını yeni koşu yapmadan denemek: rapor `3b` ve `3c` haritalarını kayıttaki
+tespitlerden, kurulu `mapper.yaml` ayarlarıyla yeniden kurar; `--map AYAR=DEĞER` ile değiştirilir
+(birden çok kez verilebilir). Örnek, D4 ve D5 kapalı:
+
+```bash
+python3 /ws/tools/map_report.py /ws/bags/survey_d1d2 --map heading_lag_s=0 --map new_landmark_max_turn_dps=0 --map confusion_ratio=0
+```
+
 İlk ölçüm (`survey_base`, 31 Ekim): tespit başına ortalama 2,75 m. Paylar: mesafe 1,74 m
 (derinliği mesafe sanmak), GPS 1,01 m (çoğu alıcı kayması), anten/kamera farkı 0,94 m, pusula
 0,34 m (dönüşlerde 9°'ye kadar). Ayrıntı ve düzeltme sırası: `ARCHITECTURE.md` §16,
