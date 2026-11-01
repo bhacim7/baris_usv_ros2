@@ -1,10 +1,10 @@
 """
 RoboBoat moves (usv_core.roboboat_drive), driven on a rough boat model.
 
-The boat: speed from the forward PWM (1680 = 1.3 m/s), turn rate from the yaw PWM
-(200 = 50 deg/s, clipped at 60), as in test_survey. Each test drives a move to its end
-and checks what came out of it: got there, went between the poles, went round the right
-way, found what was hidden.
+The boat: speed from the forward PWM (1680 = 1.3 m/s, astern 1350 = -0.7 m/s), turn rate
+from the yaw PWM (200 = 50 deg/s, clipped at 60), as in test_survey. Each test drives a
+move to its end and checks what came out of it: got there, went between the poles, went
+round the right way, found what was hidden, kept clear, got out when held.
 
 Run: cd /ws/src/usv_core && python3 -m pytest test/test_roboboat_drive.py -v
 """
@@ -14,7 +14,8 @@ import math
 import pytest
 from usv_core.nav_config import NavConfig
 from usv_core.roboboat_course import Gate
-from usv_core.roboboat_drive import Circle, DriveTo, PassGate, Search
+from usv_core.roboboat_drive import (BACK_PWM, Circle, DriveTo, free_gap, MAX_STUCK,
+                                     PassGate, Search)
 from usv_core.roboboat_run import DONE, RunContext, RUNNING, SKIPPED
 from usv_core.world_map import latlon
 
@@ -27,8 +28,17 @@ def lm(i, kind, east, north):
             'confirmed': True, 'sightings': 30}
 
 
-def drive(move, boat, heading, seconds=120.0, dt=0.04, landmarks=(), seen=None):
-    """Drive a move on the rough boat; seen(t, xy) -> detections dicts for that frame."""
+def boat_speed(fwd):
+    return (fwd - 1500) / 180.0 * 1.3 if fwd >= 1500 else (fwd - 1500) / 150.0 * 0.7
+
+
+def drive(move, boat, heading, seconds=120.0, dt=0.04, landmarks=(), seen=None,
+          held=None, commands=None):
+    """
+    Drive a move on the rough boat; seen(t, xy) -> detections dicts for that frame.
+
+    held(xy) -> True where the hull cannot go (it stays put); commands collects them all.
+    """
     ctx = RunContext(now=0.0, boat_xy=boat, heading=heading, speed=0.0,
                      landmarks=list(landmarks), map_origin=ORIGIN)
     move.start(ctx)
@@ -40,11 +50,15 @@ def drive(move, boat, heading, seconds=120.0, dt=0.04, landmarks=(), seen=None):
         if state != RUNNING:
             break
         fwd, yaw = cmd or (1500, 0)
-        speed = max(0.0, (fwd - 1500) / 180.0 * 1.3)
+        if commands is not None:
+            commands.append((fwd, yaw))
+        speed = boat_speed(fwd)
         rate = max(-60.0, min(60.0, yaw * 0.25))
         h = (ctx.heading + rate * dt) % 360.0
         e = ctx.boat_xy[0] + speed * math.sin(math.radians(h)) * dt
         n = ctx.boat_xy[1] + speed * math.cos(math.radians(h)) * dt
+        if held is not None and held((e, n)):
+            e, n, speed = ctx.boat_xy[0], ctx.boat_xy[1], 0.0
         ctx.heading, ctx.speed, ctx.boat_xy = h, speed, (e, n)
         ctx.now += dt
         track.append(ctx.boat_xy)
@@ -135,3 +149,72 @@ def test_search_gives_up_when_nothing_is_there():
     state, _, t = drive(Search(CFG, (0.0, 6.0), lambda ctx: False, max_m=8.0), (0.0, 0.0),
                         0.0, seconds=600.0)
     assert state == SKIPPED and t < 600.0
+
+
+def test_free_gap_steers_clear_of_a_buoy_in_the_gate():
+    assert free_gap(2.5, 0.1, 0.1, []) == pytest.approx((0.0, 2.5 - 2 * 0.64), abs=1e-9)
+    off, gap = free_gap(2.5, 0.1, 0.1, [(0.65, 0.1)])      # black 0.65 m towards red
+    assert off == pytest.approx(-0.30, abs=0.01) and gap > 0.5
+    assert free_gap(1.2, 0.1, 0.1, []) is None             # narrower than the hull
+
+
+def test_pass_gate_goes_round_a_black_buoy_in_the_gate():
+    """Channel gate 3 of the course: a black buoy 0.6 m from the red one, inside the gate."""
+    red, green, black = (-1.25, 10.0), (1.25, 10.0), (-0.65, 10.2)
+    move = PassGate(CFG, Gate(lm(1, 'buoy_red', *red), lm(2, 'buoy_green', *green)),
+                    approach_m=2.5, exit_m=1.5)
+    state, track, _ = drive(move, (0.0, 0.0), 0.0, landmarks=[lm(3, 'buoy_black', *black)])
+    assert state == DONE and move.result['through']
+    assert move.result['gap_offset'] == pytest.approx(-0.32, abs=0.05)
+    # hull centre to buoy centre: 0.39 half beam + 0.10 buoy = 0.49 is a touch
+    closest = min(math.hypot(p[0] - black[0], p[1] - black[1]) for p in track)
+    assert closest > 0.49 + 0.2
+
+
+def test_pass_gate_goes_round_a_black_buoy_on_the_way():
+    """Go round a black buoy on the line 4 m before the gate, off the gate's line."""
+    red, green, black = (-1.25, 10.0), (1.25, 10.0), (0.0, 6.0)
+    move = PassGate(CFG, Gate(lm(1, 'buoy_red', *red), lm(2, 'buoy_green', *green)),
+                    approach_m=2.5, exit_m=1.5, lookahead_m=2.5, avoid=True)
+    state, track, _ = drive(move, (0.0, 0.0), 0.0, landmarks=[lm(3, 'buoy_black', *black)])
+    assert state == DONE and move.result['through'] and move.result.get('bent', 0) > 0
+    closest = min(math.hypot(p[0] - black[0], p[1] - black[1]) for p in track)
+    assert closest > 0.49 + 0.2
+    for b in (red, green):
+        assert min(math.hypot(p[0] - b[0], p[1] - b[1]) for p in track) > 0.49 + 0.1
+
+
+def test_pass_gate_moves_the_map_by_the_camera_shift():
+    """
+    Move the map's black with the camera's shift of the gate.
+
+    The map has the gate and its black 0.9 m east (GPS drift); the camera sees the gate
+    where it is and not the black. Moved with the gate, the black is missed by the hull.
+    """
+    red, green, black = (-1.25, 10.0), (1.25, 10.0), (-0.65, 10.2)
+    drift = 0.9
+    move = PassGate(CFG, Gate(lm(1, 'buoy_red', red[0] + drift, red[1]),
+                              lm(2, 'buoy_green', green[0] + drift, green[1])),
+                    approach_m=2.5, exit_m=1.5, lookahead_m=2.5, avoid=True)
+
+    def seen(t, boat):
+        return [detection('buoy_red', red), detection('buoy_green', green)] \
+            if boat[1] < 9.0 else []
+
+    state, track, _ = drive(move, (0.0, 0.0), 0.0, seen=seen,
+                            landmarks=[lm(3, 'buoy_black', black[0] + drift, black[1])])
+    assert state == DONE and move.result['through']
+    closest = min(math.hypot(p[0] - black[0], p[1] - black[1]) for p in track)
+    assert closest > 0.49 + 0.2
+
+
+def test_stuck_backs_off_then_gives_up():
+    """Back off, then give up: something the map has not got holds the hull at 5 m north."""
+    commands = []
+    move = DriveTo(CFG, (0.0, 20.0), avoid=False)
+    state, track, t = drive(move, (0.0, 0.0), 0.0, seconds=120.0, commands=commands,
+                            held=lambda xy: xy[1] > 5.0)
+    assert state == SKIPPED and move.result['stuck'] == MAX_STUCK + 1
+    assert sum(1 for f, _ in commands if f == BACK_PWM) > 0
+    assert min(p[1] for p in track[len(track) // 2:]) < 4.8     # it did go astern
+    assert len(move.bumps) == MAX_STUCK and t < 60.0

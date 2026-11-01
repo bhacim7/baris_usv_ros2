@@ -9,11 +9,19 @@ So every move steers the same way, and a steering fix is made in one place.
   DriveTo   to a point, round obstacles: A* (usv_core.planner) on a grid of the world
             map's landmarks around the boat (LandmarkGrid), replanned every replan_s; a
             straight line when it is clear; straight at the goal when A* finds nothing
-  PassGate  through a gate: a straight line from approach_m before its centre, square to
-            it, to exit_m past it. Starts from the map's gate; whenever the camera sees
-            the gate's poles / buoys, their positions in THAT frame replace it. A frame's
-            detections and the boat's position come from the same GPS fix, so the gate is
-            right relative to the boat even when the map is off by the GPS drift
+  PassGate  through a gate: a straight line from approach_m before it, square to it, to
+            exit_m past it. Starts from the map's gate; whenever the camera sees the gate's
+            poles / buoys, their positions in THAT frame replace it. A frame's detections
+            and the boat's position come from the same GPS fix, so the gate is right
+            relative to the boat even when the map is off by the GPS drift. Obstacles of
+            other kinds near the gate's line (a black buoy beside the red one, as in the
+            channel) narrow it: the line goes through the middle of the widest gap left for
+            the hull (free_gap), not the gate's centre. With avoid (the channel, R3.2c)
+            the way there and through is planned round every obstacle near the gate by
+            A* on a visibility graph (usv_core.roboboat_avoid), with walls along the gate's
+            line beyond its buoys so the path cannot go round the gate; the map's objects
+            are moved by the camera's shift of the gate (the GPS drift since they were
+            mapped) and a camera detection replaces a map copy of the same kind
   Circle    round an object at radius_m, clockwise or counter-clockwise, until laps x 360
             deg are swept round it; the object refined from the camera as for PassGate
   Search    look for something: one turn on the spot, then an expanding square round a
@@ -23,6 +31,10 @@ A move has start(ctx) and step(ctx) -> (state, command), as a run phase: state R
 DONE / SKIPPED (usv_core.roboboat_run), command (forward_pwm, yaw_pwm) for the mixer or
 None for neutral. Moves read ctx.boat_xy, ctx.heading, ctx.speed, ctx.now, ctx.landmarks,
 ctx.detections and ctx.map_origin; results for later phases go to self.result.
+
+DriveTo and PassGate are watched for being stuck (Move._guard): pushing forward STUCK_S
+without getting STUCK_M further, the boat backs off BACK_S astern, a bump goes where the
+bow was and the path is planned again; past MAX_STUCK the move is SKIPPED.
 
 Frames: map east / north metres here; the planner's own x = North, y = East inside
 (to_planner / from_planner).
@@ -34,8 +46,9 @@ import math
 import cv2
 from usv_core import planner
 from usv_core.costmap import LocalCostmap
+from usv_core.roboboat_avoid import Obstacles, plan_through
 from usv_core.roboboat_run import DONE, RUNNING, SKIPPED
-from usv_core.world_map import enu
+from usv_core.world_map import enu, kind_of
 
 # Obstacle radius drawn on the grid per map kind (m); the planner inflates it by the
 # boat's radius and its margin. Vessel marks stand for the whole vessel (1.7 x 0.7 m),
@@ -47,6 +60,26 @@ OBSTACLE_RADIUS_M = {
 }
 DETECTION_MAX_AGE_S = 0.5
 MATCH_M = 2.0                 # a detection replaces a map position within this
+HALF_BEAM_M = 0.39            # half the hull's width (0.78 m)
+GAP_MARGIN_M = 0.15           # kept clear of each side of a gap in a gate
+GATE_LINE_M = 1.5             # obstacles this close to a gate's line narrow it
+# Clearance kept by PassGate's avoid paths, hull centre line to an object's edge: a gate's
+# (channel's) red / green markers as in free_gap, anything else a little more (both drop to
+# the gate's if no path keeps it). Walls go WALL_M out from a gate's buoys.
+KEEP_GATE_M = HALF_BEAM_M + GAP_MARGIN_M
+KEEP_OTHER_M = HALF_BEAM_M + 0.35
+GATE_KINDS = ('pole_red', 'pole_green', 'buoy_red', 'buoy_green')
+WALL_M = 3.0
+AVOID_RANGE_M = 12.0          # objects further from the boat are not planned round
+BENT_CRUISE = 0.6             # share of the cruise PWM while an avoid path bends round
+# Stuck watch (Move._guard)
+STUCK_S = 3.0                 # pushing forward this long ...
+STUCK_M = 0.3                 # ... without getting this far is stuck
+BACK_S = 1.5                  # then astern this long (the mixer reverses below 1450)
+BACK_PWM = 1350
+MAX_STUCK = 3                 # back-offs before the move gives up (SKIPPED)
+BUMP_AHEAD_M = 1.2            # a bump is put this far ahead of the boat's position
+BUMP_RADIUS_M = 0.15
 
 
 @dataclass(frozen=True)
@@ -192,6 +225,43 @@ class Move:
         self.follower.reset()
         self.last_t = ctx.now
         self.result = {}
+        self.bumps = []               # where the bow was held, for the moves that avoid
+        self.stuck = 0
+        self._back_until = None
+        self._progress = None         # [position, seconds pushed forward since]
+
+    def replan_now(self):
+        """Drop the current path (after a back-off); the moves that plan override it."""
+
+    def _guard(self, ctx, cmd, dt):
+        """
+        Return (state, command) after the stuck watch.
+
+        Pushing forward for STUCK_S without getting STUCK_M further means the hull is held
+        (by a buoy the map has not got, or has in the wrong place): back off BACK_S straight
+        astern, put a bump BUMP_AHEAD_M ahead of where the boat was and plan again. One hold
+        more than MAX_STUCK and the move gives up: SKIPPED, result 'stuck'.
+        """
+        if self._back_until is not None:
+            if ctx.now < self._back_until:
+                return RUNNING, (BACK_PWM, 0)
+            self._back_until, self._progress = None, None
+            self.replan_now()
+        if self._progress is None or _dist(ctx.boat_xy, self._progress[0]) >= STUCK_M:
+            self._progress = [ctx.boat_xy, 0.0]
+        elif cmd is not None and cmd[0] > self.cfg.base_pwm:
+            self._progress[1] += dt
+            if self._progress[1] >= STUCK_S:
+                self.stuck += 1
+                self.result['stuck'] = self.stuck
+                if self.stuck > MAX_STUCK:
+                    return SKIPPED, None
+                h = math.radians(ctx.heading)
+                self.bumps.append((ctx.boat_xy[0] + BUMP_AHEAD_M * math.sin(h),
+                                   ctx.boat_xy[1] + BUMP_AHEAD_M * math.cos(h)))
+                self._back_until = ctx.now + BACK_S
+                return RUNNING, (BACK_PWM, 0)
+        return RUNNING, cmd
 
     def _dt(self, ctx):
         dt = 0.04 if self.last_t is None else min(0.5, max(0.001, ctx.now - self.last_t))
@@ -218,6 +288,9 @@ class DriveTo(Move):
         super().start(ctx)
         self.path, self.planned_at = None, None
 
+    def replan_now(self):
+        self.path = None
+
     def step(self, ctx):
         dt = self._dt(ctx)
         if ctx.boat_xy is None:
@@ -231,13 +304,15 @@ class DriveTo(Move):
         self.follower.set_lookahead(self.straight_lookahead if len(self.path) <= 2
                                     else min(self.straight_lookahead,
                                              self.drive.avoid_lookahead_m))
-        return RUNNING, self._follow(self.path, ctx, dt)
+        return self._guard(ctx, self._follow(self.path, ctx, dt), dt)
 
     def _plan(self, ctx):
         straight = [ctx.boat_xy, self.goal]
         if not self.avoid:
             return straight
-        self.grid.rebuild(ctx.boat_xy, ctx.landmarks)
+        bumps = [{'kind': 'buoy_black', 'east': b[0], 'north': b[1], 'confirmed': True,
+                  'sightings': 1} for b in self.bumps]
+        self.grid.rebuild(ctx.boat_xy, list(ctx.landmarks) + bumps)
         start, goal = to_planner(ctx.boat_xy), to_planner(self.goal)
         crop, centre, size = self.grid.crop(*start)
         nav_map, _ = planner.get_inflated_nav_map(crop)
@@ -256,14 +331,21 @@ class DriveTo(Move):
 class PassGate(Move):
 
     def __init__(self, cfg, gate, reverse=False, approach_m=4.0, exit_m=2.0, drive=None,
-                 lookahead_m=None):
+                 lookahead_m=None, avoid=False, replan_s=0.25, then=(), prefer=None):
         super().__init__(cfg, drive, lookahead_m)
+        self.straight_lookahead = lookahead_m or self.drive.lookahead_m
         self.red = (gate.red['east'], gate.red['north'])
         self.green = (gate.green['east'], gate.green['north'])
+        self.map_red, self.map_green = self.red, self.green
         self.red_class = 'pole_red' if gate.red['kind'] == 'pole_red' else 'buoy_red'
         self.green_class = 'pole_green' if gate.green['kind'] == 'pole_green' else 'buoy_green'
         self.reverse, self.approach_m, self.exit_m = reverse, approach_m, exit_m
+        self.avoid, self.replan_s = avoid, replan_s
+        self.then = list(then)        # avoid: where the way goes on after (the next gate)
+        self.prefer = prefer          # avoid: the way taken so far (the last gate's path)
         self.path = None
+        self.planned_at = None
+        self.bent = False
 
     def geometry(self):
         """Return (centre, through unit vector, left unit vector, width) of the gate now."""
@@ -279,6 +361,16 @@ class PassGate(Move):
     def start(self, ctx):
         super().start(ctx)
         self.path = None
+        self.planned_at = None
+        self.offset = 0.0
+
+    def replan_now(self):
+        self.planned_at = None
+
+    def shift(self):
+        """Return how far the camera has moved the gate from the map (the GPS drift)."""
+        return ((self.red[0] - self.map_red[0] + self.green[0] - self.map_green[0]) / 2.0,
+                (self.red[1] - self.map_red[1] + self.green[1] - self.map_green[1]) / 2.0)
 
     def step(self, ctx):
         dt = self._dt(ctx)
@@ -297,11 +389,166 @@ class PassGate(Move):
             self.result['through'] = abs(side) < w / 2.0
         if along >= self.exit_m:
             return DONE, None
-        self.path = [(c[0] - t[0] * self.approach_m, c[1] - t[1] * self.approach_m), c,
-                     (c[0] + t[0] * (self.exit_m + 2.0), c[1] + t[1] * (self.exit_m + 2.0))]
+        # Aim through the widest free gap (decided before the line, then kept)
+        if along < -0.5:
+            gap = free_gap(w, OBSTACLE_RADIUS_M.get(self.red_class, 0.1),
+                           OBSTACLE_RADIUS_M.get(self.green_class, 0.1),
+                           self._obstacles(ctx, c, t, left, w))
+            self.offset = gap[0] if gap else 0.0
+            self.result['gap_offset'] = self.offset
+        p = (c[0] + left[0] * self.offset, c[1] + left[1] * self.offset)
+        self.gap_point = p
+        a = (p[0] - t[0] * self.approach_m, p[1] - t[1] * self.approach_m)
+        e = (p[0] + t[0] * (self.exit_m + 2.0), p[1] + t[1] * (self.exit_m + 2.0))
+        if not self.avoid:
+            self.path = [a, p, e]
+            if along < -self.approach_m:
+                self.path.insert(0, ctx.boat_xy)
+        elif self.planned_at is None or ctx.now - self.planned_at >= self.replan_s:
+            self.path = self._plan(ctx, self._waypoints(along, t, a, p, e))
+            self.planned_at = ctx.now
+        # Slower round a bend: the same turn rate makes a tighter turn
+        cruise = int(self.cfg.cruise_pwm * BENT_CRUISE) if self.bent else None
+        return self._guard(ctx, self.follower.follow(self.path, ctx.boat_xy, ctx.heading,
+                                                     ctx.speed, dt, cruise), dt)
+
+    def _waypoints(self, along, t, a, p, e):
+        """
+        Return the points to go through from here: approach, gap, exit, as far as left.
+
+        With `then` (the next gate's approach and centre) the way is planned on to there,
+        so an obstacle just past this gate is gone round from before it; the exit is then
+        1 m past the line, enough to cross it square.
+        """
+        if self.then:
+            e = (p[0] + t[0], p[1] + t[1])
         if along < -self.approach_m:
-            self.path.insert(0, ctx.boat_xy)
-        return RUNNING, self._follow(self.path, ctx, dt)
+            pts = [a, p, e]
+        elif along < -0.3:
+            # Back onto the line square to the gate, 1 m on, so it is crossed straight
+            if along + 1.0 < -0.3:
+                q = (p[0] + t[0] * (along + 1.0), p[1] + t[1] * (along + 1.0))
+                pts = [q, p, e]
+            else:
+                pts = [p, e]
+        else:
+            pts = [e] if along < 1.0 or not self.then else []
+        return pts + self.then
+
+    def _plan(self, ctx, waypoints):
+        """
+        Return the path from the boat through the waypoints round the obstacles.
+
+        A waypoint inside an obstacle's clearance is left out, except the gap itself: the
+        approach and exit points are only there to cross the gate square. The last path
+        (or the last gate's) is preferred, so the way round an obstacle keeps its side.
+        """
+        straight = [ctx.boat_xy] + waypoints
+        prefer = self.path if self.path is not None else self.prefer
+        for keep_other in (KEEP_OTHER_M, KEEP_GATE_M):
+            obstacles = self._avoid_obstacles(ctx, keep_other)
+            points = [ctx.boat_xy] + [w for w in waypoints
+                                      if w == self.gap_point or not obstacles.inside(w)]
+            path = plan_through(points, obstacles, prefer)
+            if path is not None:
+                self.bent = len(path) > len(points)
+                self.follower.set_lookahead(
+                    min(self.straight_lookahead, self.drive.avoid_lookahead_m) if self.bent
+                    else self.straight_lookahead)
+                if self.bent:
+                    self.result['bent'] = self.result.get('bent', 0) + 1
+                return path
+        self.result['blind'] = self.result.get('blind', 0) + 1
+        self.bent = False
+        self.follower.set_lookahead(self.straight_lookahead)
+        return straight
+
+    def _avoid_obstacles(self, ctx, keep_other):
+        """Return the Obstacles to plan round: the gate, its walls, the others, the bumps."""
+        r_red = OBSTACLE_RADIUS_M.get(self.red_class, 0.1)
+        r_green = OBSTACLE_RADIUS_M.get(self.green_class, 0.1)
+        circles = [(self.red, r_red + KEEP_GATE_M), (self.green, r_green + KEEP_GATE_M)]
+        for kind, xy in self._others(ctx):
+            keep = KEEP_GATE_M if kind in GATE_KINDS else keep_other
+            circles.append((xy, OBSTACLE_RADIUS_M.get(kind, 0.25) + keep))
+        circles += [(b, BUMP_RADIUS_M + keep_other) for b in self.bumps]
+        # Outward from each buoy along the gate's line (not `left`: reversed, it points green)
+        gx, gy = self.red[0] - self.green[0], self.red[1] - self.green[1]
+        n = math.hypot(gx, gy) or 1.0
+        u = (gx / n * WALL_M, gy / n * WALL_M)
+        walls = [(self.red, (self.red[0] + u[0], self.red[1] + u[1]), KEEP_GATE_M),
+                 (self.green, (self.green[0] - u[0], self.green[1] - u[1]), KEEP_GATE_M)]
+        return Obstacles(circles, walls)
+
+    def _others(self, ctx):
+        """
+        Return [(kind, (east, north))] near the boat other than the gate's own two markers.
+
+        Map landmarks (seen at least twice) are moved by the camera's shift of the gate, so
+        they sit where this frame's GPS puts them; this frame's detections are taken as they
+        are and replace a map copy of the same kind within MATCH_M.
+        """
+        own = (self.red_class, self.green_class)
+        seen = [(kind_of(name), xy) for name, xy in detections_xy(ctx)]
+        sx, sy = self.shift()
+        points = []
+        for lm in ctx.landmarks:
+            if not (lm['confirmed'] or lm['sightings'] >= 2):
+                continue
+            kind = kind_of(lm['kind'])            # indicator_red / _green -> indicator
+            xy = (lm['east'] + sx, lm['north'] + sy)
+            if any(k == kind and _dist(xy, s) <= MATCH_M for k, s in seen):
+                continue
+            points.append((kind, xy))
+        points += seen
+        out = []
+        for kind, xy in points:
+            if _dist(xy, ctx.boat_xy) > AVOID_RANGE_M:
+                continue
+            if kind in own and min(_dist(xy, self.red), _dist(xy, self.green)) <= MATCH_M:
+                continue                          # the gate's own markers (and their copies)
+            out.append((kind, xy))
+        return out
+
+    def _obstacles(self, ctx, c, t, left, w):
+        """Return [(side, radius)] of the other objects on the gate's line (map, camera)."""
+        out = []
+        for kind, xy in self._others(ctx):
+            d = (xy[0] - c[0], xy[1] - c[1])
+            along = d[0] * t[0] + d[1] * t[1]
+            side = d[0] * left[0] + d[1] * left[1]
+            if abs(along) <= GATE_LINE_M and abs(side) <= w / 2.0 + 0.5:
+                out.append((side, OBSTACLE_RADIUS_M.get(kind, 0.25)))
+        return out
+
+
+def free_gap(width, red_r, green_r, obstacles):
+    """
+    Return (offset, gap) of the widest gap for the hull's centre in a gate, or None.
+
+    Positions across the gate: + towards red, the centre at 0, red at width/2, green at
+    -width/2. obstacles: [(side, radius)] on the gate's line. The hull's half beam and a
+    margin are kept from every edge; offset is the middle of the widest gap left.
+    """
+    keep = HALF_BEAM_M + GAP_MARGIN_M
+    lo, hi = -width / 2.0 + green_r + keep, width / 2.0 - red_r - keep
+    gaps = [(lo, hi)] if hi > lo else []
+    for side, r in obstacles:
+        a, b = side - r - keep, side + r + keep
+        nxt = []
+        for g0, g1 in gaps:
+            if b <= g0 or a >= g1:
+                nxt.append((g0, g1))
+                continue
+            if a > g0:
+                nxt.append((g0, a))
+            if b < g1:
+                nxt.append((b, g1))
+        gaps = nxt
+    if not gaps:
+        return None
+    g0, g1 = max(gaps, key=lambda g: g[1] - g[0])
+    return (g0 + g1) / 2.0, g1 - g0
 
 
 class Circle(Move):

@@ -325,7 +325,7 @@ cp /ws/bags/map_roboboat_2026.json /ws/bags/map_roboboat_2026_<ad>.json
 
 ### 6.1b RoboBoat koşusu: Görev 1 (R2.4)
 
-Tekne kendi başına: iki giriş kapısı → Görev 2 (şimdilik: kanalı bul ve dört kapıdan geç) →
+Tekne kendi başına: iki giriş kapısı → Görev 2 (şimdilik: kanalı bul, dört kapıdan geç, aynı kapılardan geri dön) →
 (Görev 3, 5 henüz yok, atlanır) → kapılara dönüş → iki kapıdan ters yönde çıkış → `FINISHED`. Kaydederek başlat:
 
 ```bash

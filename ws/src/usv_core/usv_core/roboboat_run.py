@@ -122,6 +122,11 @@ class RoboBoatRun:
             self.memory['start_xy'] = ctx.boat_xy
             self._event(now, 'run_started', start_xy=ctx.boat_xy)
             self._enter(self.plan[0], now, ctx)
+        # The run may start before the first /usv/map (no map frame yet): the start is then
+        # taken at the first cycle that has one (the boat has hardly moved). T1Entry sets
+        # it for good from the gates.
+        if self.memory.get('start_xy') is None and ctx.boat_xy is not None:
+            self.memory['start_xy'] = ctx.boat_xy
         if self._start_pending:
             self._start_pending = False
             self.phase_started = now
@@ -141,7 +146,8 @@ class RoboBoatRun:
         if state == RUNNING:
             return command
         self._event(now, 'phase_done' if state == DONE else 'phase_skipped', phase=self.phase)
-        self.log(f'{self.phase}: {state.lower()}')
+        summary = getattr(self.phases[self.phase], 'summary', None)
+        self.log(f'{self.phase}: {state.lower()}' + (f' ({summary(ctx)})' if summary else ''))
         self._enter(self._next(self.phase), now, ctx)
         return None
 

@@ -24,6 +24,8 @@ POLES = [('pole_red', -4.33, 0.0), ('pole_green', 4.33, 0.0),
 CHANNEL = []
 for cx, y in ((1.52, 21.13), (2.12, 27.13), (2.72, 33.13), (3.72, 39.13)):
     CHANNEL += [('buoy_red', cx - 1.25, y), ('buoy_green', cx + 1.25, y)]
+BLACKS = [('buoy_black', 2.07, 33.33), ('buoy_black', 3.07, 39.43)]   # inside gates 3 and 4
+OFF_LINE = [('buoy_black', 1.82, 24.13)]      # between gates 1 and 2, on the way
 
 
 def landmarks(turn_deg, items=POLES):
@@ -52,7 +54,7 @@ def run_task1(turn_deg=0.0, seconds=200.0, dt=0.04, items=POLES, task_order=(),
                                 run.memory.get('t1_heading'))
         cmd = run.step(ctx, True)
         fwd, yaw = cmd or (1500, 0)
-        speed = max(0.0, (fwd - 1500) / 180.0 * 1.3)
+        speed = (fwd - 1500) / 180.0 * 1.3 if fwd >= 1500 else (fwd - 1500) / 150.0 * 0.7
         h = (ctx.heading + max(-60.0, min(60.0, yaw * 0.25)) * dt) % 360.0
         ctx.boat_xy = (ctx.boat_xy[0] + speed * math.sin(math.radians(h)) * dt,
                        ctx.boat_xy[1] + speed * math.cos(math.radians(h)) * dt)
@@ -101,10 +103,16 @@ def test_task1_entry_return_exit():
         assert abs((mem['t1_heading'] - true_heading + 180.0) % 360.0 - 180.0) < 3.0
 
 
-def test_task2_through_the_channel():
-    """Go through all four channel gates, with an exact hint and with one 3 m off."""
+def test_task2_through_the_channel_and_back():
+    """
+    Go in through all four channel gates and back out through all four.
+
+    With an exact hint and with one 3 m off; a black buoy between gates 1 and 2 on the
+    way, and one inside gates 3 and 4 beside the red.
+    """
+    items = POLES + CHANNEL + BLACKS + OFF_LINE
     for hint in ((21.1, -1.5), (21.1 + 2.1, -1.5 + 2.1)):
-        run, track, every = run_task1(0.0, seconds=300.0, items=POLES + CHANNEL,
+        run, track, every = run_task1(0.0, seconds=400.0, items=items,
                                       task_order=('task2',), hints={'task2': hint},
                                       until='RETURN')
         assert run.phase == 'RETURN', (hint, run.events[-3:])
@@ -112,7 +120,11 @@ def test_task2_through_the_channel():
         for k in range(4):
             red, green = every[4 + 2 * k], every[5 + 2 * k]
             xs = crossings(track, red, green)
-            assert [d for d, _, _ in xs] == ['in'], (hint, k, xs)
+            assert [d for d, _, _ in xs] == ['in', 'out'], (hint, k, xs)
             # the whole hull between the buoys: 0.39 m half beam + 0.10 m buoy radius
-            assert abs(xs[0][1]) < xs[0][2] / 2.0 - 0.49, (hint, k, xs)
-        assert run.memory['task2']['gates'] == 4
+            assert all(abs(side) < w / 2.0 - 0.49 for _, side, w in xs), (hint, k, xs)
+        mem = run.memory['task2']
+        assert mem['gates'] == 4 and mem['back_gates'] == 4 and mem['stuck'] == 0
+        assert all(mem['through']) and all(mem['back_through'])
+        for b in every[12:15]:                # no touch: 0.39 half beam + 0.10 buoy
+            assert min(math.hypot(p[0] - b['east'], p[1] - b['north']) for p in track) > 0.6

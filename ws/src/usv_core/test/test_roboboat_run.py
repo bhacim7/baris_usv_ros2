@@ -187,3 +187,13 @@ def test_navigator_reads_the_course_from_the_map():
     nav.submit({'cmd': 'set_manual', 'value': False})
     drive(nav, 1.0, 2, Perception(landmarks=lms, origin=origin))
     assert nav.run.memory['start_xy'] == pytest.approx((0.0, 0.0), abs=0.01)
+
+
+def test_start_is_taken_once_the_map_frame_exists():
+    """The run may start before the first /usv/map: the start comes a few cycles later."""
+    run = RoboBoatRun(RunConfig(task_order=()), phases={T1_ENTRY: Scripted(cycles=100)})
+    run.step(RunContext(now=0.0, boat_xy=None), True)
+    assert run.memory['start_xy'] is None
+    run.step(RunContext(now=0.04, boat_xy=(1.0, 2.0)), True)
+    run.step(RunContext(now=0.08, boat_xy=(1.5, 2.5)), True)
+    assert run.memory['start_xy'] == (1.0, 2.0)

@@ -352,7 +352,7 @@ periyotla ±30–40° salındırdı. Yakın hedef noktası, ataleti olan bir tek
 | Hareket | Ürettiği yol | Bitti |
 |---|---|---|
 | `DriveTo` (git) | Haritadaki işaretler engel ızgarasına çizilir (§4.11); önü açıksa düz çizgi, değilse A* yolu; saniyede 5 kez yeniden planlanır | Hedefe 1,5 m |
-| `PassGate` (kapıdan geç) | Kapının 4 m önü → ortası → 2 m ötesi, kapıya dik. Kapı o karede kamerada görünüyorsa direklerin konumu o kareden güncellenir | Kapı çizgisinin 2 m ötesi |
+| `PassGate` (kapıdan geç) | Kapının 4 m önü → geçiş noktası → 2 m ötesi, kapıya dik. Kapı o karede kamerada görünüyorsa direklerin konumu o kareden güncellenir. Kapı çizgisinde başka türden engel varsa (kanaldaki siyahlar) geçiş noktası, gövdeye ve 0,15 m paya yer kalan en geniş boşluğun ortasıdır | Kapı çizgisinin 2 m ötesi |
 | `Circle` (etrafında dön) | Nesnenin çevresinde çember, saat yönü ya da tersi | 360° süpürülünce |
 | `Search` (ara) | Önce yerinde bir tur, sonra genişleyen kare | Aranan bulununca ya da desen bitince |
 
