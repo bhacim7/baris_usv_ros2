@@ -77,14 +77,18 @@ GATE_MATCH_SHARE = 0.4        # ... and within this share of a gate's width
 WIDTH_TOL_M = 0.6             # a gate refined to a width further from the map's is not
 GATE_FREEZE_M = 1.0           # the gate is not refined in the last metre before its line
 OBJECT_MATCH_M = 1.0          # avoid: a detection places a map object of its kind within
+PLACE_ALPHA = 0.3             # ... a share at a time (one frame's box jumps 0.5-0.9 m)
 HALF_BEAM_M = 0.39            # half the hull's width (0.78 m)
+HALF_LENGTH_M = 0.85          # half the hull's length (1.7 m)
 GAP_MARGIN_M = 0.15           # kept clear of each side of a gap in a gate
 GATE_LINE_M = 1.5             # obstacles this close to a gate's line narrow it
-# Clearance kept by PassGate's avoid paths, hull centre line to an object's edge: a gate's
-# (channel's) red / green markers as in free_gap, anything else a little more (both drop to
-# the gate's if no path keeps it). Walls go WALL_M out from a gate's buoys.
+# Clearance kept by the avoid paths, hull centre to an object's edge: a gate's (channel's)
+# red / green markers as in free_gap (the hull lined up through the gate), anything else
+# half the hull's length and a margin: turning, the bow swings that far (t2g_s3: the centre
+# 1.0 m from a black buoy, the bow on it). Both drop to the gate's if no path keeps them.
+# Walls go WALL_M out from a gate's buoys.
 KEEP_GATE_M = HALF_BEAM_M + GAP_MARGIN_M
-KEEP_OTHER_M = HALF_BEAM_M + 0.35
+KEEP_OTHER_M = HALF_LENGTH_M + 0.15   # the bow reaches this far when not on the path's line
 GATE_KINDS = ('pole_red', 'pole_green', 'buoy_red', 'buoy_green')
 WALL_M = 3.0
 AVOID_RANGE_M = 12.0          # objects further from the boat are not planned round
@@ -160,14 +164,16 @@ def detections_xy(ctx):
             for d in ctx.detections if d['position_ok'] and not d.get('edge')]
 
 
-def placed_objects(ctx, shift=(0.0, 0.0)):
+def placed_objects(ctx, shift=(0.0, 0.0), memory=None):
     """
     Return [(kind, (east, north))] of the map's confirmed landmarks, placed for this frame.
 
-    Each is put where this frame's camera sees one of its kind within OBJECT_MATCH_M, else
-    moved by shift (PassGate: the camera's shift of its gate, the GPS drift since mapped).
-    Only confirmed landmarks: a single frame's boxes can be mislabelled (t2c_s1 saw digits
-    on the channel buoys).
+    Each goes to where this frame's camera sees one of its kind within OBJECT_MATCH_M, else
+    to its map place moved by shift (PassGate: the camera's shift of its gate, the GPS
+    drift since mapped). With memory (a dict kept by the move, by landmark id) it moves
+    there PLACE_ALPHA of the way each frame, so one frame's box does not make the path
+    jump. Only confirmed landmarks: a single frame's boxes can be mislabelled (t2c_s1 saw
+    digits on the channel buoys).
     """
     seen = [(kind_of(name), xy) for name, xy in detections_xy(ctx)]
     out = []
@@ -179,6 +185,12 @@ def placed_objects(ctx, shift=(0.0, 0.0)):
         near = [p for k, p in seen if k == kind and _dist(xy, p) <= OBJECT_MATCH_M]
         if near:
             xy = min(near, key=lambda p: _dist(xy, p))
+        if memory is not None:
+            last = memory.get(lm['id'])
+            if last is not None:
+                xy = (last[0] + PLACE_ALPHA * (xy[0] - last[0]),
+                      last[1] + PLACE_ALPHA * (xy[1] - last[1]))
+            memory[lm['id']] = xy
         out.append((kind, xy))
     return out
 
@@ -264,6 +276,7 @@ class Move:
         self.last_t = ctx.now
         self.result = {}
         self.bumps = []               # where the bow was held, for the moves that avoid
+        self.placed = {}              # placed_objects' memory
         self.stuck = 0
         self._back_until = None
         self._progress = None         # [best progress, seconds since it last grew]
@@ -369,7 +382,8 @@ class DriveTo(Move):
         if not self.avoid:
             return straight
         reach = _dist(here, self.goal) + AVOID_RANGE_M
-        objects = [(kind, xy) for kind, xy in placed_objects(ctx) if _dist(xy, here) <= reach]
+        objects = [(kind, xy) for kind, xy in placed_objects(ctx, memory=self.placed)
+                   if _dist(xy, here) <= reach]
         for keep in (KEEP_OTHER_M, KEEP_GATE_M):
             circles = [(xy, OBSTACLE_RADIUS_M.get(kind, 0.25) + keep) for kind, xy in objects]
             circles += [(b, BUMP_RADIUS_M + keep) for b in self.bumps]
@@ -418,6 +432,7 @@ class PassGate(Move):
         self.planned_at = None
         self.offset = 0.0
         self.along = None
+        self._others_at = None
 
     def replan_now(self):
         self.planned_at = None
@@ -592,14 +607,17 @@ class PassGate(Move):
         placed_objects with the camera's shift of the gate, so each sits where this frame's
         GPS puts it.
         """
+        if self._others_at == (ctx.now, ctx.boat_xy):
+            return self._others_last              # once a cycle (placed_objects smooths)
         own = (self.red_class, self.green_class)
         out = []
-        for kind, xy in placed_objects(ctx, self.shift()):
+        for kind, xy in placed_objects(ctx, self.shift(), self.placed):
             if _dist(xy, ctx.boat_xy) > AVOID_RANGE_M:
                 continue
             if kind in own and min(_dist(xy, self.red), _dist(xy, self.green)) <= MATCH_M:
                 continue                          # the gate's own markers (and their copies)
             out.append((kind, xy))
+        self._others_at, self._others_last = (ctx.now, ctx.boat_xy), out
         return out
 
     def _obstacles(self, ctx, c, t, left, w):
