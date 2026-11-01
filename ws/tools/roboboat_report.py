@@ -24,7 +24,10 @@ the hull outline as in run_report.py):
              commands themselves
 
 --plot OUT.png: the true track and the GPS fixes over the gates and buoys; true heading vs
-the heading used; the steering command; each against time, phases marked.
+the heading used; the steering command; each against time, phases marked. The map panel
+shows the true objects as rings (the judge's view, from the course file) and, as filled
+dots, the boat's OWN map at the end of the run (the last /usv/map: what it saw; faint =
+not confirmed yet). The boat never reads the course file.
 """
 
 import argparse
@@ -43,7 +46,7 @@ from usv_core.roboboat_course import CourseModel  # noqa: E402
 from usv_sim.geo import enu  # noqa: E402
 from usv_sim.sensors import compass_deg, yaw_from_quaternion  # noqa: E402
 
-EXTRA = ('/usv/fix', '/usv/heading')
+EXTRA = ('/usv/fix', '/usv/heading', '/usv/map')
 
 
 def read_extra(path):
@@ -104,10 +107,24 @@ def steering(data, extra, track, changes, origin, t0):
     return imu, pwm, fixes
 
 
-def plot(path, track, fixes, imu, pwm, used, changes, view, buoys, t0):
+def boat_map(extra, origin):
+    """Return the boat's own landmarks at the end of the run, in course east / north."""
+    if not extra['/usv/map']:
+        return []
+    _, last = extra['/usv/map'][-1]
+    out = []
+    for lm in last.landmarks:
+        e, n = enu(lm.latitude, lm.longitude, origin['lat'], origin['lon'])
+        out.append({'kind': lm.kind, 'color': lm.color, 'east': e, 'north': n,
+                    'confirmed': lm.confirmed, 'sightings': lm.sightings})
+    return out
+
+
+def plot(path, track, fixes, imu, pwm, used, changes, view, buoys, t0, seen=()):
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
+    from usv_nodes.mapper import COLORS
 
     fig = plt.figure(figsize=(16, 9))
     ax = fig.add_axes([0.04, 0.07, 0.48, 0.86])
@@ -129,10 +146,16 @@ def plot(path, track, fixes, imu, pwm, used, changes, view, buoys, t0):
             ax.plot(lm['east'] - x0, lm['north'] - y0, 'o', color=c, ms=8)
     for b in buoys:
         ax.plot(b['east'] - x0, b['north'] - y0, 'o', mfc='none', mec='0.5', ms=5)
+    for lm in seen:
+        rgb = COLORS.get(lm['color'] or lm['kind'], (0.5, 0.5, 0.5))
+        ax.plot(lm['east'] - x0, lm['north'] - y0, 'o', color=rgb,
+                alpha=1.0 if lm['confirmed'] else 0.3, ms=5 if lm['confirmed'] else 3)
     ax.set_aspect('equal')
     ax.grid(alpha=0.3)
     ax.legend(fontsize=8, loc='best')
-    ax.set_title('true hull track by phase; grey dots: GPS fixes')
+    ax.set_title('rings: true objects (judge); filled dots: the boat\'s own map '
+                 '(faint = unconfirmed); lines: true track by phase; grey: GPS fixes',
+                 fontsize=9)
     ax.set_xlabel('east of the start, m')
     ax.set_ylabel('north of the start, m')
 
@@ -243,10 +266,14 @@ def main():
         print(f'   contacts: {len(contacts)}')
     extra = read_extra(args.bag)
     imu, pwm, fixes = steering(data, extra, track, changes, course.origin, t0)
+    seen = boat_map(extra, course.origin)
+    print(f"\n   the boat's own map at the end: {len(seen)} landmarks, "
+          f"{sum(1 for lm in seen if lm['confirmed'])} confirmed (course_report.py compares "
+          'it with the course)')
     print(f'\n   run length: {track[-1][0] - t0:.0f} s of truth after the start')
     if args.plot:
         plot(args.plot, track, fixes, imu, pwm, extra['/usv/heading'], changes, view,
-             buoys, t0)
+             buoys, t0, seen)
 
 
 if __name__ == '__main__':

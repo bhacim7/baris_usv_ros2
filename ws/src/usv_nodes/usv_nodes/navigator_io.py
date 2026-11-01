@@ -16,6 +16,7 @@ Kept apart from the node so they can be tested without a running ROS graph:
 
 RoboBoat profile (phase 6 R2):
   run_config_from(lookup)   usv_core.roboboat_run.RunConfig from the roboboat.* parameters
+  drive_config_from(lookup) usv_core.roboboat_drive.DriveConfig from roboboat.drive.*
   parse_hint(text)          'ahead,left' (metres from the Task 1 entry gates) -> tuple;
                             '' = no hint
   landmark_to_dict(lm)      one usv_interfaces/Landmark as the dict usv_core.world_map
@@ -28,6 +29,7 @@ import dataclasses
 import math
 
 from usv_core.nav_config import NavConfig, WAYPOINT_NAMES
+from usv_core.roboboat_drive import DriveConfig
 from usv_core.roboboat_run import HINTED, RunConfig
 
 UNKNOWN_CLASS = 255             # fake_perception / perception: class id not decided
@@ -118,6 +120,14 @@ def run_config_from(lookup):
         task_timeout_s=float(lookup('roboboat.task_timeout_s', defaults.task_timeout_s)),
         run_timeout_s=float(lookup('roboboat.run_timeout_s', defaults.run_timeout_s)),
         hints=hints)
+
+
+def drive_config_from(lookup):
+    d = DriveConfig()
+    return DriveConfig(
+        lookahead_m=float(lookup('roboboat.drive.lookahead_m', d.lookahead_m)),
+        avoid_lookahead_m=float(lookup('roboboat.drive.avoid_lookahead_m',
+                                       d.avoid_lookahead_m)))
 
 
 def _stamp(t):

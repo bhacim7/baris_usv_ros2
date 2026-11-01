@@ -67,6 +67,7 @@ def test_drive_to_goes_round_a_wall_of_buoys():
     wall = [lm(i, 'buoy_black', -3.0 + i * 0.5, 10.0) for i in range(13)]   # x -3 .. 3
     state, track, _ = drive(DriveTo(CFG, (0.0, 20.0)), (0.0, 0.0), 0.0, landmarks=wall)
     assert state == DONE
+    # Hull centre to buoy centre: 0.39 m half beam + 0.10 m buoy radius = 0.49 m is a touch
     closest = min(math.hypot(p[0] - b['east'], p[1] - b['north']) for p in track for b in wall)
     assert closest > 0.5
 

@@ -28,6 +28,7 @@ Frames: map east / north metres here; the planner's own x = North, y = East insi
 (to_planner / from_planner).
 """
 
+from dataclasses import dataclass, replace
 import math
 
 import cv2
@@ -46,6 +47,26 @@ OBSTACLE_RADIUS_M = {
 }
 DETECTION_MAX_AGE_S = 0.5
 MATCH_M = 2.0                 # a detection replaces a map position within this
+
+
+@dataclass(frozen=True)
+class DriveConfig:
+    """
+    RoboBoat path-following settings (navigator.yaml roboboat.drive.*).
+
+    lookahead_m: Pure Pursuit aims this far ahead along the path. The TEKNOFEST tuning
+    (0.8-2.5 m with the speed, ~1.3 m cruising) made the Gazebo boat weave round straight
+    legs, ~10 s period, +/-30-40 deg (t1_run1/2, 2026-11-01): with its yaw inertia a near
+    aim point is overshot. Measured on Task 1 (seed 1): 1.3 m 54.6 s, 2.5 m 46.0 s,
+    4.0 m 43.5 s and the smoothest (entry yaw rate 7.4 deg/s, gates within 0.3 m). To be
+    checked again in the 2.5 m channel gates (R3). Circle uses at most 0.8 x its radius.
+
+    avoid_lookahead_m: used by DriveTo while A* bends the path round obstacles: a far aim
+    point cuts the corner (4.0 m brushed the end of a buoy wall in the test, 2.5 m did not).
+    """
+
+    lookahead_m: float = 4.0
+    avoid_lookahead_m: float = 2.0
 
 
 def to_planner(p):
@@ -107,10 +128,21 @@ class LandmarkGrid(LocalCostmap):
 class PathFollower:
     """Pure Pursuit along a map path, with the TEKNOFEST throttle and spot-turn rules."""
 
-    def __init__(self, cfg, planner_cfg=planner.DEFAULT_CONFIG):
+    def __init__(self, cfg, lookahead_m=DriveConfig().lookahead_m):
         self.cfg = cfg
-        self.pcfg = planner_cfg
+        self.lookahead_m = lookahead_m
+        self.pcfg = self._planner_cfg(lookahead_m)
         self.reset()
+
+    @staticmethod
+    def _planner_cfg(lookahead_m):
+        return replace(planner.DEFAULT_CONFIG, pure_pursuit_min_lookahead=lookahead_m,
+                       pure_pursuit_max_lookahead=lookahead_m)
+
+    def set_lookahead(self, lookahead_m):
+        if lookahead_m != self.lookahead_m:
+            self.lookahead_m = lookahead_m
+            self.pcfg = self._planner_cfg(lookahead_m)
 
     def reset(self):
         self.prev_error = 0.0
@@ -146,9 +178,10 @@ class PathFollower:
 class Move:
     """Common bookkeeping: the follower, the cycle time, a result dict."""
 
-    def __init__(self, cfg):
+    def __init__(self, cfg, drive=None, lookahead_m=None):
         self.cfg = cfg
-        self.follower = PathFollower(cfg)
+        self.drive = drive or DriveConfig()
+        self.follower = PathFollower(cfg, lookahead_m or self.drive.lookahead_m)
         self.last_t = None
         self.result = {}
 
@@ -168,8 +201,8 @@ class Move:
 
 class DriveTo(Move):
 
-    def __init__(self, cfg, goal, arrive_m=1.5, replan_s=0.2, avoid=True):
-        super().__init__(cfg)
+    def __init__(self, cfg, goal, arrive_m=1.5, replan_s=0.2, avoid=True, drive=None):
+        super().__init__(cfg, drive)
         self.goal, self.arrive_m, self.replan_s, self.avoid = goal, arrive_m, replan_s, avoid
         self.grid = LandmarkGrid(cfg.costmap_res_m_per_px, cfg.crop_radius_m,
                                  cfg.buoy_radius_m) if avoid else None
@@ -189,6 +222,9 @@ class DriveTo(Move):
         if self.path is None or ctx.now - self.planned_at >= self.replan_s:
             self.path = self._plan(ctx)
             self.planned_at = ctx.now
+        # A bent (A*) path is followed closely; a straight one smoothly
+        self.follower.set_lookahead(self.drive.lookahead_m if len(self.path) <= 2
+                                    else self.drive.avoid_lookahead_m)
         return RUNNING, self._follow(self.path, ctx, dt)
 
     def _plan(self, ctx):
@@ -213,8 +249,8 @@ class DriveTo(Move):
 
 class PassGate(Move):
 
-    def __init__(self, cfg, gate, reverse=False, approach_m=4.0, exit_m=2.0):
-        super().__init__(cfg)
+    def __init__(self, cfg, gate, reverse=False, approach_m=4.0, exit_m=2.0, drive=None):
+        super().__init__(cfg, drive)
         self.red = (gate.red['east'], gate.red['north'])
         self.green = (gate.green['east'], gate.green['north'])
         self.red_class = 'pole_red' if gate.red['kind'] == 'pole_red' else 'buoy_red'
@@ -264,8 +300,9 @@ class PassGate(Move):
 class Circle(Move):
 
     def __init__(self, cfg, target, class_name, radius_m=2.0, clockwise=True, laps=1.0,
-                 step_deg=15.0):
-        super().__init__(cfg)
+                 step_deg=15.0, drive=None):
+        drive = drive or DriveConfig()
+        super().__init__(cfg, drive, lookahead_m=min(drive.lookahead_m, 0.8 * radius_m))
         self.target, self.class_name = target, class_name
         self.radius_m, self.clockwise, self.laps = radius_m, clockwise, laps
         self.step_deg = step_deg
@@ -314,8 +351,9 @@ class Circle(Move):
 
 class Search(Move):
 
-    def __init__(self, cfg, centre, found, leg_m=4.0, max_m=16.0, spin_deg=360.0):
-        super().__init__(cfg)
+    def __init__(self, cfg, centre, found, leg_m=4.0, max_m=16.0, spin_deg=360.0,
+                 drive=None):
+        super().__init__(cfg, drive)
         self.centre, self.found = centre, found
         self.leg_m, self.max_m, self.spin_deg = leg_m, max_m, spin_deg
         self.turned = 0.0

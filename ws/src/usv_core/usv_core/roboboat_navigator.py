@@ -65,11 +65,11 @@ def course_summary(view):
 class RoboBoatNavigator(NavigatorBase):
 
     def __init__(self, cfg=None, run_cfg=None, start_time=0.0, mission_started=True,
-                 manual=False, log=None, phases=None):
+                 manual=False, log=None, phases=None, drive_cfg=None):
         cfg = cfg or NavConfig()
         super().__init__(cfg, start_time, mission_started, manual, log)
-        self.run = RoboBoatRun(run_cfg or RunConfig(), {**default_phases(cfg), **(phases or {})},
-                               self.log)
+        self.run = RoboBoatRun(run_cfg or RunConfig(),
+                               {**default_phases(cfg, drive_cfg), **(phases or {})}, self.log)
         self.course_model = CourseModel()
         self.course = None                  # latest CourseView
         self.course_found = set()

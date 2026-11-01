@@ -10,9 +10,10 @@ from types import SimpleNamespace
 
 import pytest
 from usv_core.nav_config import NavConfig
+from usv_core.roboboat_drive import DriveConfig
 from usv_core.roboboat_run import HINTED, RunConfig
-from usv_nodes.navigator_io import (buoy_to_object, detections_to_dicts, landmark_to_dict,
-                                    nav_config_from, parse_hint, path_points,
+from usv_nodes.navigator_io import (buoy_to_object, detections_to_dicts, drive_config_from,
+                                    landmark_to_dict, nav_config_from, parse_hint, path_points,
                                     run_config_from, target_color)
 import yaml
 
@@ -31,8 +32,9 @@ def yaml_params():
 def roboboat_params():
     with open(CONFIG) as f:
         rb = yaml.safe_load(f)['navigator']['ros__parameters']['roboboat']
-    flat = {'roboboat.' + k: v for k, v in rb.items() if k != 'hint'}
+    flat = {'roboboat.' + k: v for k, v in rb.items() if k not in ('hint', 'drive')}
     flat.update({'roboboat.hint.' + k: v for k, v in rb['hint'].items()})
+    flat.update({'roboboat.drive.' + k: v for k, v in rb['drive'].items()})
     return flat
 
 
@@ -136,3 +138,10 @@ def test_landmark_and_detections_become_dicts():
     frame = SimpleNamespace(header=SimpleNamespace(stamp=stamp(33.5)), detections=[det])
     dets, t = detections_to_dicts(frame)
     assert t == 33.5 and dets[0]['box'] == (1, 2, 3, 4) and dets[0]['distance_m'] == 5.1
+
+
+def test_drive_settings_from_yaml_and_override():
+    params = roboboat_params()
+    assert drive_config_from(lambda name, default: params.get(name, default)) == DriveConfig()
+    assert drive_config_from(lambda name, default: {'roboboat.drive.lookahead_m': 4}.get(
+        name, default)).lookahead_m == 4.0

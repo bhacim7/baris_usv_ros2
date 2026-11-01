@@ -59,8 +59,8 @@ from usv_interfaces.msg import (BuoyArray, DetectionArray, LandmarkArray, NavSta
 from usv_interfaces.srv import SetTargetColor, SetTask, SetWaypoint
 
 from usv_nodes.navigator_io import (buoy_to_object, detections_to_dicts, landmark_to_dict,
-                                    nav_config_from, path_points, run_config_from,
-                                    target_color)
+                                    drive_config_from, nav_config_from, path_points,
+                                    run_config_from, target_color)
 
 NAN = float('nan')
 
@@ -88,9 +88,11 @@ class NavigatorNode(Node):
 
         if self.roboboat:
             run_cfg = run_config_from(lookup)
+            self.drive_cfg = drive_config_from(lookup)
             self.nav = RoboBoatNavigator(self.cfg, run_cfg, start_time=self.now_s(),
                                          mission_started=False, manual=start_manual,
-                                         log=self.get_logger().info)
+                                         log=self.get_logger().info,
+                                         drive_cfg=self.drive_cfg)
         else:
             self.nav = TeknofestNavigator(self.cfg, start_time=self.now_s(),
                                           mission_started=False, manual=start_manual,
@@ -133,7 +135,8 @@ class NavigatorNode(Node):
             self.get_logger().info(
                 f'navigator: RoboBoat run {run.plan}, task timeout '
                 f'{run.cfg.task_timeout_s:.0f} s, run timeout {run.cfg.run_timeout_s:.0f} s, '
-                f'hints {run.cfg.hints or "none"}')
+                f'hints {run.cfg.hints or "none"}, look-ahead '
+                f'{self.drive_cfg.lookahead_m:.1f} m')
         else:
             self.publish_waypoints()
         self.get_logger().info(

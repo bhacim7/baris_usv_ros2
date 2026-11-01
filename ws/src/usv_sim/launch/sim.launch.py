@@ -66,7 +66,7 @@ CHAIN_SWITCHES = {'true_distance': 'detection_true_distance',
 # What ws/tools/run_report.py reads, plus what is handy to replay
 RECORD_TOPICS = ('/usv/nav_status', '/usv/thrusters/pwm', '/usv/sim/navsat', '/usv/sim/imu',
                  '/usv/fix', '/usv/heading', '/usv/buoys', '/usv/detections', '/usv/map',
-                 '/usv/speed', '/usv/imu')
+                 '/usv/speed', '/usv/imu', '/usv/map/markers')
 
 
 def setup(context):
@@ -111,6 +111,9 @@ def setup(context):
     # The rule book follows the course: RoboBoat classes -> the RoboBoat run (phase 6 R2)
     navigator_overrides['competition'] = (
         'roboboat' if course_data.get('classes') == 'roboboat' else 'teknofest')
+    lookahead = LaunchConfiguration('lookahead_m').perform(context)
+    if lookahead:
+        navigator_overrides['roboboat.drive.lookahead_m'] = float(lookahead)
     navigator_overrides['start_manual'] = \
         LaunchConfiguration('auto').perform(context).lower() != 'true'
 
@@ -239,6 +242,9 @@ def generate_launch_description():
         DeclareLaunchArgument('survey', default_value='false',
                               description='true = no navigator, survey_drive drives the '
                               "course's survey route from the true pose"),
+        DeclareLaunchArgument('lookahead_m', default_value='',
+                              description='RoboBoat path following: Pure Pursuit look-ahead '
+                              '(m); empty = navigator.yaml'),
         DeclareLaunchArgument('seed', default_value='',
                               description='sensor noise seed for sim_bridge and '
                               'fake_perception; empty = YAML value'),

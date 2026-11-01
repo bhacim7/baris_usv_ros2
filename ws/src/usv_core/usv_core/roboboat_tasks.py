@@ -65,8 +65,9 @@ def circular_mean_deg(values):
 
 class T1Entry:
 
-    def __init__(self, cfg, steady_deg_per_s=8.0, min_samples=25):
+    def __init__(self, cfg, steady_deg_per_s=8.0, min_samples=25, drive=None):
         self.cfg = cfg
+        self.drive = drive
         self.steady = steady_deg_per_s
         self.min_samples = min_samples
 
@@ -83,7 +84,7 @@ class T1Entry:
                 return self._search(ctx)
             if not isinstance(self.move, PassGate):
                 self.first = _gate_dict(gates[0])
-                self.move = PassGate(self.cfg, gates[0])
+                self.move = PassGate(self.cfg, gates[0], drive=self.drive)
                 self.move.start(ctx)
             state, cmd = self.move.step(ctx)
             if state == RUNNING:
@@ -100,7 +101,7 @@ class T1Entry:
             if not second:
                 return self._go_on(ctx)
             if not isinstance(self.move, PassGate):
-                self.move = PassGate(self.cfg, second[0])
+                self.move = PassGate(self.cfg, second[0], drive=self.drive)
                 self.move.start(ctx)
             state, cmd = self.move.step(ctx)
             if state == RUNNING:
@@ -115,7 +116,8 @@ class T1Entry:
             ahead = (ctx.boat_xy[0] + 8.0 * math.sin(h), ctx.boat_xy[1] + 8.0 * math.cos(h)) \
                 if ctx.boat_xy else (0.0, 0.0)
             self.move = Search(self.cfg, ahead,
-                               lambda c: c.course is not None and bool(c.course.t1_gates))
+                               lambda c: c.course is not None and bool(c.course.t1_gates),
+                               drive=self.drive)
             self.move.start(ctx)
         state, cmd = self.move.step(ctx)
         if state == SKIPPED:
@@ -129,7 +131,7 @@ class T1Entry:
             pg = PassGate(self.cfg, g)
             c, t, _, _ = pg.geometry()
             self.move = DriveTo(self.cfg, (c[0] + 8.0 * t[0], c[1] + 8.0 * t[1]),
-                                arrive_m=1.0, avoid=False)
+                                arrive_m=1.0, avoid=False, drive=self.drive)
             self.move.start(ctx)
         state, cmd = self.move.step(ctx)
         return RUNNING, cmd if state == RUNNING else None
@@ -154,8 +156,9 @@ class T1Entry:
 
 class ReturnToGates:
 
-    def __init__(self, cfg, approach_m=6.0):
+    def __init__(self, cfg, approach_m=6.0, drive=None):
         self.cfg = cfg
+        self.drive = drive
         self.approach_m = approach_m
 
     def start(self, ctx):
@@ -170,7 +173,7 @@ class ReturnToGates:
             second = _gate_from(stored[1], ctx)
             c, t, _, _ = PassGate(self.cfg, second).geometry()   # the entry direction
             goal = (c[0] + self.approach_m * t[0], c[1] + self.approach_m * t[1])
-            self.move = DriveTo(self.cfg, goal, arrive_m=2.0)
+            self.move = DriveTo(self.cfg, goal, arrive_m=2.0, drive=self.drive)
             self.move.start(ctx)
         state, cmd = self.move.step(ctx)
         return state, cmd
@@ -178,8 +181,9 @@ class ReturnToGates:
 
 class T1Exit:
 
-    def __init__(self, cfg):
+    def __init__(self, cfg, drive=None):
         self.cfg = cfg
+        self.drive = drive
 
     def start(self, ctx):
         self.order = [1, 0]           # second gate first, the other way
@@ -193,7 +197,7 @@ class T1Exit:
             return SKIPPED, None
         if self.move is None:
             self.move = PassGate(self.cfg, _gate_from(stored[self.order[0]], ctx),
-                                 reverse=True)
+                                 reverse=True, drive=self.drive)
             self.move.start(ctx)
         state, cmd = self.move.step(ctx)
         if state == RUNNING:
@@ -208,6 +212,7 @@ class T1Exit:
         return DONE, None
 
 
-def default_phases(cfg):
+def default_phases(cfg, drive=None):
     """Return the phases written so far, by run phase name; the rest stay Pending."""
-    return {'T1_ENTRY': T1Entry(cfg), 'RETURN': ReturnToGates(cfg), 'T1_EXIT': T1Exit(cfg)}
+    return {'T1_ENTRY': T1Entry(cfg, drive=drive), 'RETURN': ReturnToGates(cfg, drive=drive),
+            'T1_EXIT': T1Exit(cfg, drive=drive)}

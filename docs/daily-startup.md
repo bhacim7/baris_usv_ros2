@@ -178,6 +178,7 @@ Bir node çökerse 2 saniye sonra kendiliğinden yeniden başlar (teknedeki gibi
 | `true_distance:=false` | YAML (`true`) | RoboBoat tespitleri: derinlik mesafe sayılır (eski hal, D2 kapalı) |
 | `from_camera:=false` | YAML (`true`) | RoboBoat tespitleri: antenden konumlanır (eski hal, D1 kapalı) |
 | `add_radius:=false` | YAML (`true`) | RoboBoat tespitleri: nesnenin ön yüzü, yarıçap eklenmez (D6 kapalı) |
+| `lookahead_m:=4.0` | YAML (4,0) | RoboBoat yol izleyicisinin bakış mesafesi (m); kısa = salınım |
 | `record:=<ad>` | kayıt yok | `/ws/bags/<ad>` klasörüne kayıt. Ad daha önce kullanılmamış olmalı |
 | `compass_offset_deg:=8.0` | YAML | ZED pusulası 8° fazla okur (deney) |
 | `detect_prob:=0.5` | YAML | YOLO bir nesneyi karelerin yarısında bulur (deney) |
@@ -337,7 +338,11 @@ Gazebo'nun gerçek konumundan rapor:
 python3 /ws/tools/roboboat_report.py /ws/bags/t1_<ad>
 ```
 Aşamalar ve süreleri; her kapı için geçişler (yön, ortadan sapma, gövdenin tamamı direklerin
-arasından mı); giriş ve çıkış doğru sırada mı; şamandıralara en yakın geçişler ve temas sayısı.
+arasından mı); giriş ve çıkış doğru sırada mı; şamandıralara en yakın geçişler ve temas sayısı;
+dümen tablosu (salınım ölçüleri). `--plot /ws/bags/t1_<ad>.png` ile resim: halkalar gerçek
+nesneler (hakemin gözü, parkur dosyasından), dolu noktalar teknenin koşu sonundaki **kendi
+haritası** (gördükleri; soluk = onaylanmamış). Tekne parkur dosyasını hiç okumaz; tek bildiği
+`mission` bölümündeki görev sırası ve ipuçları.
 
 ### 6.1c Parkur modeli: tekne haritadan parkuru tanıyor mu? (R2.2)
 
@@ -459,6 +464,22 @@ içindeki `RECORD_TOPICS` listesinde: navigator durumu ve PWM, Gazebo'nun gerçe
 |---|---|---|
 | `run_report.py` | Gölcük koşusu: görevler, temaslar, hızlar, video karşılaştırması | 5.4 |
 | `map_report.py` | RoboBoat haritası: hatanın kaynakları, harita kalitesi | 6.2 |
+
+Koşuyu RViz'de tekrar izlemek (teknenin haritası koşu sırasında nasıl büyüdü). Üç ayrı container
+terminalinde, bu sırayla; kayıt 1 Kasım akşamından sonra alınmış olmalı (`/usv/map/markers`
+ondan beri kaydediliyor):
+
+```bash
+ros2 run tf2_ros static_transform_publisher --frame-id map --child-frame-id usv_map
+```
+
+```bash
+rviz2 -d /ws/install/usv_nodes/share/usv_nodes/config/map.rviz
+```
+
+```bash
+ros2 bag play /ws/bags/t1_<ad> --topics /usv/map/markers
+```
 
 Kayıtları elle incelemek:
 
