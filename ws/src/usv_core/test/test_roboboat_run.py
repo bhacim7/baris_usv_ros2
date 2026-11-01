@@ -168,3 +168,19 @@ def test_navigator_ignores_gps_points_and_unknown_phases():
     drive(nav, 0.0, 2)
     assert any('ignored' in m for m in logs) and any('no such phase' in m for m in logs)
     assert nav.task == WAIT_START
+
+
+def test_navigator_reads_the_course_from_the_map():
+    poles = [('pole_red', -2.28, 0.0), ('pole_green', 6.38, 0.0),
+             ('pole_red', -2.28, 7.95), ('pole_green', 6.38, 7.95)]
+    lms = [{'id': i, 'kind': k, 'color': '', 'east': x, 'north': y, 'confirmed': True,
+            'sightings': 40} for i, (k, x, y) in enumerate(poles)]
+    nav, logs = make_nav()
+    origin = (27.37, -82.45)                          # the boat sits on the map origin
+    drive(nav, 0.0, 3, Perception(landmarks=lms, origin=origin))
+    assert nav.course.frame is not None and len(nav.course.t1_gates) == 2
+    assert nav.course.frame.ahead == pytest.approx((0.0, 1.0), abs=0.01)
+    assert any('Task 1 gates: 2' in m for m in logs)
+    nav.submit({'cmd': 'set_manual', 'value': False})
+    drive(nav, 1.0, 2, Perception(landmarks=lms, origin=origin))
+    assert nav.run.memory['start_xy'] == pytest.approx((0.0, 0.0), abs=0.01)

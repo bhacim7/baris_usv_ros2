@@ -23,9 +23,10 @@ A phase is an object with start(ctx) and step(ctx) -> (state, command); command 
 themselves come in R2.4 (Task 1) and R3 (Tasks 2-6); until then a phase is Pending: it is
 skipped at once with the reason 'not written yet'.
 
-`ctx` (RunContext) carries the cycle's inputs: time, GPS fix, heading, speed, the world map
-(/usv/map landmarks) and the latest camera frame (/usv/detections), plus `memory`, a dict
-the phases share across the run (e.g. where the entry gates were, for the exit).
+`ctx` (RunContext) carries the cycle's inputs: time, GPS fix (also as map metres), heading,
+speed, the world map (/usv/map landmarks), what the course model makes of it (course), the
+latest camera frame (/usv/detections), plus `memory`, a dict the phases share across the
+run: start_xy (where the run started, map metres), and what phases leave for later ones.
 """
 
 from dataclasses import dataclass, field
@@ -59,6 +60,8 @@ class RunContext:
     detections: list = field(default_factory=list)    # latest /usv/detections frame, dicts
     detections_time: float = 0.0
     memory: dict = field(default_factory=dict)
+    boat_xy: tuple = None           # the fix in the map's east / north metres (None: no map)
+    course: object = None           # usv_core.roboboat_course.CourseView, updated at 2 Hz
 
 
 class Pending:
@@ -115,7 +118,8 @@ class RoboBoatRun:
         now = ctx.now
         if self.phase == WAIT_START:
             self.run_started = now
-            self._event(now, 'run_started')
+            self.memory['start_xy'] = ctx.boat_xy
+            self._event(now, 'run_started', start_xy=ctx.boat_xy)
             self._enter(self.plan[0], now, ctx)
         if self._start_pending:
             self._start_pending = False

@@ -159,6 +159,7 @@ class NavigatorNode(Node):
 
     def on_map(self, msg):
         self.perception.landmarks = [landmark_to_dict(lm) for lm in msg.landmarks]
+        self.perception.origin = (msg.origin_latitude, msg.origin_longitude)
 
     def on_detections(self, msg):
         self.perception.detections, self.perception.detections_time = \

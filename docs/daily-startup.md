@@ -336,6 +336,17 @@ Aşamalar sırayla `Phase ...` / `...: skipped` diye geçer, sonunda `Run FINISH
 ya da bir aşamaya atlamak: `/usv/set_task` ile aşama adı (`WAIT_START`, `T1_ENTRY`, `task2`,
 `RETURN`, `T1_EXIT` ...).
 
+### 6.1c Parkur modeli: tekne haritadan parkuru tanıyor mu? (R2.2)
+
+Kayıttaki haritada parkur modelini çalıştırıp gerçek parkurla öğe öğe karşılaştırır:
+
+```bash
+python3 /ws/tools/course_report.py /ws/bags/survey1_d6
+```
+`--gps-true` ile aynı tespitler GPS kusursuzmuş gibi yeniden haritalanır (ölçüm zinciri).
+Mapper'ın kapanışta yazdığı JSON da verilebilir: `/ws/bags/map_roboboat_2026.json`.
+Navigator çalışırken bulduklarını kayda yazar: `Course map: Task 1 gates: 2, ...`.
+
 ### 6.2 Ölçüm koşusu: sabit rota + harita kalitesi raporu (R1.6)
 
 Haritanın ne kadar doğru olduğunu ölçmenin yolu bu. `survey_drive`, parkur dosyasındaki
