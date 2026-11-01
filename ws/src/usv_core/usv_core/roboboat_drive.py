@@ -36,13 +36,17 @@ So every move steers the same way, and a steering fix is made in one place.
 A move has start(ctx) and step(ctx) -> (state, command), as a run phase: state RUNNING /
 DONE / SKIPPED (usv_core.roboboat_run), command (forward_pwm, yaw_pwm) for the mixer or
 None for neutral. Moves read ctx.boat_xy, ctx.heading, ctx.speed, ctx.now, ctx.landmarks,
-ctx.detections and ctx.map_origin; results for later phases go to self.result.
+ctx.detections and ctx.map_origin; results for later phases go to self.result. ctx.boat_xy
+is the GPS antenna's place; the moves steer, plan and measure from the hull's centre,
+DriveConfig.centre_ahead_m ahead of it (Move.here): planned from the antenna, the bow, 1.3 m
+ahead of it, brushed a black buoy in a turn (t2e_s1).
 
 DriveTo and PassGate are watched for being stuck (Move._guard): no STUCK_M of progress
 (along the gate's way; path left to the goal) in STUCK_S, whatever the commands (t2c_s1
 pivoted round a buoy, then turned on the spot, for 35 s), the boat backs off BACK_S
 astern, a bump goes where the bow was and the path is planned again; past MAX_STUCK the
-move is SKIPPED.
+move is SKIPPED. A spot turn counts SPOT_SHARE of its time: turning round after the
+channel's end took 6 s and was taken for stuck (t2e_s1).
 
 Frames: map east / north metres here; the planner's own x = North, y = East inside
 (to_planner / from_planner).
@@ -88,10 +92,11 @@ PATH_DETOUR = 1.5             # avoid paths longer than this x straight + 2 m ar
 # Stuck watch (Move._guard)
 STUCK_S = 6.0                 # this long ...
 STUCK_M = 0.3                 # ... without this much progress is stuck
+SPOT_SHARE = 0.4              # a second turning on the spot counts this much
 BACK_S = 1.5                  # then astern this long (the mixer reverses below 1450)
 BACK_PWM = 1350
 MAX_STUCK = 3                 # back-offs before the move gives up (SKIPPED)
-BUMP_AHEAD_M = 1.2            # a bump is put this far ahead of the boat's position
+BUMP_AHEAD_M = 0.9            # a bump is put this far ahead of the hull's centre
 BUMP_RADIUS_M = 0.15
 
 
@@ -116,6 +121,9 @@ class DriveConfig:
     # channel_lookahead_m: through the Task 2 channel (2.5 m gates ~6 m apart), where a far
     # aim point may cut from gate to gate; to be measured (R3.2)
     channel_lookahead_m: float = 2.5
+    # centre_ahead_m: the hull's centre ahead of the GPS antenna (boat_xy), m; measured
+    # 0.46 (antenna 0.75 m behind the ZED, model.sdf navsat at -0.46)
+    centre_ahead_m: float = 0.46
 
 
 def to_planner(p):
@@ -281,18 +289,25 @@ class Move:
         if self._progress is None or p >= self._progress[0] + STUCK_M:
             self._progress = [p, 0.0]
         else:
-            self._progress[1] += dt
+            self._progress[1] += dt * (SPOT_SHARE if self.follower.spot_turn else 1.0)
             if self._progress[1] >= STUCK_S:
                 self.stuck += 1
                 self.result['stuck'] = self.stuck
                 if self.stuck > MAX_STUCK:
                     return SKIPPED, None
                 h = math.radians(ctx.heading)
-                self.bumps.append((ctx.boat_xy[0] + BUMP_AHEAD_M * math.sin(h),
-                                   ctx.boat_xy[1] + BUMP_AHEAD_M * math.cos(h)))
+                c = self.here(ctx)
+                self.bumps.append((c[0] + BUMP_AHEAD_M * math.sin(h),
+                                   c[1] + BUMP_AHEAD_M * math.cos(h)))
                 self._back_until = ctx.now + BACK_S
                 return RUNNING, (BACK_PWM, 0)
         return RUNNING, cmd
+
+    def here(self, ctx):
+        """Return the hull's centre: centre_ahead_m ahead of the antenna (ctx.boat_xy)."""
+        h = math.radians(ctx.heading or 0.0)
+        k = self.drive.centre_ahead_m
+        return (ctx.boat_xy[0] + k * math.sin(h), ctx.boat_xy[1] + k * math.cos(h))
 
     def _dt(self, ctx):
         dt = 0.04 if self.last_t is None else min(0.5, max(0.001, ctx.now - self.last_t))
@@ -300,7 +315,7 @@ class Move:
         return dt
 
     def _follow(self, path, ctx, dt):
-        return self.follower.follow(path, ctx.boat_xy, ctx.heading, ctx.speed, dt)
+        return self.follower.follow(path, self.here(ctx), ctx.heading, ctx.speed, dt)
 
 
 class DriveTo(Move):
@@ -325,15 +340,15 @@ class DriveTo(Move):
     def progress(self, ctx):
         """Return minus the path left (it starts at the boat), else minus the distance."""
         if self.path and len(self.path) >= 2:
-            return -(_dist(ctx.boat_xy, self.path[1])
+            return -(_dist(self.here(ctx), self.path[1])
                      + sum(_dist(a, b) for a, b in zip(self.path[1:], self.path[2:])))
-        return -_dist(ctx.boat_xy, self.goal)
+        return -_dist(self.here(ctx), self.goal)
 
     def step(self, ctx):
         dt = self._dt(ctx)
         if ctx.boat_xy is None:
             return RUNNING, None
-        if _dist(ctx.boat_xy, self.goal) <= self.arrive_m:
+        if _dist(self.here(ctx), self.goal) <= self.arrive_m:
             return DONE, None
         if self.path is None or ctx.now - self.planned_at >= self.replan_s:
             self.path = self._plan(ctx)
@@ -345,13 +360,14 @@ class DriveTo(Move):
         return self._guard(ctx, self._follow(self.path, ctx, dt), dt)
 
     def _plan(self, ctx):
-        straight = [ctx.boat_xy, self.goal]
+        here = self.here(ctx)
+        straight = [here, self.goal]
         if not self.avoid:
             return straight
         bumps = [{'kind': 'buoy_black', 'east': b[0], 'north': b[1], 'confirmed': True,
                   'sightings': 1} for b in self.bumps]
-        self.grid.rebuild(ctx.boat_xy, list(ctx.landmarks) + bumps)
-        start, goal = to_planner(ctx.boat_xy), to_planner(self.goal)
+        self.grid.rebuild(here, list(ctx.landmarks) + bumps)
+        start, goal = to_planner(here), to_planner(self.goal)
         crop, centre, size = self.grid.crop(*start)
         nav_map, _ = planner.get_inflated_nav_map(crop)
         res = self.grid.res
@@ -423,7 +439,8 @@ class PassGate(Move):
         if self.along is None or self.along < -GATE_FREEZE_M:
             self._refine(ctx)
         c, t, left, w = self.geometry()
-        d = (ctx.boat_xy[0] - c[0], ctx.boat_xy[1] - c[1])
+        here = self.here(ctx)
+        d = (here[0] - c[0], here[1] - c[1])
         along = self.along = d[0] * t[0] + d[1] * t[1]
         side = d[0] * left[0] + d[1] * left[1]
         if 'crossed_at' not in self.result and along >= 0.0:
@@ -445,13 +462,13 @@ class PassGate(Move):
         if not self.avoid:
             self.path = [a, p, e]
             if along < -self.approach_m:
-                self.path.insert(0, ctx.boat_xy)
+                self.path.insert(0, here)
         elif self.planned_at is None or ctx.now - self.planned_at >= self.replan_s:
             self.path = self._plan(ctx, self._waypoints(along, t, a, p, e))
             self.planned_at = ctx.now
         # Slower round a bend: the same turn rate makes a tighter turn
         cruise = int(self.cfg.cruise_pwm * BENT_CRUISE) if self.bent else None
-        return self._guard(ctx, self.follower.follow(self.path, ctx.boat_xy, ctx.heading,
+        return self._guard(ctx, self.follower.follow(self.path, here, ctx.heading,
                                                      ctx.speed, dt, cruise), dt)
 
     def _refine(self, ctx, alpha=0.5):
@@ -530,12 +547,13 @@ class PassGate(Move):
         approach and exit points are only there to cross the gate square. The last path
         (or the last gate's) is preferred, so the way round an obstacle keeps its side.
         """
-        straight = [ctx.boat_xy] + waypoints
+        here = self.here(ctx)
+        straight = [here] + waypoints
         prefer = self.path if self.path is not None else self.prefer
         for keep_other in (KEEP_OTHER_M, KEEP_GATE_M):
             obstacles = self._avoid_obstacles(ctx, keep_other)
-            points = [ctx.boat_xy] + [w for w in waypoints
-                                      if w == self.gap_point or not obstacles.inside(w)]
+            points = [here] + [w for w in waypoints
+                               if w == self.gap_point or not obstacles.inside(w)]
             path = plan_through(points, obstacles, prefer)
             if path is not None and _length(path) > PATH_DETOUR * _length(points) + 2.0:
                 path = None                       # round the outside of a wall, or worse
@@ -663,7 +681,7 @@ class Circle(Move):
         if ctx.boat_xy is None:
             return RUNNING, None
         self.target, _ = refine(self.target, self.class_name, ctx, alpha=0.2)
-        a = self._angle(ctx.boat_xy)
+        a = self._angle(self.here(ctx))
         if self.last_angle is not None:
             delta = _wrap180(a - self.last_angle)       # + = counter-clockwise (ENU)
             self.swept += -delta if self.clockwise else delta
@@ -716,8 +734,8 @@ class Search(Move):
             self.last_heading = ctx.heading
             return RUNNING, (self.cfg.base_pwm, self.cfg.spot_turn_pwm)
         if self.path is None:
-            self.path = self._square(ctx.boat_xy)
-        if _dist(ctx.boat_xy, self.path[-1]) < 1.5:
+            self.path = self._square(self.here(ctx))
+        if _dist(self.here(ctx), self.path[-1]) < 1.5:
             return SKIPPED, None
         return RUNNING, self._follow(self.path, ctx, dt)
 

@@ -131,7 +131,8 @@ def drive_config_from(lookup):
         avoid_lookahead_m=float(lookup('roboboat.drive.avoid_lookahead_m',
                                        d.avoid_lookahead_m)),
         channel_lookahead_m=float(lookup('roboboat.drive.channel_lookahead_m',
-                                         d.channel_lookahead_m)))
+                                         d.channel_lookahead_m)),
+        centre_ahead_m=float(lookup('roboboat.drive.centre_ahead_m', d.centre_ahead_m)))
 
 
 def _stamp(t):

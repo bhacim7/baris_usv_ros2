@@ -23,6 +23,9 @@ navigator:
         avoid_lookahead_m: 2.0            # while A* bends the path round obstacles (a far
                                           # aim point cuts the corner)
         channel_lookahead_m: 2.5          # through the Task 2 channel (to be measured)
+        centre_ahead_m: 0.46              # hull centre ahead of the GPS antenna: the moves
+                                          # steer and plan from the centre (the bow is
+                                          # 0.85 m ahead of it)
       # Where to start looking for each task, seen from the shore before the run:
       # "ahead_m,left_m" from the Task 1 entry gates (ahead = first gate -> second gate).
       # '' = no hint: the boat explores

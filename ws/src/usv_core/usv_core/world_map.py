@@ -71,6 +71,10 @@ from usv_core.classes import INDICATOR_COLOR
 # be a box with the wrong class: t2c_s1 had copies of two buoys seen together once); in
 # the frame itself two landmarks seen together are never folded
 CO_SEEN_REAL = 2
+# D5: even seen together, a landmark beside one of another kind with this many times its
+# sightings is a wrong label (one between two buoys is fed by both and seen with both:
+# t2e_s1, a 'pole_green' with 3 sightings in channel gate 3 between its red and its black)
+CONFUSION_STRONG = 30.0
 
 WGS84_A = 6378137.0
 WGS84_E2 = 6.69437999014e-3
@@ -256,9 +260,11 @@ class WorldMap:
         if cfg.confusion_ratio <= 0:
             return False
         for other in self.landmarks:
-            if other.kind == lm.kind or lm.co_seen.get(other.landmark_id, 0) >= CO_SEEN_REAL:
+            if other.kind == lm.kind:
                 continue
-            if other.sightings >= cfg.confusion_ratio * lm.sightings and math.hypot(
+            ratio = CONFUSION_STRONG if lm.co_seen.get(other.landmark_id, 0) >= CO_SEEN_REAL \
+                else cfg.confusion_ratio
+            if other.sightings >= ratio * lm.sightings and math.hypot(
                     other.east - lm.east, other.north - lm.north) <= cfg.confusion_radius_m:
                 return True
         return False

@@ -219,6 +219,25 @@ def test_real_neighbour_of_another_kind_is_confirmed():
     assert by_kind['buoy_black']['sightings'] == 3 and by_kind['buoy_black']['confirmed']
 
 
+def test_wrong_label_between_two_buoys_is_not_confirmed():
+    """
+    D5: a 'pole_green' between a red and a black 0.6 m apart, fed by wrong labels of both.
+
+    It is seen in frames with each of them, but they have 30 times its sightings.
+    """
+    m = fresh_map(confusion_ratio=5.0, confusion_radius_m=1.5)
+    for k in range(300):
+        red, black = sighting('buoy_red', 0.0, 0.0), sighting('buoy_black', 0.6, 0.0)
+        if k % 100 == 10:
+            black = sighting('pole_green', 0.3, 0.0)        # the black boxed as a pole
+        elif k % 100 == 60:
+            red = sighting('pole_green', 0.3, 0.0)          # the red boxed as a pole
+        m.add_frame([red, black], k * 0.1)
+    by_kind = {lm['kind']: lm for lm in m.snapshot()}
+    assert by_kind['buoy_red']['confirmed'] and by_kind['buoy_black']['confirmed']
+    assert by_kind['pole_green']['sightings'] == 6 and not by_kind['pole_green']['confirmed']
+
+
 def drifted_copy(m):
     """
     Map a red buoy at 0, then 1.6 m east (a new copy), then back to 1.2 m.
