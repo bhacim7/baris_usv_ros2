@@ -340,6 +340,8 @@ Gazebo'nun gerçek konumundan rapor:
 ```bash
 python3 /ws/tools/roboboat_report.py /ws/bags/t1_<ad>
 ```
+Enkaz taramasını denemek için yeşilin kanaldan görünmediği parkur kopyası: `course:=roboboat_2026_far`
+(raporda da `--course roboboat_2026_far` ver; rapor gerçek yerleri parkur dosyasından okur).
 Aşamalar ve süreleri; her kapı için geçişler (yön, ortadan sapma, gövdenin tamamı direklerin
 arasından mı); giriş ve çıkış doğru sırada mı; şamandıralara en yakın geçişler ve temas sayısı;
 dümen tablosu (salınım ölçüleri). `--plot /ws/bags/t1_<ad>.png` ile resim: halkalar gerçek

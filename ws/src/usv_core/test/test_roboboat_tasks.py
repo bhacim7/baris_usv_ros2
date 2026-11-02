@@ -182,3 +182,17 @@ def test_task2_debris_scan_finds_the_green():
     for b in every[12:-2]:
         assert min(math.hypot(p[0] - b['east'], p[1] - b['north']) for p in track) > 0.6, b
     assert run.memory['task2']['back_gates'] == 4
+
+
+def test_task2_debris_scan_far_green():
+    """Find the green by the scan where roboboat_2026_far puts it, 13 m from the channel's end."""
+    field = [it for it in FIELD if it[-1] != 'green'] + [('indicator', 1.24 - 2.05, 54.2, 'green')]
+    run, track, every = run_task1(0.0, seconds=700.0, items=POLES + CHANNEL + BLACKS + field,
+                                  task_order=('task2',), hints={'task2': (21.1, -1.5)},
+                                  until='RETURN')
+    assert run.phase == 'RETURN', run.events[-3:]
+    result = run.memory['task2_debris']
+    assert result['scan_s'] > 10.0 and result['red'] is not None
+    assert result['green']['done'] and result['green']['swept_deg'] >= 360.0, result
+    for b in every[12:-2]:
+        assert min(math.hypot(p[0] - b['east'], p[1] - b['north']) for p in track) > 0.6, b

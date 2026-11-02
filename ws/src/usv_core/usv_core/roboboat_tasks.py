@@ -31,10 +31,11 @@ green indicator, report every debris, back out through the channel.
                  (avoid: A* inside walls along the gate's line), the gates further on joining
                  the map as the boat comes near; between gates the boat runs on along the
                  channel. The way through a gate is the channel's direction, whatever side
-                 red is on. The channel ends when no next gate shows up within channel_end_m
-                 past the last one. Then the debris field ('debris', DebrisField). Then
-                 back through the same gates the other way ('out', handbook: the ASV returns
-                 through the channel), ending back_end_m past the entry gate. A gate the
+                 red is on. The channel ends when no next gate (within channel_end_m) is on
+                 the map once the boat is run_on_m past the last one. Then the debris field
+                 ('debris', DebrisField). Then back through the same gates the other way
+                 ('out', handbook: the ASV returns through the channel), ending back_end_m
+                 past the entry gate. A gate the
                  boat stays stuck at is left (not between the buoys) and the next one taken.
                  Memory 'task2': entry time and position, gates passed each way (and whether
                  cleanly), back-offs; 'task2_debris': DebrisField.report
@@ -390,7 +391,8 @@ class DebrisField:
 class Task2:
 
     def __init__(self, cfg, hint=None, drive=None, channel_approach_m=4.0, channel_end_m=9.0,
-                 gate_approach_m=2.5, gate_exit_m=1.5, back_end_m=4.0, debris=None):
+                 gate_approach_m=2.5, gate_exit_m=1.5, back_end_m=4.0, debris=None,
+                 run_on_m=3.0):
         self.cfg = cfg
         self.field = DebrisField(cfg, drive, debris)
         self.hint = hint
@@ -400,6 +402,10 @@ class Task2:
         self.gate_approach_m = gate_approach_m
         self.gate_exit_m = gate_exit_m
         self.back_end_m = back_end_m
+        # Past the last gate, run on this far before the channel counts as ended: the map
+        # sees 12 m ahead, so a next gate (6 m on) would be on it already. It was
+        # channel_end_m, 9 m, and the boat ran on past the green it had already seen
+        self.run_on_m = run_on_m
 
     def start(self, ctx):
         self.stage = 'find'
@@ -543,7 +549,7 @@ class Task2:
             self.move.start(ctx)
             return RUNNING, self.move.step(ctx)[1]
         # No next gate on the map: run on along the channel; past end_m it has ended
-        end_m = self.channel_end_m if way == 'in' else self.back_end_m
+        end_m = self.run_on_m if way == 'in' else self.back_end_m
         last = leg['passed'][-1] if leg['passed'] else ctx.boat_xy
         d = (ctx.boat_xy[0] - last[0], ctx.boat_xy[1] - last[1])
         ended = bool(leg['passed']) and d[0] * direction[0] + d[1] * direction[1] > end_m

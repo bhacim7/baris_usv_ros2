@@ -170,3 +170,30 @@ def test_survey_route_keeps_clear_of_the_buoys():
             f = max(0.0, min(1.0, ((b.x - x1) * dx + (b.y - y1) * dy) / (dx * dx + dy * dy)))
             gap = math.hypot(x1 + f * dx - b.x, y1 + f * dy - b.y)
             assert gap > b.radius + 0.6, (x1, y1, x2, y2, b)
+
+
+def test_far_variant_hides_the_green_from_the_channel():
+    """
+    roboboat_2026_far: only the green indicator moves, out of the map's 12 m from the channel.
+
+    The channel counts as ended 3 m past gate 4 (Task2.run_on_m); from there the green has
+    to be more than 12 m away (the mapper's range) and inside the debris scan, 15 m past
+    gate 4 and 7 m to each side of the channel's line (DebrisConfig).
+    """
+    base, far = read('roboboat_2026'), read('roboboat_2026_far')
+    assert {k: v for k, v in base.items() if k != 'buoys'} == \
+        {k: v for k, v in far.items() if k != 'buoys'}
+    moved = [(a, b) for a, b in zip(base['buoys'], far['buoys']) if a != b]
+    assert len(base['buoys']) == len(far['buoys']) and len(moved) == 1
+    assert moved[0][1]['type'] == 'indicator_green'
+    green = (moved[0][1]['east'], moved[0][1]['north'])
+    chan = [(b['east'], b['north']) for b in base['buoys'] if b['type'] in ('a0_red', 'a0_green')]
+    g3 = ((chan[4][0] + chan[5][0]) / 2.0, (chan[4][1] + chan[5][1]) / 2.0)
+    g4 = ((chan[6][0] + chan[7][0]) / 2.0, (chan[6][1] + chan[7][1]) / 2.0)
+    n = math.hypot(g4[0] - g3[0], g4[1] - g3[1])
+    ahead = ((g4[0] - g3[0]) / n, (g4[1] - g3[1]) / n)
+    ended = (g4[0] + 3.0 * ahead[0], g4[1] + 3.0 * ahead[1])
+    assert math.hypot(green[0] - ended[0], green[1] - ended[1]) > 12.0
+    d = (green[0] - g4[0], green[1] - g4[1])
+    along, side = d[0] * ahead[0] + d[1] * ahead[1], d[1] * ahead[0] - d[0] * ahead[1]
+    assert 0.0 < along <= 15.0 and abs(side) <= 7.0

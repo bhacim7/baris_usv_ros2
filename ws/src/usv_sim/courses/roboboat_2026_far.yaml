@@ -1,0 +1,170 @@
+# Variant of roboboat_2026.yaml for the debris-field scan (phase 6 R3.3, 2026-11-02): the
+# same course, but the GREEN indicator stands where the boat cannot map it from the channel.
+# In roboboat_2026 the camera sees it from between gates 3 and 4 and the map takes it in
+# (within 12 m) as the boat leaves gate 4, so the zigzag scan never runs. Here it is 14.5 m
+# past gate 4 and 6 m left (west) of the channel's line: 13 m from where the channel counts
+# as ended (3 m past gate 4), inside the scan (15 m x +/-7 m), found on its second leg.
+# Report with: roboboat_report.py BAG --course roboboat_2026_far
+#
+# RoboBoat 2026 course at Nathan Benderson Park, built from the Team Handbook (2026),
+# section 3.2 task descriptions and the "Preliminary task layout" (section 3.4).
+#
+# Element sizes are the handbook's (buoy models, docks, vessels; see usv_sim/course.py).
+# The LAYOUT is ASSUMED: the handbook gives a sketch, not coordinates. Distances it does give
+# are kept: channel gates 6-10 ft wide (2.5 m used), Task 3 yellow buoy 40-100 ft past its
+# gate (20 m used), start at least 6 ft before the first Task 1 gate (8 m used), docks
+# 340 in long with 60 in slips. Positions are east/north metres from the anchor below.
+#
+# What a run should find here (for the mission work, phase 6 R3). Directions are those of
+# the layout as drawn (heading north); in the park the anchor turns it to head south:
+#   Task 1  two pole gates heading north, red on the port (west) side
+#   Task 2  four channel gates north of Task 1, debris field beyond: five black buoys,
+#           one GREEN indicator (circle it) and one RED indicator (avoid it), a black vessel
+#   Task 3  gate on the east side, entered heading east; indicator RED -> circle the yellow
+#           buoy counter-clockwise (from the right)
+#   Task 5  docks S (tines east) and N (tines west), slips numbered from the south end;
+#           green: S slip 2 and N slip 1 -> the right answer is N slip 1
+#   Task 6  zones: the Task 3 yellow buoy, and the yellow buoy north of the marina
+#   Task 4  yellow vessels (triangle) and black vessels (plus) around the course
+
+name: roboboat_2026
+classes: roboboat
+
+# VRX nbpark world origin (Nathan Benderson Park, Sarasota, Florida). The park's land model
+# stays in the world (venue), so the reported lat/lon are the real park's.
+origin: {lat: 27.367256, lon: -82.451120}
+venue: nbpark
+# Where the course sits in the park: the boat starts at (east, north) of the Gazebo world,
+# pointing heading_deg (compass), and the whole layout below follows it. Chosen by Baris in
+# Gazebo (2026-11-01) with the course_* launch arguments: start (-189.17, 947.45), heading
+# west.
+# To try another place without editing this file:
+#   ros2 launch usv_sim sim.launch.py course:=roboboat_2026 course_east:=.. course_north:=.. course_heading:=..
+# Place boxes from a TOP view only: Gazebo's water plane runs on under the land, and the
+# land is invisible from below.
+placement: {east: -189.17, north: 947.45, heading_deg: 270.0}
+
+# Declination -6 deg as the team used in 2026 (legacy notes); inclination and strength are
+# rounded WMM values for Sarasota (ASSUMED)
+magnetic_field: {declination_deg: -6.0, inclination_deg: 55.5, strength_uT: 45.5}
+
+boat: {east: 2.0, north: -8.0, heading_deg: 0.0}
+
+# Navigator settings for this course (sim.launch.py passes them on; competition: roboboat
+# follows from `classes`). The hints are what a team member on the shore would give:
+# "ahead_m,left_m" from the centre of the first Task 1 gate, ahead = towards the second gate
+# (here north). Worked out from the layout below, so they are exact; on the water they are
+# a guess, and the boat must find the task itself either way.
+mission:
+  roboboat.task_order: [task2, task3, task5]
+  roboboat.hint.task2: '21.1,-1.5'          # first channel gate
+  roboboat.hint.task3: '27.0,-26.0'         # Task 3 gate
+  roboboat.hint.task5: '-10.0,-21.0'        # between the docks
+  roboboat.hint.task6_zone_t3: '27.0,-46.0'       # Task 3 yellow buoy
+  roboboat.hint.task6_zone_marina: '-2.0,-21.0'   # yellow buoy north of the marina
+
+buoy_types:
+  # Task 1: Taylor Made Sur-Mark, 18 in wide, 39 in above the water
+  pole_red:        {class: pole_red,        shape: pole,      diameter: 0.457, height: 0.99,  color: red}
+  pole_green:      {class: pole_green,      shape: pole,      diameter: 0.457, height: 0.99,  color: green}
+  # Task 2: Polyform A-0, 20.3 cm, 0.5 ft above the water
+  a0_red:          {class: buoy_red,        shape: sphere,    diameter: 0.203, height: 0.152, color: red}
+  a0_green:        {class: buoy_green,      shape: sphere,    diameter: 0.203, height: 0.152, color: green}
+  a0_black:        {class: buoy_black,      shape: sphere,    diameter: 0.203, height: 0.152, color: black}
+  # Task 3 and zones: Polyform A-2, 36.8 cm, 1 ft above the water
+  a2_red:          {class: buoy_red,        shape: sphere,    diameter: 0.368, height: 0.305, color: red}
+  a2_green:        {class: buoy_green,      shape: sphere,    diameter: 0.368, height: 0.305, color: green}
+  a2_black:        {class: buoy_black,      shape: sphere,    diameter: 0.368, height: 0.305, color: black}
+  a2_yellow:       {class: buoy_yellow,     shape: sphere,    diameter: 0.368, height: 0.305, color: yellow}
+  # Color indicator: cylinder on an 18 in float frame, 1 ft above the water
+  indicator_red:   {class: indicator_red,   shape: indicator, diameter: 0.457, height: 0.305, color: red}
+  indicator_green: {class: indicator_green, shape: indicator, diameter: 0.457, height: 0.305, color: green}
+
+buoys:
+  # --- Task 1: entry/exit gates, 8.7 m wide and 8.0 m apart as placed in Gazebo ---
+  - {type: pole_red,   east: -2.28, north: 0.0}
+  - {type: pole_green, east: 6.38,  north: 0.0}
+  - {type: pole_red,   east: -2.28, north: 7.95}
+  - {type: pole_green, east: 6.38,  north: 7.95}
+  # --- Task 2: navigation channel, red on the port side going in; first gate where Baris
+  #     placed the Task 2 entrance ---
+  - {type: a0_red,     east: 2.32, north: 21.13}
+  - {type: a0_green,   east: 4.82, north: 21.13}
+  - {type: a0_red,     east: 2.92, north: 27.13}
+  - {type: a0_green,   east: 5.42, north: 27.13}
+  - {type: a0_red,     east: 3.52, north: 33.13}
+  - {type: a0_green,   east: 6.02, north: 33.13}
+  - {type: a0_black,   east: 4.12, north: 33.33}   # inside the gate, beside the red
+  - {type: a0_red,     east: 4.52, north: 39.13}
+  - {type: a0_green,   east: 7.02, north: 39.13}
+  - {type: a0_black,   east: 5.12, north: 39.43}
+  # --- Task 2: debris field ---
+  - {type: a0_black,   east: 7.52,  north: 45.13}
+  - {type: a0_black,   east: 12.52, north: 47.13}
+  - {type: a0_black,   east: 16.52, north: 52.13}
+  - {type: a0_black,   east: 20.52, north: 55.13}
+  - {type: a0_black,   east: 9.52,  north: 54.13}
+  - {type: indicator_green, east: 1.24,  north: 54.2}    # survivor: circle 360 and report
+  #   (moved: roboboat_2026 has it at 14.52, 49.13, seen from the channel)
+  - {type: indicator_red,   east: 18.52, north: 58.13}   # hazard: avoid and report
+  # --- Task 3: speed challenge, entered heading east ---
+  - {type: a2_red,     east: 28.0, north: 28.25}
+  - {type: a2_green,   east: 28.0, north: 25.75}
+  - {type: indicator_red, east: 36.0, north: 27.0}     # red -> circle counter-clockwise
+  - {type: a2_yellow,  east: 48.0, north: 27.0}
+  - {type: a2_black,   east: 45.0, north: 24.5}
+  - {type: a2_black,   east: 40.0, north: 22.0}
+  # --- Task 6: marina zone ---
+  - {type: a2_yellow,  east: 23.0, north: -2.0}
+
+vessels:
+  - {color: black,  east: 6.52, north: 56.13, heading_deg: 30.0}  # in the debris field
+  - {color: yellow, east: 42.0, north: 20.0, heading_deg: 40.0}   # near Task 3
+  - {color: yellow, east: 52.0, north: 8.0,  heading_deg: 200.0}
+  - {color: black,  east: 36.0, north: 6.0,  heading_deg: 120.0}
+
+docks:
+  - name: S
+    east: 16.0
+    north: -14.0
+    heading_deg: 0.0          # spine runs north from here
+    tines: right              # slips open to the east
+    slips:
+      - {indicator: red, vessel: yellow}
+      - {indicator: green}
+      - {indicator: red}
+  - name: N
+    east: 30.0
+    north: -14.0
+    heading_deg: 0.0
+    tines: left               # slips open to the west
+    slips:
+      - {indicator: green}
+      - {indicator: red}
+      - {indicator: red, vessel: black}
+
+# Map-measurement route (phase 6 R1.6), driven by survey_drive from Gazebo's true pose, so
+# every run takes the same path: through the Task 1 gates, one full turn on the spot (the
+# heading filter's lag), the channel just right of its centre line, across the debris field,
+# through the Task 3 gate heading east, south past the vessels, along the north end of the
+# marina and back to the start. About 155 m, 2.5-3 minutes. Same coordinates as the buoys.
+survey:
+  - {east: 2.05, north: -1.0}
+  - {east: 2.05, north: 11.0}
+  - {spin_deg: 360}
+  - {east: 3.6,  north: 18.0}
+  - {east: 4.5,  north: 27.1}
+  - {east: 5.1,  north: 33.1}
+  - {east: 6.1,  north: 39.1}
+  - {east: 5.5,  north: 45.5}
+  - {east: 11.5, north: 52.0}
+  - {east: 17.5, north: 49.5}
+  - {east: 24.0, north: 40.0}
+  - {east: 21.0, north: 30.0}
+  - {east: 24.0, north: 27.0}
+  - {east: 32.0, north: 27.0}
+  - {east: 33.0, north: 19.0}
+  - {east: 30.0, north: 8.0}
+  - {east: 24.0, north: 2.0}
+  - {east: 8.0,  north: -3.0}
+  - {east: 2.0,  north: -6.0}
