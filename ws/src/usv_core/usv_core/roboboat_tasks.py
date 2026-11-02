@@ -32,21 +32,32 @@ green indicator, report every debris, back out through the channel.
                  the map as the boat comes near; between gates the boat runs on along the
                  channel. The way through a gate is the channel's direction, whatever side
                  red is on. The channel ends when no next gate shows up within channel_end_m
-                 past the last one. (R3.3, the debris field, will go there.) Then back
-                 through the same gates the other way ('out', handbook: the ASV returns
+                 past the last one. Then the debris field ('debris', DebrisField). Then
+                 back through the same gates the other way ('out', handbook: the ASV returns
                  through the channel), ending back_end_m past the entry gate. A gate the
                  boat stays stuck at is left (not between the buoys) and the next one taken.
                  Memory 'task2': entry time and position, gates passed each way (and whether
-                 cleanly), back-offs
+                 cleanly), back-offs; 'task2_debris': DebrisField.report
+  DebrisField    (R3.3) past the channel's last gate. The green indicator first: once it is
+                 on the map (confirmed), Circle round it, radius_m, counter-clockwise,
+                 planned round the other buoys. Until then a scan: DriveTo (avoiding) along
+                 a zigzag in the channel's frame, depth_m ahead of the last gate and
+                 half_width_m to each side. The red indicator is never aimed at (an obstacle
+                 like the rest, 1 m clear) and noted when seen. The scan stops when nothing
+                 new has been confirmed for quiet_s of scanning, or after limit_s of
+                 scanning, or when the zigzag is done; and once the green is circled and the
+                 red seen. Then back to the channel from wherever the boat is: the turn is
+                 made in the field, not beside its first buoy (t2h_s2 brushed it)
 
 A gate kept in memory is matched again to the course view (centre within MATCH_GATE_M) so
 the newest map position is used; the camera refines it further inside PassGate.
 """
 
+from dataclasses import dataclass
 import math
 
-from usv_core.roboboat_course import Gate
-from usv_core.roboboat_drive import DriveConfig, DriveTo, PassGate, Search
+from usv_core.roboboat_course import Gate, GateFrame
+from usv_core.roboboat_drive import Circle, DriveConfig, DriveTo, PassGate, Search
 from usv_core.roboboat_run import DONE, RUNNING, SKIPPED
 
 MATCH_GATE_M = 3.0
@@ -245,11 +256,143 @@ class T1Exit:
         return DONE, None
 
 
+@dataclass(frozen=True)
+class DebrisConfig:
+    """Task 2 debris field settings (navigator.yaml roboboat.debris.*), decided 2026-11-01."""
+
+    depth_m: float = 15.0          # scanned this far past the channel's last gate
+    half_width_m: float = 7.0      # and this far to each side of the channel's line
+    quiet_s: float = 30.0          # scanning stops after this long with nothing new
+    limit_s: float = 150.0         # or after this long scanning in all
+    green_radius_m: float = 2.5    # the green indicator is circled at this radius
+    green_clockwise: bool = False
+
+
+def _debris(ctx):
+    return [lm for lm in (ctx.course.debris if ctx.course is not None else [])
+            if lm['confirmed']]
+
+
+def _xy(lm):
+    return (lm['east'], lm['north'])
+
+
+def _place(lm):
+    return {'kind': lm['kind'], 'color': lm.get('color', ''), 'east': lm['east'],
+            'north': lm['north'], 'lat': lm.get('lat'), 'lon': lm.get('lon')}
+
+
+class DebrisField:
+
+    def __init__(self, cfg, drive=None, debris=None):
+        self.cfg = cfg
+        self.drive = drive or DriveConfig()
+        self.dcfg = debris or DebrisConfig()
+
+    def start(self, ctx, exit_xy, direction):
+        """Start from the channel's last gate (exit_xy), direction along the channel."""
+        d = self.dcfg
+        frame = GateFrame(exit_xy, direction)
+        near, far, w = 0.4 * d.depth_m, 0.9 * d.depth_m, d.half_width_m
+        self.legs = [frame.to_map(a, side) for a, side in
+                     ((near, -w), (near, w), (far, w), (far, -w))]
+        self.move = None
+        self.known = {lm['id'] for lm in _debris(ctx)}
+        self.scan_s = 0.0             # time spent scanning (circling not counted)
+        self.last_new_s = 0.0
+        self.last_t = ctx.now
+        self.green = self.red = None  # landmark dicts
+        self.circle = None            # {'done', 'swept_deg'} once circled
+        self.stopped = ''
+
+    def _look(self, ctx):
+        """Note new confirmed debris and the indicators; return True if any is new."""
+        new = False
+        for lm in _debris(ctx):
+            if lm['id'] not in self.known:
+                self.known.add(lm['id'])
+                new = True
+            if lm['kind'] == 'indicator' and lm.get('color') == 'green':
+                self.green = lm
+            elif lm['kind'] == 'indicator' and lm.get('color') == 'red':
+                self.red = lm
+        return new
+
+    def step(self, ctx):
+        dt = max(0.0, ctx.now - self.last_t)
+        self.last_t = ctx.now
+        if self._look(ctx):
+            self.last_new_s = self.scan_s
+        if self.green is not None and self.circle is None:
+            return self._circle(ctx)
+        if self.circle is not None and self.red is not None:
+            self.stopped = 'green circled, red seen'
+            return DONE, None
+        d = self.dcfg
+        if self.scan_s >= d.limit_s:
+            self.stopped = f'scan limit {d.limit_s:.0f} s'
+        elif self.scan_s - self.last_new_s >= d.quiet_s:
+            self.stopped = f'nothing new for {d.quiet_s:.0f} s'
+        elif not self.legs:
+            self.stopped = 'zigzag done'
+        if self.stopped:
+            return DONE, None
+        self.scan_s += dt
+        if not isinstance(self.move, DriveTo):
+            self.move = DriveTo(self.cfg, self.legs[0], arrive_m=2.0, drive=self.drive)
+            self.move.start(ctx)
+        state, cmd = self.move.step(ctx)
+        if state != RUNNING:                      # there, or stuck: the next leg
+            self.legs.pop(0)
+            self.move = None
+            return RUNNING, None
+        return RUNNING, cmd
+
+    def _circle(self, ctx):
+        d = self.dcfg
+        if not isinstance(self.move, Circle):
+            self.move = Circle(self.cfg, _xy(self.green), 'indicator_green',
+                               radius_m=d.green_radius_m, clockwise=d.green_clockwise,
+                               drive=self.drive, avoid=True)
+            self.move.start(ctx)
+        state, cmd = self.move.step(ctx)
+        if state == RUNNING:
+            return RUNNING, cmd
+        self.circle = {'done': state == DONE, 'swept_deg': self.move.result.get('swept_deg', 0.0),
+                       'bulged': self.move.result.get('bulged', 0)}
+        self.move = None
+        self.last_new_s = self.scan_s             # the scan, if it goes on, starts afresh
+        return RUNNING, None
+
+    def report(self, ctx):
+        """Return what the field held (the map's latest places) and what was done."""
+        latest = {lm['id']: lm for lm in _debris(ctx)}
+        green = red = None
+        if self.green is not None:
+            green = _place(latest.get(self.green['id'], self.green))
+            green.update(self.circle or {'done': False})
+        if self.red is not None:
+            red = _place(latest.get(self.red['id'], self.red))
+        return {'debris': [_place(lm) for lm in latest.values()], 'green': green, 'red': red,
+                'scan_s': self.scan_s, 'stopped': self.stopped}
+
+    def summary(self):
+        if self.green is None:
+            g = 'green not found'
+        elif self.circle and self.circle['done']:
+            g = f'green circled {self.circle["swept_deg"]:.0f} deg'
+        else:
+            g = 'green found, not circled'
+        r = 'red seen' if self.red is not None else 'red not seen'
+        return f'{len(self.known)} debris, {g}, {r}, scan {self.scan_s:.0f} s ({self.stopped})'
+
+
 class Task2:
 
     def __init__(self, cfg, hint=None, drive=None, channel_approach_m=4.0, channel_end_m=9.0,
-                 gate_approach_m=2.5, gate_exit_m=1.5, back_end_m=4.0):
+                 gate_approach_m=2.5, gate_exit_m=1.5, back_end_m=4.0, debris=None):
         self.cfg = cfg
+        self.field = DebrisField(cfg, drive, debris)
         self.hint = hint
         self.drive = drive or DriveConfig()
         self.channel_approach_m = channel_approach_m
@@ -326,6 +469,13 @@ class Task2:
             self.channel_in = {'time': ctx.now, 'lat': ctx.lat, 'lon': ctx.lon}
         if self.stage in ('in', 'out'):
             return self._channel_step(ctx, self.stage)
+        if self.stage == 'debris':
+            state, cmd = self.field.step(ctx)
+            if state == RUNNING:
+                return RUNNING, cmd
+            ctx.memory['task2_debris'] = self.field.report(ctx)
+            self.stage, self.move = 'out', None
+            return RUNNING, None
         return SKIPPED, None
 
     def _find(self, ctx):
@@ -358,6 +508,8 @@ class Task2:
                          f'({sum(legs[way]["through"])} between the buoys'
                          + (f', {legs[way]["stuck"]} back-offs' if legs[way]['stuck'] else '')
                          + ')' for way in ('in', 'out') if legs[way]['passed'])
+        if self.stage in ('debris', 'out') or 'task2_debris' in ctx.memory:
+            text += f'; debris field: {self.field.summary()}'
         return f'channel {text}'
 
     def _channel_step(self, ctx, way):
@@ -412,9 +564,10 @@ class Task2:
                 return RUNNING, None
         self.move = None
         if way == 'in':
-            # (R3.3: the debris field goes here) back out through the channel
+            # The debris field, then back out through the channel
             self.channel_out_xy = ctx.boat_xy
-            self.stage = 'out'
+            self.stage = 'debris'
+            self.field.start(ctx, leg['passed'][-1], direction)
             return RUNNING, None
         ctx.memory['task2'] = {'channel_in': self.channel_in,
                                'gates': len(self.legs['in']['passed']),
@@ -426,9 +579,9 @@ class Task2:
         return DONE, None
 
 
-def default_phases(cfg, drive=None, hints=None):
+def default_phases(cfg, drive=None, hints=None, debris=None):
     """Return the phases written so far, by run phase name; the rest stay Pending."""
     hints = hints or {}
     return {'T1_ENTRY': T1Entry(cfg, drive=drive), 'RETURN': ReturnToGates(cfg, drive=drive),
             'T1_EXIT': T1Exit(cfg, drive=drive),
-            'task2': Task2(cfg, hint=hints.get('task2'), drive=drive)}
+            'task2': Task2(cfg, hint=hints.get('task2'), drive=drive, debris=debris)}

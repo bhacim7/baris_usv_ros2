@@ -27,17 +27,29 @@ for cx, y in ((1.52, 21.13), (2.12, 27.13), (2.72, 33.13), (3.72, 39.13)):
 BLACKS = [('buoy_black', 2.07, 33.33), ('buoy_black', 3.07, 39.43)]   # inside gates 3 and 4
 OFF_LINE = [('buoy_black', 1.82, 24.13)]      # between gates 1 and 2, on the way
 DEBRIS = [('buoy_black', 4.30, 45.13)]        # 6 m past gate 4, on the channel's line
+# The roboboat_2026 debris field, from the first Task 1 gate's centre (course east - 2.05):
+# five black buoys, the green indicator (a black 2.8 m from it) and the red one
+FIELD = [('buoy_black', 5.47, 45.13), ('buoy_black', 10.47, 47.13), ('buoy_black', 14.47, 52.13),
+         ('buoy_black', 18.47, 55.13), ('buoy_black', 7.47, 54.13),
+         ('indicator', 12.47, 49.13, 'green'), ('indicator', 16.47, 58.13, 'red')]
 
 
 def landmarks(turn_deg, items=POLES):
+    """Return the items (kind, x, y[, colour]) as confirmed map landmarks, turned."""
     c, s = math.cos(math.radians(turn_deg)), math.sin(math.radians(turn_deg))
-    return [{'id': i, 'kind': k, 'color': '', 'east': x * c - y * s, 'north': x * s + y * c,
-             'confirmed': True, 'sightings': 30} for i, (k, x, y) in enumerate(items)]
+    return [{'id': i, 'kind': it[0], 'color': it[3] if len(it) > 3 else '',
+             'east': it[1] * c - it[2] * s, 'north': it[1] * s + it[2] * c,
+             'confirmed': True, 'sightings': 30} for i, it in enumerate(items)]
 
 
 def run_task1(turn_deg=0.0, seconds=200.0, dt=0.04, items=POLES, task_order=(),
-              hints=None, until=FINISHED):
-    """Start 8 m before the first gate, facing it; course drawn heading north, turned."""
+              hints=None, until=FINISHED, see_m=None):
+    """
+    Start 8 m before the first gate, facing it; course drawn heading north, turned.
+
+    see_m: {kind: range} for kinds mapped from nearer than the mapper's 12 m.
+    """
+    see_m = see_m or {}
     every = landmarks(turn_deg, items)
     c, s = math.cos(math.radians(turn_deg)), math.sin(math.radians(turn_deg))
     boat = (0.0 * c - (-8.0) * s, 0.0 * s + (-8.0) * c)
@@ -48,7 +60,8 @@ def run_task1(turn_deg=0.0, seconds=200.0, dt=0.04, items=POLES, task_order=(),
     seen, track = set(), [boat]
     while ctx.now < seconds and run.phase != until:
         for lm in every:
-            if math.hypot(lm['east'] - ctx.boat_xy[0], lm['north'] - ctx.boat_xy[1]) <= 12.0:
+            if math.hypot(lm['east'] - ctx.boat_xy[0], lm['north'] - ctx.boat_xy[1]) <= \
+                    see_m.get(lm['kind'], 12.0):
                 seen.add(lm['id'])
         ctx.landmarks = [lm for lm in every if lm['id'] in seen]
         ctx.course = model.view(ctx.landmarks, run.memory.get('start_xy') or boat,
@@ -129,3 +142,43 @@ def test_task2_through_the_channel_and_back():
         assert all(mem['through']) and all(mem['back_through'])
         for b in every[12:16]:                # no touch: 0.39 half beam + 0.10 buoy
             assert min(math.hypot(p[0] - b['east'], p[1] - b['north']) for p in track) > 0.6
+        field = run.memory['task2_debris']    # no indicators: scanned, then out
+        assert field['green'] is None and field['red'] is None and field['stopped']
+
+
+def test_task2_debris_field():
+    """
+    Past the channel: circle the green indicator 360 deg, note the red, map the blacks.
+
+    The course's field: a black 2.8 m from the green, inside the 2.5 m ring, which bulges
+    round it. No buoy touched, the red never come near; then back out through the channel.
+    """
+    items = POLES + CHANNEL + BLACKS + FIELD
+    run, track, every = run_task1(0.0, seconds=500.0, items=items, task_order=('task2',),
+                                  hints={'task2': (21.1, -1.5)}, until='RETURN')
+    assert run.phase == 'RETURN', run.events[-3:]
+    field = run.memory['task2_debris']
+    assert field['green']['done'] and field['green']['swept_deg'] >= 360.0, field['green']
+    assert field['red'] is not None and field['red']['color'] == 'red'
+    assert len(field['debris']) == 7
+    assert run.memory['task2']['back_gates'] == 4 and all(run.memory['task2']['back_through'])
+    green, red = every[-2], every[-1]
+    for b in every[12:-2]:                    # the blacks: 0.39 half beam + 0.10 buoy
+        assert min(math.hypot(p[0] - b['east'], p[1] - b['north']) for p in track) > 0.6, b
+    assert min(math.hypot(p[0] - green['east'], p[1] - green['north']) for p in track) > 1.2
+    assert min(math.hypot(p[0] - red['east'], p[1] - red['north']) for p in track) > 1.0
+
+
+def test_task2_debris_scan_finds_the_green():
+    """The indicators are seen only from 5 m: the zigzag has to find the green."""
+    items = POLES + CHANNEL + BLACKS + FIELD
+    run, track, every = run_task1(0.0, seconds=600.0, items=items, task_order=('task2',),
+                                  hints={'task2': (21.1, -1.5)}, until='RETURN',
+                                  see_m={'indicator': 5.0})
+    assert run.phase == 'RETURN', run.events[-3:]
+    field = run.memory['task2_debris']
+    assert field['scan_s'] > 0.0
+    assert field['green']['done'] and field['green']['swept_deg'] >= 360.0, field
+    for b in every[12:-2]:
+        assert min(math.hypot(p[0] - b['east'], p[1] - b['north']) for p in track) > 0.6, b
+    assert run.memory['task2']['back_gates'] == 4

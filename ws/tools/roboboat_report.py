@@ -15,6 +15,10 @@ the hull outline as in run_report.py):
              WHOLE hull passed between the poles (handbook 3.2.1: "the entire ASV must
              pass through"); entry = gate 1 in, then gate 2 in; exit = gate 2 out, then
              gate 1 out
+  Task 2     the channel's gates the same way, in and back out; then the debris field:
+             each true debris object on the boat's map at the end or not (and how far
+             off), the angle swept round the green indicator (handbook: a full 360), the
+             nearest the hull came to the red one (to be reported, not approached)
   contacts   the closest the hull came to every buoy; 0 m or less is a contact (the
              handbook's obstacle strike, -25 points each)
   steering   per phase: how much longer the true path was than a straight line, how
@@ -204,6 +208,55 @@ def gate_crossings(track, gate, t0, marker_r=0.457 / 2.0):
     return out
 
 
+def debris_field(debris, seen, track, t0, ring_m=5.0, found_m=2.0):
+    """
+    Print the Task 2 debris field section (R3.3) against the truth.
+
+    Each true debris object: on the boat's map at the end (confirmed, same kind and colour,
+    within found_m) and how far off. The green indicator: the angle the true hull centre
+    swept round it while within ring_m (+ = counter-clockwise), and the radius it kept. The
+    red one: the nearest the hull outline came (it is only to be reported, not approached).
+    """
+    print('\n-- Task 2 debris field (truth; the boat\'s map at the end)')
+    mine = [lm for lm in seen if lm['confirmed']]
+    for d in sorted(debris, key=lambda d: (d['kind'], d['color'])):
+        name = d['kind'] + (f" {d['color']}" if d['color'] else '')
+        same = [lm for lm in mine if lm['kind'] == d['kind']
+                and (not d['color'] or lm['color'] == d['color'])]
+        off = min((math.hypot(lm['east'] - d['east'], lm['north'] - d['north'])
+                   for lm in same), default=None)
+        found = off is not None and off <= found_m
+        print(f"   {name:<17} ({d['east']:7.2f}, {d['north']:7.2f})  "
+              + (f'on the map, {off:.2f} m off' if found else 'NOT on the map'))
+    run = [(t, e, n, yaw) for t, e, n, yaw in track if t >= t0]
+    for d in debris:
+        if d['kind'] != 'indicator':
+            continue
+        dist = [math.hypot(e - d['east'], n - d['north']) for _, e, n, _ in run]
+        if d['color'] == 'green':
+            swept, last, radii = 0.0, None, []
+            for (_, e, n, _), r in zip(run, dist):
+                if r > ring_m:
+                    last = None
+                    continue
+                a = math.degrees(math.atan2(n - d['north'], e - d['east']))
+                if last is not None:
+                    swept += wrap180(a - last)
+                last = a
+                radii.append(r)
+            if radii:
+                way = 'counter-clockwise' if swept > 0 else 'clockwise'
+                print(f'   green circled: {abs(swept):.0f} deg {way} (hull centre '
+                      f'{min(radii):.2f}-{max(radii):.2f} m from it within {ring_m:.0f} m)'
+                      f'{"" if abs(swept) >= 360.0 else "  NOT a full turn"}')
+            else:
+                print(f'   green circled: never within {ring_m:.0f} m')
+        elif d['color'] == 'red':
+            buoy = {'east': d['east'], 'north': d['north'], 'radius': 0.23}
+            gap = min(run_report.clearance(buoy, e, n, yaw) for _, e, n, yaw in run)
+            print(f'   red: nearest {gap:+.2f} m (hull outline to its edge)')
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[1])
     ap.add_argument('bag')
@@ -275,6 +328,11 @@ def main():
         print(f'   channel out (every gate the other way, clean): {"YES" if ok_out else "no"}'
               f'{"" if any(outs) else " (not attempted yet)"}')
 
+    extra = read_extra(args.bag)
+    seen = boat_map(extra, course.origin)
+    if view.debris:
+        debris_field(view.debris, seen, track, t0)
+
     _, buoys = run_report.load_course(args.course) if not args.course_file else (None, [])
     if buoys:
         print('\n-- closest approach (true hull outline to buoy edge), run only')
@@ -288,9 +346,7 @@ def main():
             print(f'   #{b["index"]:<2} {b["type"]:<11} {gap:+6.2f} m at {when - t0:6.1f} s')
         contacts = [r for r in rows if r[0] <= 0.0]
         print(f'   contacts: {len(contacts)}')
-    extra = read_extra(args.bag)
     imu, pwm, fixes = steering(data, extra, track, changes, course.origin, t0)
-    seen = boat_map(extra, course.origin)
     print(f"\n   the boat's own map at the end: {len(seen)} landmarks, "
           f"{sum(1 for lm in seen if lm['confirmed'])} confirmed (course_report.py compares "
           'it with the course)')

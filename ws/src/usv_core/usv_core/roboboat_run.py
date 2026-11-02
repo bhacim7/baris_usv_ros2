@@ -41,7 +41,7 @@ HINTED = TASKS + ('task6_zone_t3', 'task6_zone_marina')
 @dataclass(frozen=True)
 class RunConfig:
     task_order: tuple = ('task2', 'task3', 'task5')
-    task_timeout_s: float = 240.0
+    task_timeout_s: float = 360.0         # Task 2 with its debris field: up to ~300 s
     run_timeout_s: float = 900.0          # then RETURN and exit; 0 = never
     # Where to start looking for a task, from the Task 1 entry gates: (ahead_m, left_m),
     # ahead = from the first gate's centre towards the second's. Seen by the team from the

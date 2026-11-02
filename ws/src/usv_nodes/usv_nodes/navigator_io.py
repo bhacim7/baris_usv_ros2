@@ -17,6 +17,7 @@ Kept apart from the node so they can be tested without a running ROS graph:
 RoboBoat profile (phase 6 R2):
   run_config_from(lookup)   usv_core.roboboat_run.RunConfig from the roboboat.* parameters
   drive_config_from(lookup) usv_core.roboboat_drive.DriveConfig from roboboat.drive.*
+  debris_config_from(lookup) usv_core.roboboat_tasks.DebrisConfig from roboboat.debris.*
   parse_hint(text)          'ahead,left' (metres from the Task 1 entry gates) -> tuple;
                             '' = no hint
   landmark_to_dict(lm)      one usv_interfaces/Landmark as the dict usv_core.world_map
@@ -33,6 +34,7 @@ import math
 from usv_core.nav_config import NavConfig, WAYPOINT_NAMES
 from usv_core.roboboat_drive import DriveConfig
 from usv_core.roboboat_run import HINTED, RunConfig
+from usv_core.roboboat_tasks import DebrisConfig
 
 UNKNOWN_CLASS = 255             # fake_perception / perception: class id not decided
 
@@ -133,6 +135,16 @@ def drive_config_from(lookup):
         channel_lookahead_m=float(lookup('roboboat.drive.channel_lookahead_m',
                                          d.channel_lookahead_m)),
         centre_ahead_m=float(lookup('roboboat.drive.centre_ahead_m', d.centre_ahead_m)))
+
+
+def debris_config_from(lookup):
+    d = DebrisConfig()
+    values = {}
+    for f in dataclasses.fields(DebrisConfig):
+        default = getattr(d, f.name)
+        value = lookup('roboboat.debris.' + f.name, default)
+        values[f.name] = bool(value) if isinstance(default, bool) else float(value)
+    return DebrisConfig(**values)
 
 
 def _stamp(t):

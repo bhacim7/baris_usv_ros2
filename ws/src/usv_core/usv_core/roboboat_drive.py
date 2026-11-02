@@ -32,7 +32,11 @@ So every move steers the same way, and a steering fix is made in one place.
             and the red, each once labelled green, pulled the green 1.4 m in), and not
             in the last GATE_FREEZE_M before the line
   Circle    round an object at radius_m, clockwise or counter-clockwise, until laps x 360
-            deg are swept round it; the object refined from the camera as for PassGate
+            deg are swept round it; the object refined from the camera as for PassGate.
+            With avoid (R3.3: the green indicator in the debris field, a black buoy 2.8 m
+            from it) the ring's points inside an obstacle's clearance are left out and A*
+            goes round that obstacle between the ones left: the ring bulges out there, the
+            angle is still swept round the object
   Search    look for something: one turn on the spot, then an expanding square round a
             point, until found(ctx) is true (DONE) or the pattern is used up (SKIPPED)
 
@@ -93,6 +97,8 @@ GATE_KINDS = ('pole_red', 'pole_green', 'buoy_red', 'buoy_green')
 WALL_M = 3.0
 AVOID_RANGE_M = 12.0          # objects further from the boat are not planned round
 BENT_CRUISE = 0.6             # share of the cruise PWM while an avoid path bends round
+BULGE_LOOKAHEAD_M = 1.5       # Circle's look-ahead while its ring bulges round a buoy
+RING_INSIDE = 0.7             # Circle keeps this share of its radius off the target
 PATH_DETOUR = 1.5             # avoid paths longer than this x straight + 2 m are refused
 # Stuck watch (Move._guard)
 STUCK_S = 6.0                 # this long ...
@@ -664,20 +670,31 @@ def free_gap(width, red_r, green_r, obstacles):
 class Circle(Move):
 
     def __init__(self, cfg, target, class_name, radius_m=2.0, clockwise=True, laps=1.0,
-                 step_deg=15.0, drive=None):
+                 step_deg=15.0, drive=None, avoid=False, replan_s=0.5):
         drive = drive or DriveConfig()
         super().__init__(cfg, drive, lookahead_m=min(drive.lookahead_m, 0.8 * radius_m))
         self.target, self.class_name = target, class_name
         self.radius_m, self.clockwise, self.laps = radius_m, clockwise, laps
         self.step_deg = step_deg
+        self.avoid, self.replan_s = avoid, replan_s
+        self.ring_lookahead = self.follower.lookahead_m
+        self.bulged = False
         self.swept = 0.0
         self.last_angle = None
         self.path = None
         self.path_target = None
+        self.planned_at = None
 
     def start(self, ctx):
         super().start(ctx)
         self.swept, self.last_angle, self.path, self.path_target = 0.0, None, None, None
+        self.planned_at = None
+
+    def replan_now(self):
+        self.path = None
+
+    def progress(self, ctx):
+        return math.radians(self.swept) * self.radius_m      # arc swept, m
 
     def _angle(self, xy):
         return math.degrees(math.atan2(xy[1] - self.target[1], xy[0] - self.target[0]))
@@ -687,7 +704,8 @@ class Circle(Move):
         if ctx.boat_xy is None:
             return RUNNING, None
         self.target, _ = refine(self.target, self.class_name, ctx, alpha=0.2)
-        a = self._angle(self.here(ctx))
+        here = self.here(ctx)
+        a = self._angle(here)
         if self.last_angle is not None:
             delta = _wrap180(a - self.last_angle)       # + = counter-clockwise (ENU)
             self.swept += -delta if self.clockwise else delta
@@ -696,13 +714,27 @@ class Circle(Move):
             self.result['swept_deg'] = self.swept
             return DONE, None
         if self.path is None or _dist(self.path_target, self.target) > 0.3 or \
-                self.follower.path_idx >= len(self.path) - 3:
-            self.path = self._ring(a)
-            self.path_target = self.target
-        return RUNNING, self._follow(self.path, ctx, dt)
+                self.follower.path_idx >= len(self.path) - 3 or \
+                (self.avoid and ctx.now - self.planned_at >= self.replan_s):
+            self.path = self._ring(a, here, ctx)
+            self.path_target, self.planned_at = self.target, ctx.now
+        # Round a bulge closely and slower, as PassGate's bent paths: a far aim point cut
+        # the corner towards the buoy the ring bulges round
+        self.follower.set_lookahead(min(self.ring_lookahead, BULGE_LOOKAHEAD_M) if self.bulged
+                                    else self.ring_lookahead)
+        cruise = int(self.cfg.cruise_pwm * BENT_CRUISE) if self.bulged else None
+        state, cmd = self._guard(ctx, self.follower.follow(self.path, here, ctx.heading,
+                                                           ctx.speed, dt, cruise), dt)
+        if state == SKIPPED:
+            self.result['swept_deg'] = self.swept
+        return state, cmd
 
-    def _ring(self, from_angle):
-        """Points round the target from the boat's angle, one turn and a bit, in order."""
+    def _ring(self, from_angle, here, ctx):
+        """
+        Return points round the target from the boat's angle, one turn and a bit, in order.
+
+        With avoid: from the boat, the points outside every clearance, A* between them.
+        """
         sign = -1.0 if self.clockwise else 1.0
         n = int(400.0 / self.step_deg)
         pts = []
@@ -710,7 +742,40 @@ class Circle(Move):
             ang = math.radians(from_angle + sign * k * self.step_deg)
             pts.append((self.target[0] + self.radius_m * math.cos(ang),
                         self.target[1] + self.radius_m * math.sin(ang)))
+        if not self.avoid:
+            return pts
+        for keep in (KEEP_OTHER_M, KEEP_GATE_M):
+            obstacles = self._obstacles(ctx, here, keep)
+            kept = [p for p in pts if not obstacles.inside(p)]
+            path = plan_through([here] + kept, obstacles) if kept else None
+            if path is not None:
+                self.bulged = len(path) != len(kept) + 1 or len(kept) < len(pts)
+                if self.bulged:
+                    self.result['bulged'] = self.result.get('bulged', 0) + 1
+                return path
+        self.result['blind'] = self.result.get('blind', 0) + 1
+        self.bulged = False
         return pts
+
+    def _obstacles(self, ctx, here, keep):
+        """
+        Return the Obstacles near the ring: the map's objects, the bumps, and the target.
+
+        The target is kept RING_INSIDE of the radius off, so the ring bulges outwards round
+        a buoy near it, not inside between the two (it did: 1.5 m from the green, a black
+        1.3 m on the other side).
+        """
+        reach = self.radius_m + AVOID_RANGE_M
+        circles = [(self.target, max(RING_INSIDE * self.radius_m,
+                                     OBSTACLE_RADIUS_M['indicator'] + keep))]
+        for kind, xy in placed_objects(ctx, memory=self.placed):
+            if _dist(xy, self.target) > reach:
+                continue
+            if _dist(xy, self.target) <= OBJECT_MATCH_M:
+                continue                          # the target itself (above)
+            circles.append((xy, OBSTACLE_RADIUS_M.get(kind, 0.25) + keep))
+        circles += [(b, BUMP_RADIUS_M + keep) for b in self.bumps]
+        return Obstacles(circles)
 
 
 class Search(Move):

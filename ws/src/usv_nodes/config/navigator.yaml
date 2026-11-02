@@ -14,7 +14,8 @@ navigator:
     # --- RoboBoat run (competition: roboboat; usv_core/roboboat_run.py) ---
     roboboat:
       task_order: [task2, task3, task5]   # after the entry gates; Task 6 interrupts (R3)
-      task_timeout_s: 240.0               # a task taking longer is skipped
+      task_timeout_s: 360.0               # a task taking longer is skipped (Task 2 with
+                                          # its debris field takes up to ~300 s)
       run_timeout_s: 900.0                # then back to the gates and out; 0 = never
       drive:
         lookahead_m: 4.0                  # Pure Pursuit aim point ahead on the path (m);
@@ -26,6 +27,13 @@ navigator:
         centre_ahead_m: 0.46              # hull centre ahead of the GPS antenna: the moves
                                           # steer and plan from the centre (the bow is
                                           # 0.85 m ahead of it)
+      debris:                             # Task 2 debris field (decided 2026-11-01)
+        depth_m: 15.0                     # scanned this far past the channel's last gate
+        half_width_m: 7.0                 # and this far to each side of the channel's line
+        quiet_s: 30.0                     # the scan stops after this long with nothing new
+        limit_s: 150.0                    # or after this long scanning in all
+        green_radius_m: 2.5               # the green indicator is circled at this radius
+        green_clockwise: false            # handbook: full 360, either way
       # Where to start looking for each task, seen from the shore before the run:
       # "ahead_m,left_m" from the Task 1 entry gates (ahead = first gate -> second gate).
       # '' = no hint: the boat explores

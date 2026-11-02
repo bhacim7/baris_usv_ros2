@@ -12,9 +12,10 @@ import pytest
 from usv_core.nav_config import NavConfig
 from usv_core.roboboat_drive import DriveConfig
 from usv_core.roboboat_run import HINTED, RunConfig
-from usv_nodes.navigator_io import (buoy_to_object, detections_to_dicts, drive_config_from,
-                                    landmark_to_dict, nav_config_from, parse_hint, path_points,
-                                    run_config_from, target_color)
+from usv_core.roboboat_tasks import DebrisConfig
+from usv_nodes.navigator_io import (buoy_to_object, debris_config_from, detections_to_dicts,
+                                    drive_config_from, landmark_to_dict, nav_config_from,
+                                    parse_hint, path_points, run_config_from, target_color)
 import yaml
 
 CONFIG = os.path.join(os.path.dirname(__file__), '..', 'config', 'navigator.yaml')
@@ -32,9 +33,10 @@ def yaml_params():
 def roboboat_params():
     with open(CONFIG) as f:
         rb = yaml.safe_load(f)['navigator']['ros__parameters']['roboboat']
-    flat = {'roboboat.' + k: v for k, v in rb.items() if k not in ('hint', 'drive')}
+    flat = {'roboboat.' + k: v for k, v in rb.items() if k not in ('hint', 'drive', 'debris')}
     flat.update({'roboboat.hint.' + k: v for k, v in rb['hint'].items()})
     flat.update({'roboboat.drive.' + k: v for k, v in rb['drive'].items()})
+    flat.update({'roboboat.debris.' + k: v for k, v in rb['debris'].items()})
     return flat
 
 
@@ -150,3 +152,12 @@ def test_drive_settings_from_yaml_and_override():
     assert drive_config_from(lambda name, default: params.get(name, default)) == DriveConfig()
     assert drive_config_from(lambda name, default: {'roboboat.drive.lookahead_m': 4}.get(
         name, default)).lookahead_m == 4.0
+
+
+def test_debris_settings_from_yaml_and_override():
+    params = roboboat_params()
+    assert debris_config_from(lambda name, default: params.get(name, default)) == DebrisConfig()
+    cfg = debris_config_from(lambda name, default: {'roboboat.debris.half_width_m': 10,
+                                                    'roboboat.debris.green_clockwise': True}.get(
+        name, default))
+    assert cfg.half_width_m == 10.0 and cfg.green_clockwise is True and cfg.depth_m == 15.0
