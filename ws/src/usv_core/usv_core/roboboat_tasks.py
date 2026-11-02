@@ -35,7 +35,13 @@ green indicator, report every debris, back out through the channel.
                  the map once the boat is run_on_m past the last one. Then the debris field
                  ('debris', DebrisField). Then back through the same gates the other way
                  ('out', handbook: the ASV returns through the channel), ending back_end_m
-                 past the entry gate. A gate the
+                 past the entry gate. Back out it takes the gates it passed going in, the
+                 other way, not the course model's channel: mapped again on the way back
+                 with the GPS drift moved 2.6-3.1 m, the same gates made a 7-8 gate channel
+                 (t3b_s1, t3far_s1) and the boat went for the copies. Each is expected where
+                 it was passed going in, moved by the drift measured so far: how far the
+                 camera moved the gates already passed back out from where they were going
+                 in; then the map's gate within BACK_MATCH_M of that, else that place. A gate the
                  boat stays stuck at is left (not between the buoys) and the next one taken.
                  Memory 'task2': entry time and position, gates passed each way (and whether
                  cleanly), back-offs; 'task2_debris': DebrisField.report
@@ -44,10 +50,10 @@ green indicator, report every debris, back out through the channel.
                  planned round the other buoys. Until then a scan: DriveTo (avoiding) along
                  a zigzag in the channel's frame, depth_m ahead of the last gate and
                  half_width_m to each side. The red indicator is never aimed at (an obstacle
-                 like the rest, 1 m clear) and noted when seen. The scan stops when nothing
-                 new has been confirmed for quiet_s of scanning, or after limit_s of
-                 scanning, or when the zigzag is done; and once the green is circled and the
-                 red seen. Then back to the channel from wherever the boat is: the turn is
+                 like the rest, 1 m clear) and noted when seen. The scan stops after limit_s
+                 of scanning, or when the zigzag is done, or (quiet_s, off by default) when
+                 nothing new has been confirmed for that long; and once the green is circled
+                 and the red seen. Then back to the channel from wherever the boat is: the turn is
                  made in the field, not beside its first buoy (t2h_s2 brushed it)
 
 A gate kept in memory is matched again to the course view (centre within MATCH_GATE_M) so
@@ -62,6 +68,9 @@ from usv_core.roboboat_drive import Circle, DriveConfig, DriveTo, PassGate, Sear
 from usv_core.roboboat_run import DONE, RUNNING, SKIPPED
 
 MATCH_GATE_M = 3.0
+# A channel gate passed going in is found again within this of where it was then, moved
+# by the drift since (see Task2)
+BACK_MATCH_M = 2.5
 PHASE_LIMIT_S = 240.0         # RETURN and T1_EXIT are not cut by the run's task timeout
 
 
@@ -263,10 +272,15 @@ class DebrisConfig:
 
     depth_m: float = 15.0          # scanned this far past the channel's last gate
     half_width_m: float = 7.0      # and this far to each side of the channel's line
-    quiet_s: float = 30.0          # scanning stops after this long with nothing new
+    # quiet_s: scanning stops after this long with nothing new; 0 = off. Off by default
+    # (2026-11-02): it stopped the scan before its far legs, where the red one was
+    quiet_s: float = 0.0
     limit_s: float = 150.0         # or after this long scanning in all
     green_radius_m: float = 2.5    # the green indicator is circled at this radius
     green_clockwise: bool = False
+    # ... this far past 360 deg round it: the boat's place for it can be ~1 m off the
+    # truth, and a turn short of 360 round the true one is no full turn (t3far_s1: 349)
+    green_extra_deg: float = 30.0
 
 
 def _debris(ctx):
@@ -332,7 +346,7 @@ class DebrisField:
         d = self.dcfg
         if self.scan_s >= d.limit_s:
             self.stopped = f'scan limit {d.limit_s:.0f} s'
-        elif self.scan_s - self.last_new_s >= d.quiet_s:
+        elif d.quiet_s > 0 and self.scan_s - self.last_new_s >= d.quiet_s:
             self.stopped = f'nothing new for {d.quiet_s:.0f} s'
         elif not self.legs:
             self.stopped = 'zigzag done'
@@ -354,7 +368,8 @@ class DebrisField:
         if not isinstance(self.move, Circle):
             self.move = Circle(self.cfg, _xy(self.green), 'indicator_green',
                                radius_m=d.green_radius_m, clockwise=d.green_clockwise,
-                               drive=self.drive, avoid=True)
+                               laps=(360.0 + d.green_extra_deg) / 360.0, drive=self.drive,
+                               avoid=True)
             self.move.start(ctx)
         state, cmd = self.move.step(ctx)
         if state == RUNNING:
@@ -415,7 +430,9 @@ class Task2:
         self.channel_out_xy = None
         # Each way through the channel: centres of the gates passed, each passed cleanly
         # (PassGate's own reading), back-offs from being stuck
-        self.legs = {way: {'passed': [], 'through': [], 'stuck': 0} for way in ('in', 'out')}
+        self.legs = {way: {'passed': [], 'through': [], 'stuck': 0, 'gates': []}
+                     for way in ('in', 'out')}
+        self.back_shift = (0.0, 0.0)  # the GPS drift since going in, from the gates back out
 
     # ------------------------------------------------------------------ helpers
     def _channel(self, ctx):
@@ -444,6 +461,23 @@ class Task2:
             if best is None or dist < best[0]:
                 best = (dist, g)
         return best[1] if best else None
+
+    def _back_gate(self, ctx, k):
+        """Return the k-th gate back out: the in-leg's gates reversed, as mapped now."""
+        gates = self.legs['in']['gates']
+        if k >= len(gates):
+            return None
+        stored, (sx, sy) = gates[-1 - k], self.back_shift
+        red = (stored['red'][0] + sx, stored['red'][1] + sy)
+        green = (stored['green'][0] + sx, stored['green'][1] + sy)
+        c = ((red[0] + green[0]) / 2.0, (red[1] + green[1]) / 2.0)
+        near = [g for g in self._channel(ctx)
+                if math.hypot(_centre(g)[0] - c[0], _centre(g)[1] - c[1]) <= BACK_MATCH_M]
+        if near:
+            return min(near, key=lambda g: math.hypot(_centre(g)[0] - c[0], _centre(g)[1] - c[1]))
+        green_kind = stored['kind'].replace('red', 'green')
+        return Gate({'kind': stored['kind'], 'east': red[0], 'north': red[1]},
+                    {'kind': green_kind, 'east': green[0], 'north': green[1]})
 
     # ------------------------------------------------------------------ stages
     def step(self, ctx):
@@ -529,14 +563,27 @@ class Task2:
             prefer = self.move.path
             c, _, _, _ = self.move.geometry()
             leg['passed'].append(c)
+            leg['gates'].append({'red': self.move.red, 'green': self.move.green,
+                                 'kind': self.move.red_class})
+            if way == 'out':
+                was = self.legs['in']['gates'][-len(leg['gates'])]
+                self.back_shift = ((self.move.red[0] - was['red'][0]
+                                    + self.move.green[0] - was['green'][0]) / 2.0,
+                                   (self.move.red[1] - was['red'][1]
+                                    + self.move.green[1] - was['green'][1]) / 2.0)
             leg['through'].append(state == DONE and bool(self.move.result.get('through')))
             leg['stuck'] += self.move.result.get('stuck', 0)
             self.move = None
-        gate = self._next_gate(ctx, leg['passed'], direction)
+        if way == 'in':
+            gate = self._next_gate(ctx, leg['passed'], direction)
+            after = self._next_gate(ctx, leg['passed'] + [_centre(gate)], direction) \
+                if gate is not None else None
+        else:
+            gate, after = self._back_gate(ctx, len(leg['passed'])), \
+                self._back_gate(ctx, len(leg['passed']) + 1)
         if gate is not None:
             reverse = (gate.through[0] * direction[0] + gate.through[1] * direction[1]) < 0
             # The way is planned on to the gate after it, if the map has that one yet
-            after = self._next_gate(ctx, leg['passed'] + [_centre(gate)], direction)
             then = []
             if after is not None:
                 c2 = _centre(after)

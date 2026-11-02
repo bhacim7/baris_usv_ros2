@@ -14,8 +14,10 @@ from usv_core.nav_config import NavConfig
 from usv_core.roboboat_course import CourseModel
 from usv_core.roboboat_run import FINISHED, RoboBoatRun, RunConfig, RunContext
 from usv_core.roboboat_tasks import circular_mean_deg, default_phases
+from usv_core.world_map import latlon
 
 CFG = NavConfig()
+ORIGIN = (27.37, -82.45)
 POLES = [('pole_red', -4.33, 0.0), ('pole_green', 4.33, 0.0),
          ('pole_red', -4.33, 7.95), ('pole_green', 4.33, 7.95)]
 
@@ -43,11 +45,16 @@ def landmarks(turn_deg, items=POLES):
 
 
 def run_task1(turn_deg=0.0, seconds=200.0, dt=0.04, items=POLES, task_order=(),
-              hints=None, until=FINISHED, see_m=None):
+              hints=None, until=FINISHED, see_m=None, drift=None, drift_north=None,
+              camera=False):
     """
     Start 8 m before the first gate, facing it; course drawn heading north, turned.
 
-    see_m: {kind: range} for kinds mapped from nearer than the mapper's 12 m.
+    see_m: {kind: range} for kinds mapped from nearer than the mapper's 12 m. drift: once
+    the boat has been north of drift_north, the GPS is off by this (east, north): the boat's
+    position and what it maps from then on move with it (the landmarks it then sees again
+    get copies there, as the mapper made them), what it mapped before stays. camera: every
+    step a frame of what is within 10 m and 55 deg of the bow, placed by the (drifted) GPS.
     """
     see_m = see_m or {}
     every = landmarks(turn_deg, items)
@@ -56,25 +63,50 @@ def run_task1(turn_deg=0.0, seconds=200.0, dt=0.04, items=POLES, task_order=(),
     heading = (0.0 - turn_deg) % 360.0                 # north, turned counter-clockwise
     run = RoboBoatRun(RunConfig(task_order=task_order), default_phases(CFG, hints=hints))
     model = CourseModel()
-    ctx = RunContext(now=0.0, boat_xy=boat, heading=heading)
-    seen, track = set(), [boat]
+    ctx = RunContext(now=0.0, boat_xy=boat, heading=heading,
+                     map_origin=ORIGIN if camera else None)
+    seen, copies, last, track = set(), {}, {}, [boat]
+    true_xy, off = boat, (0.0, 0.0)
     while ctx.now < seconds and run.phase != until:
+        if drift is not None and true_xy[1] > drift_north:
+            off = drift
         for lm in every:
-            if math.hypot(lm['east'] - ctx.boat_xy[0], lm['north'] - ctx.boat_xy[1]) <= \
+            if math.hypot(lm['east'] - true_xy[0], lm['north'] - true_xy[1]) <= \
                     see_m.get(lm['kind'], 12.0):
-                seen.add(lm['id'])
-        ctx.landmarks = [lm for lm in every if lm['id'] in seen]
+                if off == (0.0, 0.0):
+                    seen.add(lm['id'])
+                    last[lm['id']] = ctx.now
+                else:                             # mapped where the drifted GPS puts it
+                    copies.setdefault(lm['id'], dict(lm, id=1000 + lm['id'],
+                                                     east=lm['east'] + off[0],
+                                                     north=lm['north'] + off[1]))
+                    last[1000 + lm['id']] = ctx.now
+        ctx.landmarks = [dict(lm, last_seen=last[lm['id']]) for lm in
+                         [lm for lm in every if lm['id'] in seen] + list(copies.values())]
+        ctx.boat_xy = (true_xy[0] + off[0], true_xy[1] + off[1])
+        if camera:
+            ctx.detections, ctx.detections_time = [], ctx.now
+            for lm in every:
+                dx, dy = lm['east'] - true_xy[0], lm['north'] - true_xy[1]
+                bearing = math.degrees(math.atan2(dx, dy))
+                if math.hypot(dx, dy) <= 10.0 and \
+                        abs((bearing - ctx.heading + 180.0) % 360.0 - 180.0) <= 55.0:
+                    name = f"indicator_{lm['color']}" if lm['kind'] == 'indicator' \
+                        else lm['kind']
+                    lat, lon = latlon(lm['east'] + off[0], lm['north'] + off[1], *ORIGIN)
+                    ctx.detections.append({'class_name': name, 'position_ok': True,
+                                           'lat': lat, 'lon': lon})
         ctx.course = model.view(ctx.landmarks, run.memory.get('start_xy') or boat,
                                 run.memory.get('t1_heading'))
         cmd = run.step(ctx, True)
         fwd, yaw = cmd or (1500, 0)
         speed = (fwd - 1500) / 180.0 * 1.3 if fwd >= 1500 else (fwd - 1500) / 150.0 * 0.7
         h = (ctx.heading + max(-60.0, min(60.0, yaw * 0.25)) * dt) % 360.0
-        ctx.boat_xy = (ctx.boat_xy[0] + speed * math.sin(math.radians(h)) * dt,
-                       ctx.boat_xy[1] + speed * math.cos(math.radians(h)) * dt)
+        true_xy = (true_xy[0] + speed * math.sin(math.radians(h)) * dt,
+                   true_xy[1] + speed * math.cos(math.radians(h)) * dt)
         ctx.heading, ctx.speed = h, speed
         ctx.now += dt
-        track.append(ctx.boat_xy)
+        track.append(true_xy)
     return run, track, every
 
 
@@ -185,8 +217,9 @@ def test_task2_debris_scan_finds_the_green():
 
 
 def test_task2_debris_scan_far_green():
-    """Find the green by the scan where roboboat_2026_far puts it, 13 m from the channel's end."""
-    field = [it for it in FIELD if it[-1] != 'green'] + [('indicator', 1.24 - 2.05, 54.2, 'green')]
+    """Find the green by the scan where roboboat_2026_far puts it, 14.8 m past the channel."""
+    green = ('indicator', 1.50 - 2.05, 56.06, 'green')
+    field = [it for it in FIELD if it[-1] != 'green'] + [green]
     run, track, every = run_task1(0.0, seconds=700.0, items=POLES + CHANNEL + BLACKS + field,
                                   task_order=('task2',), hints={'task2': (21.1, -1.5)},
                                   until='RETURN')
@@ -196,3 +229,22 @@ def test_task2_debris_scan_far_green():
     assert result['green']['done'] and result['green']['swept_deg'] >= 360.0, result
     for b in every[12:-2]:
         assert min(math.hypot(p[0] - b['east'], p[1] - b['north']) for p in track) > 0.6, b
+
+
+def test_task2_back_through_the_gates_passed_not_their_copies():
+    """
+    Go back through the 4 gates passed going in, not the copies the GPS drift makes.
+
+    Past the channel the GPS drifts 2.8 m north: the gates seen again are mapped again,
+    2.8 m on, and the course model sees a longer channel.
+    """
+    run, track, every = run_task1(0.0, seconds=500.0, items=POLES + CHANNEL + BLACKS,
+                                  task_order=('task2',), hints={'task2': (21.1, -1.5)},
+                                  until='RETURN', drift=(0.0, 2.8), drift_north=44.0,
+                                  camera=True)
+    assert run.phase == 'RETURN', run.events[-3:]
+    assert run.memory['task2']['back_gates'] == 4, run.memory['task2']
+    for k in range(4):
+        xs = crossings(track, every[4 + 2 * k], every[5 + 2 * k])
+        assert [d for d, _, _ in xs] == ['in', 'out'], (k, xs)
+        assert all(abs(side) < w / 2.0 - 0.49 for _, side, w in xs), (k, xs)

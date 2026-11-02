@@ -1,9 +1,11 @@
 # Variant of roboboat_2026.yaml for the debris-field scan (phase 6 R3.3, 2026-11-02): the
 # same course, but the GREEN indicator stands where the boat cannot map it from the channel.
 # In roboboat_2026 the camera sees it from between gates 3 and 4 and the map takes it in
-# (within 12 m) as the boat leaves gate 4, so the zigzag scan never runs. Here it is 14.5 m
-# past gate 4 and 6 m left (west) of the channel's line: 13 m from where the channel counts
-# as ended (3 m past gate 4), inside the scan (15 m x +/-7 m), found on its second leg.
+# (within 12 m) as the boat leaves gate 4, so the zigzag scan never runs. Here it is 16 m
+# past gate 4 and 7 m left (west) of the channel's line: 14.8 m from where the channel
+# counts as ended (3 m past gate 4), 2.5 m beyond the scan's far row (13.5 m past gate 4,
+# 7 m left), where the boat finds it. (At 14.5 m / 6 m left, 13 m from there, the boat
+# turning after the run-on came within 11.3 m and mapped it before scanning: t3far_s1.)
 # Report with: roboboat_report.py BAG --course roboboat_2026_far
 #
 # RoboBoat 2026 course at Nathan Benderson Park, built from the Team Handbook (2026),
@@ -104,7 +106,7 @@ buoys:
   - {type: a0_black,   east: 16.52, north: 52.13}
   - {type: a0_black,   east: 20.52, north: 55.13}
   - {type: a0_black,   east: 9.52,  north: 54.13}
-  - {type: indicator_green, east: 1.24,  north: 54.2}    # survivor: circle 360 and report
+  - {type: indicator_green, east: 1.50,  north: 56.06}   # survivor: circle 360 and report
   #   (moved: roboboat_2026 has it at 14.52, 49.13, seen from the channel)
   - {type: indicator_red,   east: 18.52, north: 58.13}   # hazard: avoid and report
   # --- Task 3: speed challenge, entered heading east ---

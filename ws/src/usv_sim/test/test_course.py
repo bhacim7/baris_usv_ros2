@@ -174,11 +174,11 @@ def test_survey_route_keeps_clear_of_the_buoys():
 
 def test_far_variant_hides_the_green_from_the_channel():
     """
-    roboboat_2026_far: only the green indicator moves, out of the map's 12 m from the channel.
+    Check roboboat_2026_far: only the green indicator moves, out of reach from the channel.
 
     The channel counts as ended 3 m past gate 4 (Task2.run_on_m); from there the green has
-    to be more than 12 m away (the mapper's range) and inside the debris scan, 15 m past
-    gate 4 and 7 m to each side of the channel's line (DebrisConfig).
+    to be more than 14 m away (the mapper's 12 m and the turn there), and within reach of
+    the debris scan: its far row runs 13.5 m past gate 4, 7 m to each side (DebrisConfig).
     """
     base, far = read('roboboat_2026'), read('roboboat_2026_far')
     assert {k: v for k, v in base.items() if k != 'buoys'} == \
@@ -193,7 +193,7 @@ def test_far_variant_hides_the_green_from_the_channel():
     n = math.hypot(g4[0] - g3[0], g4[1] - g3[1])
     ahead = ((g4[0] - g3[0]) / n, (g4[1] - g3[1]) / n)
     ended = (g4[0] + 3.0 * ahead[0], g4[1] + 3.0 * ahead[1])
-    assert math.hypot(green[0] - ended[0], green[1] - ended[1]) > 12.0
+    assert math.hypot(green[0] - ended[0], green[1] - ended[1]) > 14.0
     d = (green[0] - g4[0], green[1] - g4[1])
     along, side = d[0] * ahead[0] + d[1] * ahead[1], d[1] * ahead[0] - d[0] * ahead[1]
-    assert 0.0 < along <= 15.0 and abs(side) <= 7.0
+    assert math.hypot(along - 13.5, abs(side) - 7.0) <= 3.0

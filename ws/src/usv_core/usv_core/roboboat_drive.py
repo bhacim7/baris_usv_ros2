@@ -77,7 +77,11 @@ OBSTACLE_RADIUS_M = {
 }
 DETECTION_MAX_AGE_S = 0.5
 MATCH_M = 2.0                 # a detection replaces a map position within this ...
-GATE_MATCH_SHARE = 0.4        # ... and within this share of a gate's width
+GATE_MATCH_SHARE = 0.4        # ... and within this share of a gate's width (one marker)
+# A gate's two markers seen together: each within this, the width and the two shifts
+# checked (the GPS drift between going through a gate and coming back reached 2.6-3.1 m:
+# t3far_s1)
+PAIR_MATCH_M = 3.5
 WIDTH_TOL_M = 0.6             # a gate refined to a width further from the map's is not
 GATE_FREEZE_M = 1.0           # the gate is not refined in the last metre before its line
 OBJECT_MATCH_M = 1.0          # avoid: a detection places a map object of its kind within
@@ -99,6 +103,9 @@ AVOID_RANGE_M = 12.0          # objects further from the boat are not planned ro
 BENT_CRUISE = 0.6             # share of the cruise PWM while an avoid path bends round
 BULGE_LOOKAHEAD_M = 1.5       # Circle's look-ahead while its ring bulges round a buoy
 RING_INSIDE = 0.7             # Circle keeps this share of its radius off the target
+# Circle counts the angle only this near its ring (approaching from 9 m, the angle round
+# the target changed by 6-7 deg)
+RING_BAND_M = 1.0
 PATH_DETOUR = 1.5             # avoid paths longer than this x straight + 2 m are refused
 # Stuck watch (Move._guard)
 STUCK_S = 6.0                 # this long ...
@@ -494,15 +501,16 @@ class PassGate(Move):
         """
         Move the gate towards where this frame's camera sees it.
 
-        Both markers seen: the pair (each within MATCH_M) whose width is the map's within
+        Both markers seen: the pair (each within PAIR_MATCH_M) whose width is the map's within
         WIDTH_TOL_M and whose two shifts agree within WIDTH_TOL_M, the smallest shift
         first: the GPS drift moves both alike, a mislabelled box does not. One marker
         seen: within GATE_MATCH_SHARE of the gate's width, and the width still right.
         """
         dets = detections_xy(ctx)
-        reds = [xy for n, xy in dets if n == self.red_class and _dist(xy, self.red) <= MATCH_M]
+        reach = max(MATCH_M, PAIR_MATCH_M)
+        reds = [xy for n, xy in dets if n == self.red_class and _dist(xy, self.red) <= reach]
         greens = [xy for n, xy in dets
-                  if n == self.green_class and _dist(xy, self.green) <= MATCH_M]
+                  if n == self.green_class and _dist(xy, self.green) <= reach]
         pairs = []
         for r in reds:
             for g in greens:
@@ -689,12 +697,20 @@ class Circle(Move):
         super().start(ctx)
         self.swept, self.last_angle, self.path, self.path_target = 0.0, None, None, None
         self.planned_at = None
+        self.dist = None
 
     def replan_now(self):
         self.path = None
 
     def progress(self, ctx):
-        return math.radians(self.swept) * self.radius_m      # arc swept, m
+        """
+        Return the arc swept, less how far the boat still is outside the ring (m).
+
+        Coming to the ring counts too: on the arc alone, 9 m of approach looked stuck, the
+        stuck watch backed off every 6 s and its bumps shut the way (t3b_s1: not circled).
+        """
+        out = max(0.0, self.dist - self.radius_m) if self.dist is not None else 0.0
+        return math.radians(self.swept) * self.radius_m - out
 
     def _angle(self, xy):
         return math.degrees(math.atan2(xy[1] - self.target[1], xy[0] - self.target[0]))
@@ -706,10 +722,15 @@ class Circle(Move):
         self.target, _ = refine(self.target, self.class_name, ctx, alpha=0.2)
         here = self.here(ctx)
         a = self._angle(here)
-        if self.last_angle is not None:
+        self.dist = _dist(here, self.target)
+        if self.dist > self.radius_m + RING_BAND_M:
+            self.last_angle = None                      # not on the ring yet (or off it)
+        elif self.last_angle is not None:
             delta = _wrap180(a - self.last_angle)       # + = counter-clockwise (ENU)
             self.swept += -delta if self.clockwise else delta
-        self.last_angle = a
+            self.last_angle = a
+        else:
+            self.last_angle = a
         if self.swept >= 360.0 * self.laps:
             self.result['swept_deg'] = self.swept
             return DONE, None
