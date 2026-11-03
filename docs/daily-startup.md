@@ -342,6 +342,22 @@ python3 /ws/tools/roboboat_report.py /ws/bags/t1_<ad>
 ```
 Enkaz taramasını denemek için yeşilin kanaldan görünmediği parkur kopyası: `course:=roboboat_2026_far`
 (raporda da `--course roboboat_2026_far` ver; rapor gerçek yerleri parkur dosyasından okur).
+
+**Bir koşuda tekne ne düşündü? (yeniden oynatma, `ws/tools/dev/replay.py`)** Kayıttaki GPS,
+pusula, harita ve kamera verisi navigatöre aynı sırayla yeniden verilir; tekne her an hangi
+hareketteydi, hangi yolu çizdi görülür. ROS gerekmez, host'ta da çalışır (`cd ~/usv_ros2`):
+
+```bash
+python3 ws/tools/dev/replay.py t3d_s1
+```
+Navigatörün kaydı (aşamalar, `task2: done ...` özeti). Diğer kullanımlar:
+`... t3d_s1 moves` (her hareket, ne zaman, sonucu), `... t3d_s1 trace 60 90 --path` (60–90 s
+arası her saniye: hareket, konum, komut, yakındaki şamandıralar, çizilen yol),
+`... t3d_s1 channel 70 150` (parkur modelinin o anlardaki kanal kapıları),
+`... t3dfar_s1 map --course roboboat_2026_far --map copy_merge_radius_m=3.0` (harita kayıttaki
+kamera karelerinden, istenen ayarla yeniden kurulup gerçek parkurla karşılaştırılır).
+Açık döngüdür: tekne kayıtta nereye gittiyse oraya gider; kod değiştiyse "yeni kod aynı yerde
+ne karar verirdi"yi gösterir, teknenin sonra nereye gideceğini değil.
 Aşamalar ve süreleri; her kapı için geçişler (yön, ortadan sapma, gövdenin tamamı direklerin
 arasından mı); giriş ve çıkış doğru sırada mı; şamandıralara en yakın geçişler ve temas sayısı;
 dümen tablosu (salınım ölçüleri). `--plot /ws/bags/t1_<ad>.png` ile resim: halkalar gerçek
