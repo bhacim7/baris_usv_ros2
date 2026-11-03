@@ -82,7 +82,12 @@ GATE_MATCH_SHARE = 0.4        # ... and within this share of a gate's width (one
 # checked (the GPS drift between going through a gate and coming back reached 2.6-3.1 m:
 # t3far_s1)
 PAIR_MATCH_M = 3.5
-WIDTH_TOL_M = 0.6             # a gate refined to a width further from the map's is not
+# A gate refined to a width further than this from the map's is not (0.6 let a 1.87 m copy
+# gate be "refined" to 1.32 m: t3dfar_s1)
+WIDTH_TOL_M = 0.4
+# ... nor one turned further than this from the map's line (one marker at a time, the camera
+# turned a channel gate 12-16 deg and the boat crossed it slanting: t3dfar_s1)
+GATE_TURN_TOL_DEG = 10.0
 GATE_FREEZE_M = 1.0           # the gate is not refined in the last metre before its line
 OBJECT_MATCH_M = 1.0          # avoid: a detection places a map object of its kind within
 PLACE_ALPHA = 0.3             # ... a share at a time (one frame's box jumps 0.5-0.9 m)
@@ -505,7 +510,8 @@ class PassGate(Move):
         Both markers seen: the pair (each within PAIR_MATCH_M) whose width is the map's within
         WIDTH_TOL_M and whose two shifts agree within WIDTH_TOL_M, the smallest shift
         first: the GPS drift moves both alike, a mislabelled box does not. One marker
-        seen: within GATE_MATCH_SHARE of the gate's width, and the width still right.
+        seen: within GATE_MATCH_SHARE of the gate's width. Either way the width has to stay
+        within WIDTH_TOL_M of the map's and the line within GATE_TURN_TOL_DEG of its way.
         """
         dets = detections_xy(ctx)
         reach = max(MATCH_M, PAIR_MATCH_M)
@@ -539,7 +545,11 @@ class PassGate(Move):
                                           (1 - alpha) * self.red[1] + alpha * r[1])
         green = self.green if g is None else ((1 - alpha) * self.green[0] + alpha * g[0],
                                               (1 - alpha) * self.green[1] + alpha * g[1])
-        if abs(_dist(red, green) - self.map_width) > WIDTH_TOL_M:
+        turn = math.degrees(math.atan2(red[1] - green[1], red[0] - green[0])
+                            - math.atan2(self.map_red[1] - self.map_green[1],
+                                         self.map_red[0] - self.map_green[0]))
+        if abs(_dist(red, green) - self.map_width) > WIDTH_TOL_M or \
+                abs(_wrap180(turn)) > GATE_TURN_TOL_DEG:
             self.result['refused'] = self.result.get('refused', 0) + 1
             return
         self.red, self.green = red, green

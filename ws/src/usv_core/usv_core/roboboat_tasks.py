@@ -41,7 +41,8 @@ green indicator, report every debris, back out through the channel.
                  (t3b_s1, t3far_s1) and the boat went for the copies. Each is expected where
                  it was passed going in, moved by the drift measured so far: how far the
                  camera moved the gates already passed back out from where they were going
-                 in; then the map's gate within BACK_MATCH_M of that, else that place. A gate the
+                 in; then the map's gate within BACK_MATCH_M of that, as wide and as turned
+                 as it was, else that place. A gate the
                  boat stays stuck at is left (not between the buoys) and the next one taken.
                  Memory 'task2': entry time and position, gates passed each way (and whether
                  cleanly), back-offs; 'task2_debris': DebrisField.report
@@ -69,8 +70,12 @@ from usv_core.roboboat_run import DONE, RUNNING, SKIPPED
 
 MATCH_GATE_M = 3.0
 # A channel gate passed going in is found again within this of where it was then, moved
-# by the drift since (see Task2)
+# by the drift since (see Task2), as wide as it was within BACK_WIDTH_M and as turned
+# within BACK_TURN_DEG (copies of a red and a green mapped at different drifts made a
+# 1.87 m gate of a 2.5 m one, t3dfar_s1, and a gate turned 31 deg, t3dfar_s2)
 BACK_MATCH_M = 2.5
+BACK_WIDTH_M = 0.3
+BACK_TURN_DEG = 10.0
 PHASE_LIMIT_S = 240.0         # RETURN and T1_EXIT are not cut by the run's task timeout
 
 
@@ -471,8 +476,15 @@ class Task2:
         red = (stored['red'][0] + sx, stored['red'][1] + sy)
         green = (stored['green'][0] + sx, stored['green'][1] + sy)
         c = ((red[0] + green[0]) / 2.0, (red[1] + green[1]) / 2.0)
+        width = math.hypot(red[0] - green[0], red[1] - green[1])
+        way = math.atan2(red[1] - green[1], red[0] - green[0])
+
+        def turned(g):
+            a = math.atan2(g.red['north'] - g.green['north'], g.red['east'] - g.green['east'])
+            return abs((math.degrees(a - way) + 180.0) % 360.0 - 180.0)
         near = [g for g in self._channel(ctx)
-                if math.hypot(_centre(g)[0] - c[0], _centre(g)[1] - c[1]) <= BACK_MATCH_M]
+                if math.hypot(_centre(g)[0] - c[0], _centre(g)[1] - c[1]) <= BACK_MATCH_M
+                and abs(g.width - width) <= BACK_WIDTH_M and turned(g) <= BACK_TURN_DEG]
         if near:
             return min(near, key=lambda g: math.hypot(_centre(g)[0] - c[0], _centre(g)[1] - c[1]))
         green_kind = stored['kind'].replace('red', 'green')
