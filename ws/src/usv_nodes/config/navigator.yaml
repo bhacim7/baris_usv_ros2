@@ -35,8 +35,8 @@ navigator:
         limit_s: 150.0                    # or after this long scanning in all
         green_radius_m: 2.5               # the green indicator is circled at this radius
         green_clockwise: false            # handbook: full 360, either way
-        green_extra_deg: 30.0             # turned this far past 360 (the boat's place for
-                                          # the green can be ~1 m off: 349 deg round the true)
+        green_sweep_deg: 360.0            # how far round the green (handbook: "full 360";
+                                          # the boat's place for it can be ~1 m off)
       # Where to start looking for each task, seen from the shore before the run:
       # "ahead_m,left_m" from the Task 1 entry gates (ahead = first gate -> second gate).
       # '' = no hint: the boat explores

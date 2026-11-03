@@ -103,8 +103,9 @@ AVOID_RANGE_M = 12.0          # objects further from the boat are not planned ro
 BENT_CRUISE = 0.6             # share of the cruise PWM while an avoid path bends round
 BULGE_LOOKAHEAD_M = 1.5       # Circle's look-ahead while its ring bulges round a buoy
 RING_INSIDE = 0.7             # Circle keeps this share of its radius off the target
-# Circle counts the angle only this near its ring (approaching from 9 m, the angle round
-# the target changed by 6-7 deg)
+# Circle starts counting the angle once this near its ring (approaching from 9 m, the angle
+# round the target changed by 6-7 deg); from then on it counts all of it, out round a buoy
+# near the ring too (stopped there, t3c_s1 froze at 309 deg and went round twice)
 RING_BAND_M = 1.0
 PATH_DETOUR = 1.5             # avoid paths longer than this x straight + 2 m are refused
 # Stuck watch (Move._guard)
@@ -698,19 +699,22 @@ class Circle(Move):
         self.swept, self.last_angle, self.path, self.path_target = 0.0, None, None, None
         self.planned_at = None
         self.dist = None
+        self.on_ring = False
 
     def replan_now(self):
         self.path = None
 
     def progress(self, ctx):
         """
-        Return the arc swept, less how far the boat still is outside the ring (m).
+        Return the arc swept on the ring, before it how near the boat has come to it (m).
 
-        Coming to the ring counts too: on the arc alone, 9 m of approach looked stuck, the
-        stuck watch backed off every 6 s and its bumps shut the way (t3b_s1: not circled).
+        Coming to the ring counts: on the arc alone, 9 m of approach looked stuck, the stuck
+        watch backed off every 6 s and its bumps shut the way (t3b_s1: not circled). On the
+        ring only the arc does: bulging out round a buoy is not going backwards (t3c_s1).
         """
-        out = max(0.0, self.dist - self.radius_m) if self.dist is not None else 0.0
-        return math.radians(self.swept) * self.radius_m - out
+        if self.on_ring:
+            return math.radians(self.swept) * self.radius_m
+        return -max(0.0, self.dist - self.radius_m) if self.dist is not None else 0.0
 
     def _angle(self, xy):
         return math.degrees(math.atan2(xy[1] - self.target[1], xy[0] - self.target[0]))
@@ -723,8 +727,10 @@ class Circle(Move):
         here = self.here(ctx)
         a = self._angle(here)
         self.dist = _dist(here, self.target)
-        if self.dist > self.radius_m + RING_BAND_M:
-            self.last_angle = None                      # not on the ring yet (or off it)
+        if not self.on_ring and self.dist <= self.radius_m + RING_BAND_M:
+            self.on_ring = True
+        if not self.on_ring:
+            self.last_angle = None                      # not on the ring yet
         elif self.last_angle is not None:
             delta = _wrap180(a - self.last_angle)       # + = counter-clockwise (ENU)
             self.swept += -delta if self.clockwise else delta

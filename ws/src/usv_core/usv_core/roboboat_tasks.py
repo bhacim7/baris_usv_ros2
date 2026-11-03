@@ -278,9 +278,9 @@ class DebrisConfig:
     limit_s: float = 150.0         # or after this long scanning in all
     green_radius_m: float = 2.5    # the green indicator is circled at this radius
     green_clockwise: bool = False
-    # ... this far past 360 deg round it: the boat's place for it can be ~1 m off the
-    # truth, and a turn short of 360 round the true one is no full turn (t3far_s1: 349)
-    green_extra_deg: float = 30.0
+    # ... this far round it (handbook: "circle (full 360)"). The boat's place for it can be
+    # ~1 m off, so the true angle can be some 10-20 deg short (t3far_s1: 349)
+    green_sweep_deg: float = 360.0
 
 
 def _debris(ctx):
@@ -368,7 +368,7 @@ class DebrisField:
         if not isinstance(self.move, Circle):
             self.move = Circle(self.cfg, _xy(self.green), 'indicator_green',
                                radius_m=d.green_radius_m, clockwise=d.green_clockwise,
-                               laps=(360.0 + d.green_extra_deg) / 360.0, drive=self.drive,
+                               laps=d.green_sweep_deg / 360.0, drive=self.drive,
                                avoid=True)
             self.move.start(ctx)
         state, cmd = self.move.step(ctx)
