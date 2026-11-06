@@ -265,6 +265,46 @@ sunucusu.
 **Donanım için anlamı:** iki tam tekne (iki Jetson, iki sensör seti, iki kill switch sistemi)
 ya da biri daha basit ikinci bir tekne. Bu, bütçe ve zaman açısından takımın kararı.
 
+### Bizim iki teknemiz: Azure ve Marine (Barış, 6 Kasım)
+
+| | **Azure** (USV1) | **Marine** (USV2) |
+|---|---|---|
+| Görev bilgisayarı | Jetson AGX Thor | Jetson AGX Orin (elimizde) |
+| Atış sistemi | yok | top fırlatıcı + su topu, 40-pin header'dan; tarette kendi ZED2i'si |
+| 3D LiDAR | gelirse buna (şimdilik yokmuş gibi) | yok |
+| Aynı olanlar | gövde, iticiler, Orange Cube, GPS, ZED kamera, bataryalar | aynı |
+
+- Atış sistemi 2026'da ayrı bir Orin Nano'daydı (`atis_sistem.py`). 2027'de teknenin kendi
+  bilgisayarında çalışacak, yani Marine'in iki gözü olacak: seyir kamerası ve taret kamerası.
+- Bütün sınıflar tek veri setinde, iki tekne aynı modeli kullanıyor. Light beacon'lar da
+  bugünkü indicator'lar gibi **gövde + ışık birlikte** etiketlenecek: ışığın rengi sınıfın
+  içinde (örneğin `beacon_red`, `beacon_off`; adlar veri setiyle kesinleşir).
+- ROS isim alanları teknelerin adıyla: `/azure/...`, `/marine/...`.
+
+### Haberleşme (Barış, 6 Kasım)
+
+```
+RoboCommand (10.10.10.1:50000) ──Ethernet── GCS ──Ubiquiti (ana)──> Azure, Marine
+                                                 ──RFD (yedek)────> Azure, Marine
+```
+
+- 2026'da GCS, RoboCommand'ın verdiği Ethernet kablosuna bağlıydı ve tekneden gelenleri
+  aktarıyordu. Teknelere komut yalnız RFD ile gidiyordu.
+- 2027'de RoboCommand'dan gelen görevler de bu kablodan GCS'ye gelecek (büyük olasılıkla). GCS
+  bunları teknelere hem Ubiquiti hem RFD ile aktaracak.
+- **Yazılım için anlamı:**
+  - RoboCommand bağlantısı (heartbeat, protobuf, NTP) **GCS'de** çalışır.
+  - Teknede bir **bağlantı düğümü**: raporları GCS'ye gönderir, görevleri alır.
+  - GCS ile tekneler arasında kendi küçük mesajlarımız (UDP/TCP). ROS'un DDS trafiğini
+    Wi-Fi'a açmıyoruz (önerimiz: daha az yük, bağlantı kopunca sorun çıkmaz).
+  - Aynı mesaj iki yoldan gelebilir: mesaj numarasıyla tekrarlar ayıklanır. Görev mesajları
+    RFD'ye sığacak kadar küçük tutulur.
+  - GCS **yalnız RoboCommand'dan gelenleri** aktarır ve hepsini kaydeder (otonomken kıyıdan
+    kontrol yasak; hakem sorarsa kanıt).
+  - Tekneler arası mesajlar (IVC) da bu ağdan geçebilir.
+- **Açık sorular:** RFD teknede Orange Cube'a mı (MAVLink) yoksa Jetson'a mı bağlı? GCS
+  yazılımının bugünkü hali ne (2026 GCS kodu)?
+
 ---
 
 ## 7. Bugüne kadar yaptıklarımızdan neler işe yarıyor?
@@ -282,45 +322,123 @@ ya da biri daha basit ikinci bir tekne. Bu, bütçe ve zaman açısından takım
 
 ---
 
-## 8. Önerilen yol haritası
+## 8. Yol haritası (6 Kasım, Barış'la güncellendi)
 
 **Zaman çizelgesi:** bugün 6 Kasım 2026 → teslimler Ocak 2027 → yarışma 18 Şubat 2027.
-Toplam ~3,5 ay; gerçek teknenin suda otonom kapı geçişi videosu ~2 ay içinde lazım.
 
-### A. Hemen (Kasım)
-1. **Kararlar (takım):** bir mi iki tekne mi; su topu, top fırlatıcı, hidrofon donanımları
-   yapılacak mı; hangi görevler ve seviyeler hedefleniyor.
-2. **Takip:** 2027 el kitabını ve RoboCommand 2027'yi (`robonation/robocommand`) bekle,
-   Discord'u izle (soru listesi aşağıda).
-3. **Gerçek tekne yolu (Faz 7) öne çekilmeli:** Proof of Readiness videosu için tekne Jetson
-   üzerinde, gerçek sensörlerle, suda kapılardan otonom geçebilmeli. Simülasyonda bu zaten
-   çalışıyor (Task 1 giriş/çıkış). Bu iş yarışmaya gitmenin **ön şartı**.
+**Şimdilik yapılmayacaklar:**
+- Gerçek tekne (Faz 7). Mekanik olarak hazır sayılır.
+- Gazebo'da ikinci tekne.
+- Görev davranışları (Task 1 yan kısıtlı yol gibi).
+- Veri seti işleri.
 
-### B. Altyapı (bütün görevlerin ortak ihtiyacı)
-1. **RoboCommand köprüsü:** heartbeat, raporlar, ileride gelen görev mesajları; simülasyonda
-   sahte sunucu. 2026 protokolüyle başlanır, 2027 çıkınca uyarlanır.
-2. **Görev yöneticisi:** sıradaki görevlerin yanında **acil görevle araya girip sonra devam
-   etme** (Task 4 ve Task 5 için şart).
-3. **2027 parkuru simülasyonda:** RoboBuoy + ışıklı işaretçi (renk, sönük, renk değiştirme),
-   polyform şamandıralar, marina ve yanaşma yapıları, şekilli tekneler.
-4. **Algılama:** yeni sınıflar, LED ışık rengi ve sönük durumu, LED panel dizisi okuma.
-5. **R3.5 GPS kayması tahmini** (haritanın doğruluğu bütün görevleri ve raporları etkiliyor).
-6. **İki tekneye hazırlık:** isim alanları, iki tekneli simülasyon, birbirini engel olarak görme.
+### Adım 1. İki tekneye hazır kod (isim alanları)
+- 8 dosyadaki 57 mutlak konu ve servis adı göreli olur (`'/usv/fix'` → `'fix'`).
+- `sim.launch.py`, `boat:=azure|marine` argümanını alır (varsayılan `azure`). Düğümler
+  `/azure/...` altında çalışır, frame adlarına önek gelir.
+- Araçlar (replay, bag_read, raporlar) isim alanını ayar olarak alır. Eski kayıtlar
+  (`/usv/...`) `--ns usv` ile okunur. Belgelerdeki komutlar güncellenir.
+- Davranış değişmez; testler ve bir simülasyon koşusu bunu gösterir. TEKNOFEST mantığına
+  dokunulmaz.
 
-### C. Görevler (rozet ortaklığı ve yapılabilirliğe göre)
-1. **Task 1 Core**: Circle ve kaçınma hazır; yeni olan yan kısıtlı yol ve ışık tanıma.
-2. **Task 5 Core**: RoboCommand mesajı gelince GPS noktasına git; altyapı hazır olunca hızlı.
-3. **Task 3 Core**: yeşil bölmeye yanaşma.
-4. **Task 2 Core**: başlangıç, hedef etrafında dönüş, sürat.
-5. **Task 4 Core**: su topu donanımına bağlı.
-6. Advanced seviyeler: Task 1 (değişen çıkış), Task 3 (yangın), Task 4 (2 tekne).
-7. İki tekne işleri: Task 5 Advanced/Disruptive, IVC.
-8. Akustik (Task 2 Advanced/Disruptive): hidrofon donanımına bağlı.
+### Adım 2. Tekne profilleri
+- İki dosya: `boats/azure.yaml` ve `boats/marine.yaml`. İçlerinde bilgisayar, kameralar,
+  LiDAR ve taret bilgisi var.
+- Launch profili okur. Görev yöneticisi "su sıkabilen tekne Marine" bilgisini buradan alır.
 
-### D. Mission Readiness (takım işi, kod dışı)
-6 sayfalık TDR, site, "Engineering in Action", poster, mülakat, sistem değerlendirmesi.
-`ARCHITECTURE.md`, `sistem-raporu.md` ve test/simülasyon sonuçlarımız TDR'nin "kanıta dayalı"
-kısmı için hazır malzeme.
+### Adım 3. Tek parkur: roboboat_2027 (2026 Task 1–2 + 2027 parkuru)
+- `roboboat_2026.yaml` dosyasının adı `roboboat_2027.yaml` olur.
+  - 2026'nın Task 1 ve Task 2'si kalır: Proof of Readiness videosu için.
+  - Task 3–6 unsurları (marina, sarı şamandıralar, tekneler) çıkar.
+- 2027 parkuru aynı haritaya kurulur. Parktaki yerini Barış Gazebo'da seçer.
+- İki başlangıç noktası:
+  - `start:=competition` (varsayılan): 2027 parkurunun başı.
+  - `start:=readiness`: eski Task 1'in önü.
+- Navigatörde görev seçimi:
+  - `mission:=roboboat_2027`: 2027 görevleri.
+  - `mission:=readiness`: bugünkü Task 1 + Task 2.
+  - 2026 görev kodu silinmez.
+- `roboboat_2026_far.yaml` yeni dosyanın bir varyantı olarak kalır. Testler, survey rotası ve
+  raporlar yeni dosyaya göre güncellenir. Eski kayıtların gerçek konumlarla karşılaştırılması
+  için eski dosya git geçmişinde duruyor.
+
+### Adım 4. 2027 unsurları ve ışıklar (simülasyon)
+- `course.py`'ye yeni unsurlar:
+  - RoboBuoy: piramit, üstünde elmas, daire ya da harf panelleri.
+  - Light Beacon: renk, sönük, yanıp sönme ve bir zaman çizelgesi (örneğin "tekne alana
+    girince EXIT kırmızı olur").
+  - Polyform şamandıralar.
+  - Yanaşma yapısı: iki LED pencere, renk göstergesi, su hedefi.
+  - Şekilli coroplast tekneler.
+  - Pinger: şimdilik yalnız konum bilgisi.
+- `fake_perception` sınıf adını ışığın o anki durumundan üretir (`beacon_red`, `beacon_off`
+  gibi), Barış'ın veri seti gibi gövde + ışık tek sınıf olarak.
+  - Yanıp sönmede bazı karelerde `off` döner.
+  - Harita bir şamandıranın rengini tek bir kareye bakarak değiştirmemeli.
+- Gazebo'da ışığın renginin değişmesi yalnız görsel bir ayrıntı; nasıl yapılacağı
+  araştırılacak.
+- Task 1 alanı için seed'li rastgele parkur üreteci: her koşuda farklı düzen, ama her zaman
+  geçerli bir yol var.
+- Sıra: Task 1, Task 3 marina, Task 5 toplanma, Task 2, Task 4.
+
+### Adım 5. RoboCommand ve haberleşme
+- **GCS tarafı:** RoboCommand bağlantısı.
+  - TCP, `$R` + uzunluk + içerik + `!!`.
+  - 1 Hz heartbeat, en fazla 5 mesaj/s, NTP.
+  - Kodlayıcı ayrı bir dosya; 2027 protokolü gelince yalnız o değişir.
+- **Tekne tarafı:** bağlantı düğümü. ROS içinde mesajlarımız sabit kalır:
+  - giden raporlar: heartbeat, kapı, nesne, yanaşma, teslimat;
+  - gelen `TaskRequest`: tür, parametreler, hangi tekne.
+- **GCS ↔ tekne:** Ubiquiti ana yol, RFD yedek. Aynı mesajın iki kopyası ayıklanır.
+- **Simülasyon:**
+  - Sahte RoboCommand sunucusu: mesajları çözer, heartbeat'i denetler, parkur dosyasındaki
+    zamanlamayla görev gönderir.
+  - Sahte GCS aktarıcısı.
+- GCS uygulamasının kendisi (arayüzü) ayrı bir iş. Burada yalnız aktarıcı kısmı var.
+
+### Adım 6. Görev yöneticisi
+- Sıradaki görevlerin yanında, acil görevle araya girip sonra kaldığı yerden devam etme
+  (Task 4, Task 5).
+- Görevleri profile göre tekneye dağıtma (su işi Marine'e).
+
+### Adım 7. Atış sistemi (Marine)
+- `usv_core/turret.py`: saf mantık.
+- `turret` düğümü: Jetson sürücüsü ve sahte sürücü. Pinler, I2C ve kanallar ayar dosyasında.
+- Görev yöneticisinden komut alır: nişanla, N saniye su, bir top. Taret kendi kendine hedef
+  seçmez.
+- `atis_sistem.py`'deki sorunlar düzeltilir:
+  - step motor ayrı bir iş parçacığında döner;
+  - takipte de ±100° sınırı uygulanır;
+  - sıfırlama eklenir;
+  - röle ancak nişan alınınca açılır;
+  - aynı hedefe tekrar ateş edilmez;
+  - kapanışta top düşürme kontrol edilir.
+- ZED derinliği menzil ve BLDC hızı için kullanılır.
+- Barış'a sorular: taretin sıfırlama için limit anahtarı var mı? `cleanup()` servoları 0'a
+  çekince kalan toplar düşüyor mu?
+
+### Adım 8. Marine'de iki ZED ölçümü (donanım, Barış)
+- İki ZED2i aynı AGX Orin'de. ZED SDK birden çok kamerayı seri numarasıyla açabiliyor.
+- Sınırlar: USB bant genişliği (kameralar ayrı USB 3 portlarına) ve GPU (iki derinlik + iki
+  YOLO).
+- Tahmin değil ölçüm: küçük bir betikle iki kamera açılır, çözünürlük ve derinlik modu
+  denenerek FPS ve GPU yükü ölçülür.
+- Sonuca göre: taret kamerasında derinlik yalnız hedef kutusunda hesaplanır ya da çözünürlük
+  düşürülür.
+- Adım 7'den önce ya da onunla birlikte yapılır.
+
+### Bekleyenler
+- Gazebo'da iki tekne ve taret.
+- İkinci kameranın haritaya katılması (taret açısı + tekne yönü).
+- 3D LiDAR (Azure), hidrofon.
+- Gerçek tekne (Faz 7; Proof of Readiness videosu Ocak'ta).
+- Görev davranışları.
+- 2027 el kitabı ve RoboCommand 2027.
+
+### Mission Readiness (takım işi, kod dışı)
+- 6 sayfalık TDR, site, "Engineering in Action", poster, mülakat, sistem değerlendirmesi.
+- `ARCHITECTURE.md`, `sistem-raporu.md` ve test/simülasyon sonuçlarımız TDR'nin "kanıta dayalı"
+  kısmı için hazır malzeme.
 
 ---
 
@@ -495,3 +613,34 @@ başka bir şamandıraya geçiyor. Tekne yeni çıkışı görüp hedefini deği
 - Yani rozetler hem bir puan kalemi hem de Task 5'in ileri seviyelerinde **hakemin verdiği
   görevin kendisi**. Görev yöneticimiz "rozet X = şu görevler, şu seviyelerde" bilgisini
   tutmalı ve iki tekne arasında paylaştırabilmeli.
+
+### Task 1 şamandıraları: hepsi aynı mı, ışık mı renk göstergesi mi? (çizimler büyütülerek)
+
+- **Gövde hepsinde aynı:** beyaz RoboBuoy piramidi, yüzünde siyah sembol (parkur yerleşiminde
+  elmas; Task 1 çiziminde daire çizilmiş, büyük olasılıkla özensizlik). Yani "farklı tip
+  şamandıra" yok; **fark tepedeki ışıkta**.
+- **Tepede yeşil, kırmızı ve mavi olanların etrafında ışın çizgileri var (yanıyor); "siyah"
+  olanlarda yok (sönük).** Metin de "RED, GREEN, and BLACK (OFF)" diyor: siyah = **ışığı
+  kapalı**.
+- **Light Beacon (ışıklı işaretçi) oldukları neredeyse kesin:**
+  1. **Mavi** var; Color Indicator mekanik kanatlı, yalnız kırmızı/yeşil gösterebiliyor.
+  2. **"Sönük" (OFF)** durumu var; renk göstergesinin sönük hali yok, ışığın var.
+  3. RobotX'te Light Beacon'lar Task 1 RoboBuoy'larında kullanılıyor; Color Indicator ise
+     başka görevlerde ve yanaşma yapısının tabanında.
+  4. Renkler **koşu sırasında değişiyor** (Advanced/Disruptive): LED işaretçi Wi-Fi'den anında
+     değiştirilebiliyor; mekanik göstergede servo dönüyor, daha yavaş.
+- **İki mavi farklı çizilmiş:** girişteki (ENTRY) mavinin ışınları var, çıkıştakinin (EXIT)
+  yok. İki çizimde de böyle. Okumalar: çizim özensizliği; ya da ikisi farklı davranıyor
+  (biri yanıp sönüyor, biri sabit; ya da çıkış henüz "açılmamış"). Advanced'de "çıkış
+  değişiyor" dendiği için çıkışın sonradan yanan/değişen mavi olması akla yatkın. **El kitabında
+  bakılacak.**
+- **Algılama için sonuçları:**
+  - YOLO'ya **tek sınıf "RoboBuoy"** (sembol türüyle: elmas/daire/harf) öğretip, **ışık
+    durumunu ayrı** bulmak daha sağlam: kutunun üst kısmındaki işaretçi bölgesinin rengi ve
+    parlaklığı → kırmızı / yeşil / mavi / sönük. Renk değişince model yeniden eğitilmez.
+  - Işık **yanıp sönebilir** (işaretçinin yazılımı yanıp sönme hızını ayarlayabiliyor). Tek
+    karede "sönük" görünen bir yeşil aslında yanıp sönüyor olabilir. Karar birkaç karelik
+    (≈1–2 s) pencerede verilmeli: "bu sürede hiç yandı mı, hangi renkte?"
+  - Gün ışığında LED rengi soluk görünür; işaretçinin üstündeki siyah şapka bunun için.
+    Kamera pozlaması ve renk eşikleri gerçek ışıkla (ya da RobotX'in yayımladığı malzemeyle
+    yapılmış bir örnekle) denenmeli.
