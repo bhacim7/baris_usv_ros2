@@ -342,3 +342,156 @@ kısmı için hazır malzeme.
 9. Parkurda GPS düzeltmesi: 2026'da internet/LTE düzeltmesi yasaktı, ama "operasyon
    çadırındaki ekipman" serbestti. **Çadırda kendi RTK baz istasyonumuz** serbest mi?
    (Serbestse GPS kayması sorununu büyük ölçüde çözer.)
+
+---
+
+## 10. Ayrıntılı yorumlar (Barış'ın soruları, 6 Kasım)
+
+Hepsi el kitabı çıkmadan önceki **yorum ve tahmin**. Dayanaklar: 2027 Primer'ın metni ve
+çizimleri, 2026 el kitabındaki benzer görevler (2026 Task 3 hız parkuru, Task 4 ikmal, Task 5
+marina, Task 6 ses), RobotX belgeleri ve RobotX'in geçmiş yıllardaki görevleri.
+
+### Task 3: alttaki 1, 2, 3 numaralı kutular ne? Su ve top nerede atılıyor?
+
+- Çizimde iki şey var:
+  - **Sağdaki dikey iskele:** marinanın üstten görünüşü; üç bölme, her birinde renk
+    göstergesi (yeşil/kırmızı nokta) ve beyaz bir çubuk. Çubuk büyük olasılıkla bölmedeki
+    "bina", yani Docking Bay Structure.
+  - **Alttaki yatay sıra:** 1, 2, 3 numaralı, her birinde **iki kare (iki pencere)** ve altında
+    renkli nokta olan üç yapı.
+- RobotX yanaşma yapısı tam olarak bu: **iki pencereli bir bina** (pencereler LED panel),
+  tabanında bölmeye bakan bir **renk göstergesi**, önünde **su hedefi** (21×28 cm ağızlı bidon,
+  akış sensörüyle). Alttaki kutular bu binaların **önden görünüşü** gibi duruyor.
+- Ama renkler tutmuyor: sağda yukarıdan aşağı yeşil-kırmızı-kırmızı, altta 1-2-3 sırasıyla
+  kırmızı-yeşil-kırmızı. Hiçbir bakış yönü bunu eşlemiyor. İki okuma var:
+  1. Çizim yalnız örnek, renkler özensiz; alttaki sıra aynı üç binanın önden görünüşü.
+  2. Alttaki sıra **başka bir iskelede** üç numaralı hedef. Görev metnindeki (c) "kaynakları
+     başka bir yere teslim et" kısmı bunlar olabilir.
+- **En olası yerleşim:**
+  - "Yangını söndürme" (Advanced) **yanaştığın bölmenin içinde**: bölmedeki binanın
+    penceresi kırmızı yanıyor ve tekne, burnu binaya dönük, yakından (1–2 m) önündeki su
+    hedefine püskürtüyor. Metin de "yanaştıktan sonra yangını söndür" diyor.
+  - Disruptive'deki su ya da top teslimatı ise **başka bir yerde**: "distractor" bir teknede.
+    Hangi tekne olduğunu pencerenin ikinci rengi söylüyor. Bu tekneler alttaki numaralı yapılar
+    ya da marinadaki numaralı tekneler olabilir.
+- **Donanım sonucu:** su topu tekneden **ileriye** nişan almalı. Hedef 1–2 m'de ve teknenin
+  yüksekliğine yakın (bidonun ağzı). 2026'da şartı "hedefe en az 3 saniye kesintisiz ve görünür
+  su" idi. Top da büyük olasılıkla ya bir deliğe ya da teknenin içine atılıyor (2026: topu
+  teknenin içine bırakmak da kabuldü).
+
+### Task 1: renkler değişirse ne yapmalıyız? Başlangıcı nasıl buluruz? Yolu nasıl çizeriz?
+
+**Kural büyük olasılıkla geçtiğin anda geçerli.** Bir şamandıranın hangi tarafından geçtiğine,
+yanından geçtiğin anda yanan rengine göre bakılır.
+- Önünde ve solunda kalacak bir yeşil, sen geçmeden **kırmızıya dönerse** artık onu **sağında**
+  bırakman gerekir. Geri dönmek gerekmez: **o şamandıranın öbür tarafından dolanacak şekilde
+  yolu yeniden çizersin**.
+- Zaten geçtiğin bir şamandıranın rengi değişirse büyük olasılıkla önemi yoktur. (El kitabında
+  bakılacak.)
+- Yani istenen davranış "**renkleri canlı izleyip yolu sürekli yeniden planlamak**". Bizim
+  planlayıcı her 0,25 s'de yeniden planlıyor; eksik olan, renk değişince haritadaki rengin de
+  hemen değişmesi. Şimdiki harita rengi son 15 görülmenin çoğunluğuyla belirliyor; bu, ışığın
+  değiştiği yerde yavaş kalır.
+
+**Advanced'de "EXIT değişir":** büyük olasılıkla çıkış olarak işaretli şamandıra (çizimde mavi)
+başka bir şamandıraya geçiyor. Tekne yeni çıkışı görüp hedefini değiştirmeli.
+
+**Başlangıç (ENTRY) nasıl bulunur?**
+- "Doğru ENTRY ve EXIT noktalarını bul ve raporla" deniyor; yani adaylar arasında
+  seçmek gerekiyor.
+- Çizimde giriş ve çıkış şamandıralarının ışığı **mavi**. Büyük olasılıkla mavi =
+  giriş/çıkış. Belki yanıp sönme deseni de bir şey söylüyordur.
+- **Strateji:** alana girmeden önce kenarından bakıp bütün ışıklı şamandıraları renkleriyle
+  haritaya almak (bizim kalıcı harita bunu zaten yapıyor; ihtiyaç olursa Search ile çevresini
+  taramak). Sonra:
+  - **ENTRY** = bize yakın taraftaki mavi,
+  - **EXIT** = alanın öbür ucundaki mavi.
+
+**Yol nasıl çizilir?**
+- Kapı yok, her şamandıra tek başına bir yan kısıtı koyuyor: **yeşil soldan, kırmızı sağdan**
+  kalacak.
+- Bizim A* planlayıcı bunu **sanal duvarlarla** yapabilir. Kanal kapılarında kullandığımız
+  duvarların aynısı:
+  - Her yeşilden gidiş yönünün **soluna**, her kırmızıdan **sağına** doğru birkaç metrelik bir
+    duvar çizilir. Böylece A* yeşili ancak sağından, kırmızıyı ancak solundan geçebilir.
+  - Siyahlar (sönük) sıradan engel.
+  - "Gidiş yönü" ENTRY'den EXIT'e doğru.
+- Ortaya çıkan yol, kırmızı-yeşil çiftlerini doğal olarak "kapı" gibi kullanır. Renk değişince
+  duvar öbür tarafa geçer, yol da kendiliğinden yeniden çizilir.
+
+### Task 2: akustik pinger nedir, nerede olur? Görev tam olarak ne?
+
+- **Pinger:** su altına asılan, belli aralıklarla kısa ses darbeleri (genelde 25–40 kHz,
+  insan kulağının üstünde) yayan küçük bir cihaz. Ses suyun içinde yayılır, havadan duyulmaz.
+- **Nerede:** büyük olasılıkla **numaralı RoboBuoy'ların (1, 2, 3) altında**, bir iple asılı.
+  Lacivert yuvarlak şamandıra değil. Gerekçe: Advanced'de çıkış "pingeri çalışan şamandıranın
+  yanından", Disruptive'de başlangıç ve bitiş "yalnız pingerle bulunur"; aday başlangıç/bitiş
+  şamandıraları da çizimdeki 1, 2, 3. Yalnız biri ya da ikisi açık olur.
+- **Çizimdeki görev akışı:** tekne 3 numaralının (tepesi yeşil) yanından başlıyor; oklar
+  yukarı çıkıp **lacivert şamandıranın etrafından** dolanıyor ve aşağı iniyor. Yani lacivert
+  bu örnekte "doğru renkteki hedef". Kırmızı, sarı, siyah, yeşil, beyaz diğer renk
+  seçenekleri ya da engeller.
+- **Seviyeler:**
+  - Core: yeşil başlangıç → doğru renkteki hedefin etrafında tur → alandan çık.
+  - Advanced: aynısı, ama çıkış pingeri çalışan numaralı şamandıranın yanından.
+  - Disruptive: başlangıç da bitiş de yalnız pingerle bulunuyor; şamandıralar gözle ayırt
+    edilemiyor.
+- **"Doğru renk" nereden öğreniliyor?** Yazılmamış. Disruptive'de "atanan hedef" deniyor;
+  büyük olasılıkla RoboCommand söylüyor. 2026'da tur yönünü yanındaki renk göstergesi
+  söylüyordu.
+- **Teknede ne gerekir?** Su altında en az 2, tercihen 3–4 **hidrofon** (su altı mikrofonu),
+  hızlı bir örnekleyici (≥200 kHz) ve sinyal işleme. Sesin hidrofonlara varış zamanı farkından
+  (TDOA) **yön** bulunur. Tekne hareket ettikçe birkaç yön kesiştirilerek **konum** bulunur.
+  Ciddi bir donanım ve yazılım işi; RobotX takımları bunu yapıyor.
+
+### Task 5: kırmızı daire toplanma alanı mı? Çizimde tekne ondan kaçıyor gibi.
+
+- Haklısın, çizimde tekne kırmızı kesikli dairenin **etrafından dolanıp uzaklaşıyor**.
+  Kırmızı ok da dairenin merkezinden dışarı çıkıyor.
+- Metin ise Core için "isteneni bırakıp **istenen GPS noktasında toplan**" diyor. Çizim
+  metinle tam uyuşmuyor. İki okuma var:
+  1. Çizim genel bir "beklenmedik görev değişikliği" resmi: tekne yolunu bırakıp başka yöne
+     gidiyor. Daire yalnızca bir bölge örneği.
+  2. Kırmızı daire **yeni ilan edilmiş, kaçınılacak bir tehlike bölgesi**, ok da bölgenin
+     **hareket yönü** (örneğin sürüklenen bir tehlike). Tekne de o anki görevini bu bölgeden
+     kaçınarak sürdürüyor. Bu, ileri seviyelerdeki bir senaryo olabilir.
+- Bizim için ikisi de ucuz: GPS noktasına gitmek DriveTo, bir bölgeden kaçınmak da A*'a bir
+  daire engel eklemek. Asıl iş **RoboCommand'dan mesaj almak** ve **görevi kesip yenisine
+  geçmek**.
+
+### Task 4: teslimat teknelerinin yerleri verilecek mi, yoksa kendimiz mi bulacağız?
+
+- Metin: RoboCommand "bir ya da birkaç tekneye su götür" mesajı gönderiyor; tekneler
+  yelkenlerindeki **şekilden** (artı, daire, kare, üçgen) tanınıyor. Konum verileceği
+  yazılmıyor.
+- 2026'da ikmal tekneleri "parkurun her yerine demirlenmişti" ve takımlar onları **kendileri
+  bulup yerlerini raporluyordu**. 2027'de de büyük olasılıkla mesaj "**üçgen tekneye su**"
+  diyecek, yeri söylemeyecek.
+- **En iyi strateji:** tekneler koşu boyunca zaten etrafta. Kalıcı haritamız, diğer görevleri
+  yaparken gördüğü her coroplast tekneyi **şekliyle birlikte** haritaya almalı. Mesaj
+  geldiğinde tekne "üçgen nerede?" diye haritaya bakar ve doğrudan gider. Haritada yoksa
+  arar. Bu, açılıştan itibaren kalıcı harita kararımızın tam karşılığı.
+- **Teslimatın kendisi** (2026'ya göre): teknenin yanındaki şekle **en az 3 saniye
+  kesintisiz, görünür su** püskürtmek. Su topu yana ya da ileri nişan alabilmeli; tekne de
+  hedefin yanında **yerinde durabilmeli** (station keeping, Primer'ın listesinde var).
+
+### Mission Badge (rozet) nedir? Neden üçünde de aynı üç görev var? Task 5 ile ilişkisi ne?
+
+- **Görevler** tek tek seviyelerine göre puanlanıyor. **Rozet** ise **tek bir koşuda** belli
+  bir görev bileşimini belli seviyelerde tamamlayınca verilen ek bir başarı. Sıralamaya katkı
+  yapıyor.
+- Üç rozetin üçü de aynı üç görevi istiyor: **Safe Passage (Task 1) + Navigate the Marina
+  (Task 3) + Dynamic Response (Task 5)**. Ama her biri için "**önceden belirlenmiş seviye**"
+  diyor ve seviyeleri henüz vermedi. Büyük olasılıkla fark seviyelerde. Örnek (tahmin):
+  - **Assessment and Discovery** (keşif: görme, kaçınma): Task 1 yüksek seviyede, marina ve
+    Task 5 temel seviyede.
+  - **Automated Logistics Support** (lojistik: yanaşma, teslimat): marina yüksek seviyede
+    (yangın, teslimat).
+  - **Dynamic Tasking** (dinamik görev: RoboCommand'a cevap): Task 5 yüksek seviyede.
+- **Task 5 ile bağlantı:** Task 5 Advanced'de RoboCommand koşunun başında "**şu rozeti yap**"
+  diyor. İki tekne o rozetin görev bileşimini **birlikte** tamamlamak zorunda; örneğin biri
+  Safe Passage'ı, öbürü marinayı yapar. Disruptive'de bu istek tekneler başka işlere
+  başladıktan sonra geliyor: planı koşu ortasında değiştirmek gerekiyor.
+- Yani rozetler hem bir puan kalemi hem de Task 5'in ileri seviyelerinde **hakemin verdiği
+  görevin kendisi**. Görev yöneticimiz "rozet X = şu görevler, şu seviyelerde" bilgisini
+  tutmalı ve iki tekne arasında paylaştırabilmeli.
