@@ -37,6 +37,11 @@ Bir şey tamamlandıkça buradan sil ya da üstünü çiz. Son güncelleme: 31 E
 
 ## 3. Sırada (Claude ile)
 
+**6 Kasım 2026: RoboBoat 2027 Primer yayımlandı, görevler büyük ölçüde değişti** (5 görev,
+Mission Badge, Proof of Readiness videosu Ocak 2027'de, RoboCommand iki yönlü, iki teknenin
+birlikte çalışması görevlere girdi). 2026 görevlerinde ilerleme durduruldu. Ayrıntılar ve yeni yol
+haritası: `docs/roboboat-2027.md`. Aşağıdaki R3 tablosu 2026 görevlerinin kaydı olarak duruyor.
+
 Faz 5 bitti (1 Kasım). Yol haritası değişti: tekne bir süre suya inemediği için **Faz 6 =
 RoboBoat simülasyonda** (ARCHITECTURE.md §15–16).
 
