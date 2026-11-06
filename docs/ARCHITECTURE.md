@@ -90,6 +90,14 @@ no benefit, and becomes trivial later once the classes exist.
 All topics use the default reliable QoS (depth 10) unless marked *latched*
 (transient local, depth 1). Camera images are not published.
 
+**Namespaces (2026-11-06, RoboBoat 2027, two boats):** every node uses relative names and
+runs in its boat's namespace: Azure (AGX Thor) `/azure/...`, Marine (AGX Orin)
+`/marine/...` (`sim.launch.py boat:=azure|marine`). The tables write `/usv/...` for "the
+boat's namespace". Parameter files use the key `/**` so they apply in any namespace. Bags
+recorded before this change have `/usv/...`; the tools read both (`ws/tools/bag_topics.py`).
+Frame ids are not prefixed yet: TF is used by RViz only, for one boat; prefixes come with a
+common frame for two boats.
+
 | Topic | Type | Publisher | Main subscribers |
 |---|---|---|---|
 | `/usv/fix` | `sensor_msgs/NavSatFix` | `fc_bridge` / `sim_bridge` | navigator, perception, telemetry_bridge, recorder |

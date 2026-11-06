@@ -6,7 +6,10 @@ the few topics the replay needs can be decoded by hand: no rclpy, no rosbag2_py,
 runs on the host as well as in the container. Only uncompressed chunks are read (the
 recorder's default here); a compressed bag stops with an error.
 
-  read(path, topics)      [(log time s, topic, raw CDR bytes)] sorted by time
+Topics are named /usv/<name> whatever the boat: a run of Azure (/azure/fix) reads as an old
+one (/usv/fix), see ../bag_topics.py.
+
+  read(path, topics)      [(log time s, /usv/ topic, raw CDR bytes)] sorted by time
   status(data)            /usv/nav_status task_state
   fix(data)               /usv/fix and /usv/sim/navsat (lat, lon)
   float32(data)           std_msgs/Float32 (/usv/heading, /usv/speed)
@@ -15,7 +18,12 @@ recorder's default here); a compressed bag stops with an error.
   landmarks(data)         ((origin lat, lon), [dict]) as navigator_io.landmark_to_dict
 """
 
+import os
 import struct
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import bag_topics  # noqa: E402
 
 
 def _records(buf, off, end):
@@ -31,10 +39,11 @@ def _string(buf, off):
     return buf[off + 4:off + 4 + n].decode('utf-8', 'replace'), off + 4 + n
 
 
-def read(path, topics):
-    """Return [(log time in s, topic, CDR bytes)] of the given topics, sorted by time."""
+def read(path, topics, boat=None):
+    """Return [(log time in s, /usv/ topic, CDR bytes)] of the given topics, by time."""
     with open(path, 'rb') as f:
         buf = f.read()
+    relative = {t[len(bag_topics.PREFIX):] for t in topics}
     channels, out = {}, []
 
     def handle(op, off, length):
@@ -42,8 +51,9 @@ def read(path, topics):
             channels[struct.unpack_from('<H', buf, off)[0]] = _string(buf, off + 4)[0]
         elif op == 0x05:                                  # Message
             cid, _, log_time, _ = struct.unpack_from('<HIQQ', buf, off)
-            if channels.get(cid) in topics:
-                out.append((log_time * 1e-9, channels[cid], buf[off + 22:off + length]))
+            name = channels.get(cid, '')
+            if name.lstrip('/').partition('/')[2] in relative:
+                out.append((log_time * 1e-9, name, buf[off + 22:off + length]))
     for op, off, length in _records(buf, 8, len(buf)):
         if op == 0x06:                                    # Chunk
             compression, p = _string(buf, off + 28)
@@ -54,6 +64,8 @@ def read(path, topics):
                 handle(*record)
         else:
             handle(op, off, length)
+    topic_of = bag_topics.names(set(channels.values()), topics, boat)
+    out = [(t, topic_of[name], data) for t, name, data in out if name in topic_of]
     out.sort(key=lambda m: m[0])
     return out
 

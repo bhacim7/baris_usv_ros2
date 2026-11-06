@@ -31,6 +31,9 @@ config/sim_bridge.yaml):
   2. no ThrusterPwm for command_timeout_s -> all outputs to 1500 (fc_bridge design, 0.5 s)
   3. thrust from the PWM -> N table, 0 N while the relay is off
   4. steering angle follows the command at the MG995 speed
+
+Topic and service names are relative to the boat's namespace (sim.launch.py
+boat:=azure|marine): the /usv/... names above are /azure/... on Azure, /marine/... on Marine.
 """
 
 import math
@@ -80,15 +83,15 @@ class SimBridge(Node):
         self.last_command = None        # time.monotonic() of the last ThrusterPwm
         self.timed_out = False
 
-        self.thrust_pub = {n: self.create_publisher(Float64, f'/usv/sim/thrust/{n}', 10)
+        self.thrust_pub = {n: self.create_publisher(Float64, f'sim/thrust/{n}', 10)
                            for n in THRUSTERS}
-        self.steer_pub = {n: self.create_publisher(Float64, f'/usv/sim/steer/{n}', 10)
+        self.steer_pub = {n: self.create_publisher(Float64, f'sim/steer/{n}', 10)
                           for n in STEERED}
-        self.relay_pub = self.create_publisher(Int8, '/usv/relay_state', 10)
+        self.relay_pub = self.create_publisher(Int8, 'relay_state', 10)
 
-        self.create_subscription(ThrusterPwm, '/usv/thrusters/pwm', self.on_pwm, 10)
-        self.create_service(SetBool, '/usv/set_relay', self.on_set_relay)
-        self.create_service(Trigger, '/usv/emergency_stop', self.on_emergency_stop)
+        self.create_subscription(ThrusterPwm, 'thrusters/pwm', self.on_pwm, 10)
+        self.create_service(SetBool, 'set_relay', self.on_set_relay)
+        self.create_service(Trigger, 'emergency_stop', self.on_emergency_stop)
 
         self.setup_sensors()
 
@@ -176,13 +179,13 @@ class SimBridge(Node):
         self.true_yaw = None             # ENU rad
         self.last_bias_step = None
 
-        self.create_subscription(NavSatFix, '/usv/sim/navsat', self.on_navsat, 10)
-        self.create_subscription(Odometry, '/usv/sim/odometry', self.on_odometry, 10)
-        self.create_subscription(Imu, '/usv/sim/imu', self.on_imu, 10)
+        self.create_subscription(NavSatFix, 'sim/navsat', self.on_navsat, 10)
+        self.create_subscription(Odometry, 'sim/odometry', self.on_odometry, 10)
+        self.create_subscription(Imu, 'sim/imu', self.on_imu, 10)
 
-        self.fix_pub = self.create_publisher(NavSatFix, '/usv/fix', 10)
-        self.speed_pub = self.create_publisher(Float32, '/usv/speed', 10)
-        self.hdg_pub = self.create_publisher(Float32, '/usv/heading/fc', 10)
+        self.fix_pub = self.create_publisher(NavSatFix, 'fix', 10)
+        self.speed_pub = self.create_publisher(Float32, 'speed', 10)
+        self.hdg_pub = self.create_publisher(Float32, 'heading/fc', 10)
 
         self.create_timer(1.0 / p('fix_rate_hz', 2.0).value, self.publish_fix)
         self.create_timer(1.0 / p('speed_rate_hz', 5.0).value, self.publish_speed)

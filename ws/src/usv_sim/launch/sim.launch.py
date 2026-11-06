@@ -8,6 +8,7 @@ The whole simulation with one command.
     ros2 launch usv_sim sim.launch.py start_task:=TASK1_STATE_ENTER   # not the course's own
     ros2 launch usv_sim sim.launch.py navigator:=false     # drive by hand (ros2 topic pub)
     ros2 launch usv_sim sim.launch.py rviz:=true           # also RViz on the world map
+    ros2 launch usv_sim sim.launch.py boat:=marine         # the boat's name = its namespace
     ros2 launch usv_sim sim.launch.py course:=roboboat_2026 course_east:=182.5 \
         course_north:=952.2 course_heading:=180    # put the course elsewhere: boat start
                                                    # (Gazebo x, y) and heading; layout follows
@@ -40,8 +41,13 @@ What starts, in this order:
      fake_perception, heading_source and navigator, each with its YAML file from config/.
      The navigator also gets the course file's `mission` section (start task, waypoints,
      Task 3 colour). It starts in MANUAL, as on the boat:
-         ros2 service call /usv/set_manual std_srvs/srv/SetBool "{data: false}"
+         ros2 service call /azure/set_manual std_srvs/srv/SetBool "{data: false}"
      Our nodes restart by themselves if they die (respawn), as on the boat.
+
+The boats (RoboBoat 2027): Azure (AGX Thor) and Marine (AGX Orin). Our nodes and the bridge
+run in the boat's namespace, boat:=azure (default) or boat:=marine, so every topic and
+service is /azure/... or /marine/... (/azure/fix, /azure/set_manual). One boat in Gazebo
+for now: the name only changes the namespace.
 
 Ctrl+C stops everything.
 """
@@ -65,10 +71,10 @@ PERCEPTION_KNOBS = ('compass_offset_deg', 'detect_prob', 'max_range_m')
 CHAIN_SWITCHES = {'true_distance': 'detection_true_distance',
                   'from_camera': 'detection_from_camera',
                   'add_radius': 'detection_add_radius'}
-# What ws/tools/run_report.py reads, plus what is handy to replay
-RECORD_TOPICS = ('/usv/nav_status', '/usv/thrusters/pwm', '/usv/sim/navsat', '/usv/sim/imu',
-                 '/usv/fix', '/usv/heading', '/usv/buoys', '/usv/detections', '/usv/map',
-                 '/usv/speed', '/usv/imu', '/usv/map/markers')
+BOATS = ('azure', 'marine')
+# What ws/tools/run_report.py reads, plus what is handy to replay (in the boat's namespace)
+RECORD_TOPICS = ('nav_status', 'thrusters/pwm', 'sim/navsat', 'sim/imu', 'fix', 'heading',
+                 'buoys', 'detections', 'map', 'speed', 'imu', 'map/markers')
 
 
 def setup(context):
@@ -76,6 +82,9 @@ def setup(context):
     course = LaunchConfiguration('course').perform(context)
     gui = LaunchConfiguration('gui').perform(context).lower() == 'true'
     paused = LaunchConfiguration('paused').perform(context).lower() == 'true'
+    boat = LaunchConfiguration('boat').perform(context)
+    if boat not in BOATS:
+        raise RuntimeError(f'boat:={boat}: one of {", ".join(BOATS)}')
 
     course_file = os.path.join(share, 'courses', course + '.yaml')
     world_file = os.path.join('/tmp', f'usv_sim_{course}.sdf')
@@ -178,21 +187,22 @@ def setup(context):
 
     bridge = Node(
         package='ros_gz_bridge', executable='parameter_bridge', name='ros_gz_bridge',
+        namespace=boat,
         parameters=[{'config_file': os.path.join(config, 'ros_gz_bridge.yaml')}],
         output='screen')
 
     ours = [
-        Node(package='usv_sim', executable='sim_bridge', output='screen',
+        Node(package='usv_sim', executable='sim_bridge', namespace=boat, output='screen',
              parameters=[os.path.join(config, 'sim_bridge.yaml'), bridge_overrides],
              respawn=True, respawn_delay=2.0),
-        Node(package='usv_sim', executable='fake_perception', output='screen',
+        Node(package='usv_sim', executable='fake_perception', namespace=boat, output='screen',
              parameters=[os.path.join(config, 'fake_perception.yaml'), perception_overrides],
              respawn=True, respawn_delay=2.0),
-        Node(package='usv_nodes', executable='heading_source', output='screen',
+        Node(package='usv_nodes', executable='heading_source', namespace=boat, output='screen',
              parameters=[heading_config],
              respawn=True, respawn_delay=2.0),
         # The world map, from power-on (written to /ws/bags/map_<course>.json on Ctrl+C)
-        Node(package='usv_nodes', executable='mapper', output='screen',
+        Node(package='usv_nodes', executable='mapper', namespace=boat, output='screen',
              parameters=[os.path.join(nodes_config, 'mapper.yaml'),
                          {'map_file': os.path.join('/ws/bags', f'map_{course}.json')}],
              respawn=True, respawn_delay=2.0),
@@ -202,23 +212,33 @@ def setup(context):
         ours.append(Node(package='tf2_ros', executable='static_transform_publisher',
                          arguments=['--frame-id', 'map', '--child-frame-id', 'usv_map'],
                          output='log'))
+        # map.rviz shows Azure's markers; another boat gets a copy with its namespace
+        rviz_config = os.path.join(nodes_config, 'map.rviz')
+        if boat != 'azure':
+            with open(rviz_config) as f:
+                text = f.read().replace('/azure/', f'/{boat}/')
+            rviz_config = os.path.join('/tmp', f'usv_map_{boat}.rviz')
+            with open(rviz_config, 'w') as f:
+                f.write(text)
         ours.append(Node(package='rviz2', executable='rviz2', output='log',
-                         arguments=['-d', os.path.join(nodes_config, 'map.rviz')]))
+                         arguments=['-d', rviz_config]))
     if with_navigator:
-        ours.append(Node(package='usv_nodes', executable='navigator', output='screen',
+        ours.append(Node(package='usv_nodes', executable='navigator', namespace=boat,
+                         output='screen',
                          parameters=[navigator_config, navigator_overrides],
                          respawn=True, respawn_delay=2.0))
     if survey:
         with open(os.path.join(config, 'fake_perception.yaml')) as f:
-            antenna = yaml.safe_load(f)['fake_perception']['ros__parameters'][
+            antenna = yaml.safe_load(f)['/**']['ros__parameters'][
                 'gnss_antenna_mount_m']
-        ours.append(Node(package='usv_sim', executable='survey_drive', output='screen',
+        ours.append(Node(package='usv_sim', executable='survey_drive', namespace=boat,
+                         output='screen',
                          parameters=[{'course': course, 'course_file': course_file,
                                       'gnss_antenna_mount_m': antenna}]))
     if record:
         ours.append(ExecuteProcess(
             cmd=['ros2', 'bag', 'record', '-o', os.path.join('/ws/bags', record)]
-            + list(RECORD_TOPICS),
+            + [f'/{boat}/{topic}' for topic in RECORD_TOPICS],
             output='screen'))
 
     start_rest = RegisterEventHandler(OnProcessExit(
@@ -237,6 +257,8 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('course', default_value='golcuk_2026_10_14',
                               description='usv_sim/courses/<course>.yaml'),
+        DeclareLaunchArgument('boat', default_value='azure',
+                              description='azure or marine: the namespace of our nodes'),
         DeclareLaunchArgument('gui', default_value='true',
                               description='false = Gazebo without a window'),
         DeclareLaunchArgument('paused', default_value='false',

@@ -12,6 +12,9 @@ Legacy behaviour kept on purpose:
   * before the first ZED sample the ZED heading counts as 0.0 (shared_state default),
     which is published as a real heading. A warning says so every 5 s.
   * the newest value of each source is used however old it is (no staleness check).
+
+Topic and service names are relative to the boat's namespace (sim.launch.py
+boat:=azure|marine): the /usv/... names above are /azure/... on Azure, /marine/... on Marine.
 """
 
 import rclpy
@@ -34,9 +37,9 @@ class HeadingSource(Node):
 
         self.zed = None
         self.fc = None
-        self.create_subscription(Float32, '/usv/heading/zed', self.on_zed, 10)
-        self.create_subscription(Float32, '/usv/heading/fc', self.on_fc, 10)
-        self.pub = self.create_publisher(Float32, '/usv/heading', 10)
+        self.create_subscription(Float32, 'heading/zed', self.on_zed, 10)
+        self.create_subscription(Float32, 'heading/fc', self.on_fc, 10)
+        self.pub = self.create_publisher(Float32, 'heading', 10)
         self.create_timer(1.0 / rate_hz, self.publish)
         self.get_logger().info(f'heading_source: {self.source} at {rate_hz:.0f} Hz')
 

@@ -302,8 +302,12 @@ RoboCommand (10.10.10.1:50000) ──Ethernet── GCS ──Ubiquiti (ana)─�
   - GCS **yalnız RoboCommand'dan gelenleri** aktarır ve hepsini kaydeder (otonomken kıyıdan
     kontrol yasak; hakem sorarsa kanıt).
   - Tekneler arası mesajlar (IVC) da bu ağdan geçebilir.
-- **Açık sorular:** RFD teknede Orange Cube'a mı (MAVLink) yoksa Jetson'a mı bağlı? GCS
-  yazılımının bugünkü hali ne (2026 GCS kodu)?
+- RFD teknede **Jetson'a** bağlı (Barış): teknedeki bağlantı düğümü RFD'yi seri porttan,
+  Ubiquiti'yi ağdan dinler.
+- GCS yazılımı: 2026'nın `GCSv1000.py`'si (PySide6). Bugün tek seri port (RFD, 57600), JSON
+  satırları, sıra numaralı güvenilir komut kanalı (`cq` / `aq`). İçinde iki tekne için yer
+  kısmen var (IDA 1 / IDA 2 görev tabloları, iz, tekne kimliği `i`), ama ekranda yalnız
+  IDA 1 paneli var.
 
 ---
 
@@ -340,6 +344,8 @@ RoboCommand (10.10.10.1:50000) ──Ethernet── GCS ──Ubiquiti (ana)─�
   (`/usv/...`) `--ns usv` ile okunur. Belgelerdeki komutlar güncellenir.
 - Davranış değişmez; testler ve bir simülasyon koşusu bunu gösterir. TEKNOFEST mantığına
   dokunulmaz.
+- Frame adlarına önek şimdilik yok: TF'yi yalnız RViz kullanıyor, tek tekne için. Önekler iki
+  tekneli simülasyonla, iki teknenin ortak bir çerçevesiyle gelir.
 
 ### Adım 2. Tekne profilleri
 - İki dosya: `boats/azure.yaml` ve `boats/marine.yaml`. İçlerinde bilgisayar, kameralar,
@@ -394,7 +400,11 @@ RoboCommand (10.10.10.1:50000) ──Ethernet── GCS ──Ubiquiti (ana)─�
   - Sahte RoboCommand sunucusu: mesajları çözer, heartbeat'i denetler, parkur dosyasındaki
     zamanlamayla görev gönderir.
   - Sahte GCS aktarıcısı.
-- GCS uygulamasının kendisi (arayüzü) ayrı bir iş. Burada yalnız aktarıcı kısmı var.
+- **GCS uygulaması (`GCSv1000.py`)** repoya alınır ve düzenlenir:
+  - harita küçülüp ortaya gelir; sağa, soldaki IDA paneli gibi ikinci bir panel (Marine)
+    eklenir; iki teknenin verileri ayrı ayrı görünür;
+  - İHA kısımları kapatılır (silinmez: başka yarışmalarda gerekebilir);
+  - RFD'nin yanına Ubiquiti bağlantısı ve RoboCommand aktarıcısı eklenir.
 
 ### Adım 6. Görev yöneticisi
 - Sıradaki görevlerin yanında, acil görevle araya girip sonra kaldığı yerden devam etme
@@ -424,7 +434,8 @@ RoboCommand (10.10.10.1:50000) ──Ethernet── GCS ──Ubiquiti (ana)─�
 - Tahmin değil ölçüm: küçük bir betikle iki kamera açılır, çözünürlük ve derinlik modu
   denenerek FPS ve GPU yükü ölçülür.
 - Sonuca göre: taret kamerasında derinlik yalnız hedef kutusunda hesaplanır ya da çözünürlük
-  düşürülür.
+  düşürülür. Kaldırmazsa taret kamerasında derinlik hiç alınmaz ya da yerine daha basit bir
+  USB kamera (Logitech Brio gibi) takılır (Barış).
 - Adım 7'den önce ya da onunla birlikte yapılır.
 
 ### Bekleyenler

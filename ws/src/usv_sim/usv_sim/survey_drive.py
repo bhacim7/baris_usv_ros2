@@ -14,6 +14,9 @@ It does not read /usv/fix or /usv/heading: the sensors are what is being measure
 steers. Start it without the navigator (sim.launch.py survey:=true does both). It waits
 start_delay_s after the first true pose (Gazebo, perception and the mapper settle), drives
 the route, then holds neutral until Ctrl+C.
+
+Topic and service names are relative to the boat's namespace (sim.launch.py
+boat:=azure|marine): the /usv/... names above are /azure/... on Azure, /marine/... on Marine.
 """
 
 import os
@@ -62,9 +65,9 @@ class SurveyDrive(Node):
         self.reported = 0
         self.finished = False
 
-        self.create_subscription(NavSatFix, '/usv/sim/navsat', self.on_navsat, 10)
-        self.create_subscription(Imu, '/usv/sim/imu', self.on_imu, 10)
-        self.pwm_pub = self.create_publisher(ThrusterPwm, '/usv/thrusters/pwm', 10)
+        self.create_subscription(NavSatFix, 'sim/navsat', self.on_navsat, 10)
+        self.create_subscription(Imu, 'sim/imu', self.on_imu, 10)
+        self.pwm_pub = self.create_publisher(ThrusterPwm, 'thrusters/pwm', 10)
         self.create_timer(1.0 / 25.0, self.tick)
         self.get_logger().info(
             f'survey_drive: {len(self.course.survey)} steps on {course_name}, '

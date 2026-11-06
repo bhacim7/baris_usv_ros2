@@ -35,6 +35,9 @@ counts as started only once the pre-flight check has passed (GPS latitude and he
 non-zero). On shutdown (Ctrl+C or SIGTERM from launch) one neutral command goes out.
 
 Every time comes from the node clock; the buoys' last_seen uses the same clock.
+
+Topic and service names are relative to the boat's namespace (sim.launch.py
+boat:=azure|marine): the /usv/... names above are /azure/... on Azure, /marine/... on Marine.
 """
 
 import signal
@@ -105,29 +108,29 @@ class NavigatorNode(Node):
         self.perception = Perception()
         self.published_waypoints = None
 
-        self.create_subscription(NavSatFix, '/usv/fix', self.on_fix, 10)
-        self.create_subscription(Float32, '/usv/speed', self.on_speed, 10)
-        self.create_subscription(Float32, '/usv/heading', self.on_heading, 10)
+        self.create_subscription(NavSatFix, 'fix', self.on_fix, 10)
+        self.create_subscription(Float32, 'speed', self.on_speed, 10)
+        self.create_subscription(Float32, 'heading', self.on_heading, 10)
         if self.roboboat:
-            self.create_subscription(LandmarkArray, '/usv/map', self.on_map, 10)
-            self.create_subscription(DetectionArray, '/usv/detections', self.on_detections,
+            self.create_subscription(LandmarkArray, 'map', self.on_map, 10)
+            self.create_subscription(DetectionArray, 'detections', self.on_detections,
                                      10)
         else:
-            self.create_subscription(BuoyArray, '/usv/buoys', self.on_buoys, 10)
-        self.create_subscription(Int8, '/usv/relay_state', self.on_relay, 10)
+            self.create_subscription(BuoyArray, 'buoys', self.on_buoys, 10)
+        self.create_subscription(Int8, 'relay_state', self.on_relay, 10)
 
-        self.pwm_pub = self.create_publisher(ThrusterPwm, '/usv/thrusters/pwm', 10)
-        self.status_pub = self.create_publisher(NavStatus, '/usv/nav_status', 10)
-        self.plan_pub = self.create_publisher(Path, '/usv/plan', 10)
+        self.pwm_pub = self.create_publisher(ThrusterPwm, 'thrusters/pwm', 10)
+        self.status_pub = self.create_publisher(NavStatus, 'nav_status', 10)
+        self.plan_pub = self.create_publisher(Path, 'plan', 10)
         latched = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL)
-        self.waypoints_pub = self.create_publisher(WaypointArray, '/usv/mission/waypoints',
+        self.waypoints_pub = self.create_publisher(WaypointArray, 'mission/waypoints',
                                                    latched)
 
-        self.create_service(SetTask, '/usv/set_task', self.srv_set_task)
-        self.create_service(SetBool, '/usv/set_manual', self.srv_set_manual)
-        self.create_service(SetWaypoint, '/usv/set_waypoint', self.srv_set_waypoint)
-        self.create_service(SetTargetColor, '/usv/set_target_color', self.srv_set_color)
-        self.create_service(Trigger, '/usv/navigator/emergency_stop', self.srv_emergency)
+        self.create_service(SetTask, 'set_task', self.srv_set_task)
+        self.create_service(SetBool, 'set_manual', self.srv_set_manual)
+        self.create_service(SetWaypoint, 'set_waypoint', self.srv_set_waypoint)
+        self.create_service(SetTargetColor, 'set_target_color', self.srv_set_color)
+        self.create_service(Trigger, 'navigator/emergency_stop', self.srv_emergency)
 
         self.create_timer(1.0 / max(1.0, self.cfg.loop_hz), self.tick)
         self.create_timer(1.0 / status_hz, self.publish_status)

@@ -225,7 +225,7 @@ def _map_settings(changes):
     import yaml
     from usv_core.world_map import MapConfig
     with open(os.path.join(WS, 'src', 'usv_nodes', 'config', 'mapper.yaml')) as f:
-        params = yaml.safe_load(f)['mapper']['ros__parameters']
+        params = yaml.safe_load(f)['/**']['ros__parameters']
     fields = MapConfig.__dataclass_fields__
     values = {k: v for k, v in params.items() if k in fields}
     for change in changes:

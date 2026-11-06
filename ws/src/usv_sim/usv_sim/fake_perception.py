@@ -31,6 +31,9 @@ Inputs: /usv/sim/imu and /usv/sim/navsat (exact, from Gazebo through ros_gz_brid
 boat's true pose for the camera; /usv/heading and /usv/fix are what the boat's perception
 would use. The course file (parameter `course`, a name in usv_sim/courses/) gives the buoys
 and the Earth's field: use the course the Gazebo world was generated from.
+
+Topic and service names are relative to the boat's namespace (sim.launch.py
+boat:=azure|marine): the /usv/... names above are /azure/... on Azure, /marine/... on Marine.
 """
 
 import math
@@ -126,16 +129,16 @@ class FakePerception(Node):
         self.frame_times = []
         self.next_frame = time.monotonic()
 
-        self.create_subscription(Imu, '/usv/sim/imu', self.on_imu, 10)
-        self.create_subscription(NavSatFix, '/usv/sim/navsat', self.on_true_navsat, 10)
-        self.create_subscription(Float32, '/usv/heading', self.on_heading, 10)
-        self.create_subscription(NavSatFix, '/usv/fix', self.on_fix, 10)
-        self.heading_pub = self.create_publisher(Float32, '/usv/heading/zed', 10)
-        self.attitude_pub = self.create_publisher(Vector3Stamped, '/usv/attitude', 10)
-        self.imu_pub = self.create_publisher(Imu, '/usv/imu', 50)
-        self.fps_pub = self.create_publisher(Float32, '/usv/perception/fps', 10)
-        self.buoys_pub = self.create_publisher(BuoyArray, '/usv/buoys', 10)
-        self.detections_pub = self.create_publisher(DetectionArray, '/usv/detections', 10)
+        self.create_subscription(Imu, 'sim/imu', self.on_imu, 10)
+        self.create_subscription(NavSatFix, 'sim/navsat', self.on_true_navsat, 10)
+        self.create_subscription(Float32, 'heading', self.on_heading, 10)
+        self.create_subscription(NavSatFix, 'fix', self.on_fix, 10)
+        self.heading_pub = self.create_publisher(Float32, 'heading/zed', 10)
+        self.attitude_pub = self.create_publisher(Vector3Stamped, 'attitude', 10)
+        self.imu_pub = self.create_publisher(Imu, 'imu', 50)
+        self.fps_pub = self.create_publisher(Float32, 'perception/fps', 10)
+        self.buoys_pub = self.create_publisher(BuoyArray, 'buoys', 10)
+        self.detections_pub = self.create_publisher(DetectionArray, 'detections', 10)
 
         self.create_timer(0.002, self.poll_frame)     # frames are due at irregular times
         self.create_timer(0.2, self.publish_attitude)

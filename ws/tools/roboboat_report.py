@@ -40,6 +40,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import bag_topics  # noqa: E402
 import course_report  # noqa: E402
 import run_report  # noqa: E402
 
@@ -58,11 +59,12 @@ def read_extra(path):
     reader.open(rosbag2_py.StorageOptions(uri=path, storage_id=''),
                 rosbag2_py.ConverterOptions('', ''))
     types = {t.name: get_message(t.type) for t in reader.get_all_topics_and_types()}
+    topic_of = bag_topics.names(types, EXTRA)       # /azure/fix (old: /usv/fix)
     data = {t: [] for t in EXTRA}
     while reader.has_next():
         topic, raw, t_ns = reader.read_next()
-        if topic in data:
-            data[topic].append((t_ns * 1e-9, deserialize_message(raw, types[topic])))
+        if topic in topic_of:
+            data[topic_of[topic]].append((t_ns * 1e-9, deserialize_message(raw, types[topic])))
     return data
 
 

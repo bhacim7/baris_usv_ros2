@@ -3,51 +3,51 @@
 # std_msgs/Float64 on the ROS side is gz.msgs.Double on the Gazebo side.
 
 # Thrust (N), from sim_bridge to the four Thruster systems
-- ros_topic_name: /usv/sim/thrust/rear_left
+- ros_topic_name: sim/thrust/rear_left
   gz_topic_name: /usv_boat/thrusters/rear_left/thrust
   ros_type_name: std_msgs/msg/Float64
   gz_type_name: gz.msgs.Double
   direction: ROS_TO_GZ
-- ros_topic_name: /usv/sim/thrust/rear_right
+- ros_topic_name: sim/thrust/rear_right
   gz_topic_name: /usv_boat/thrusters/rear_right/thrust
   ros_type_name: std_msgs/msg/Float64
   gz_type_name: gz.msgs.Double
   direction: ROS_TO_GZ
-- ros_topic_name: /usv/sim/thrust/front_left
+- ros_topic_name: sim/thrust/front_left
   gz_topic_name: /usv_boat/thrusters/front_left/thrust
   ros_type_name: std_msgs/msg/Float64
   gz_type_name: gz.msgs.Double
   direction: ROS_TO_GZ
-- ros_topic_name: /usv/sim/thrust/front_right
+- ros_topic_name: sim/thrust/front_right
   gz_topic_name: /usv_boat/thrusters/front_right/thrust
   ros_type_name: std_msgs/msg/Float64
   gz_type_name: gz.msgs.Double
   direction: ROS_TO_GZ
 
 # Front thruster angle (rad), from sim_bridge to the two JointPositionController systems
-- ros_topic_name: /usv/sim/steer/front_left
+- ros_topic_name: sim/steer/front_left
   gz_topic_name: /usv_boat/thrusters/front_left/pos
   ros_type_name: std_msgs/msg/Float64
   gz_type_name: gz.msgs.Double
   direction: ROS_TO_GZ
-- ros_topic_name: /usv/sim/steer/front_right
+- ros_topic_name: sim/steer/front_right
   gz_topic_name: /usv_boat/thrusters/front_right/pos
   ros_type_name: std_msgs/msg/Float64
   gz_type_name: gz.msgs.Double
   direction: ROS_TO_GZ
 
 # Sensors, from Gazebo to sim_bridge (which adds the real sensors' rates, delays and errors)
-- ros_topic_name: /usv/sim/navsat
+- ros_topic_name: sim/navsat
   gz_topic_name: /usv_boat/navsat
   ros_type_name: sensor_msgs/msg/NavSatFix
   gz_type_name: gz.msgs.NavSat
   direction: GZ_TO_ROS
-- ros_topic_name: /usv/sim/imu
+- ros_topic_name: sim/imu
   gz_topic_name: /usv_boat/imu
   ros_type_name: sensor_msgs/msg/Imu
   gz_type_name: gz.msgs.IMU
   direction: GZ_TO_ROS
-- ros_topic_name: /usv/sim/odometry
+- ros_topic_name: sim/odometry
   gz_topic_name: /usv_boat/odometry
   ros_type_name: nav_msgs/msg/Odometry
   gz_type_name: gz.msgs.Odometry

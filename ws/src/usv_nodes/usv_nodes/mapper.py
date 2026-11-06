@@ -15,6 +15,9 @@ It runs whether the boat is in MANUAL or AUTO: what the boat sees while it is dr
 start is already on the map. On shutdown the map is written to map_file (JSON) if set.
 
 Times are the detections' own stamps (the frame time), so a replayed bag maps the same way.
+
+Topic and service names are relative to the boat's namespace (sim.launch.py
+boat:=azure|marine): the /usv/... names above are /azure/... on Azure, /marine/... on Marine.
 """
 
 import json
@@ -74,12 +77,12 @@ class MapperNode(Node):
         self.heading = None
         self.yaw_rate = 0.0           # deg/s, from /usv/imu
         self.track = []
-        self.create_subscription(DetectionArray, '/usv/detections', self.on_detections, 10)
-        self.create_subscription(NavSatFix, '/usv/fix', self.on_fix, 10)
-        self.create_subscription(Float32, '/usv/heading', self.on_heading, 10)
-        self.create_subscription(Imu, '/usv/imu', self.on_imu, 50)
-        self.map_pub = self.create_publisher(LandmarkArray, '/usv/map', 10)
-        self.marker_pub = self.create_publisher(MarkerArray, '/usv/map/markers', 10)
+        self.create_subscription(DetectionArray, 'detections', self.on_detections, 10)
+        self.create_subscription(NavSatFix, 'fix', self.on_fix, 10)
+        self.create_subscription(Float32, 'heading', self.on_heading, 10)
+        self.create_subscription(Imu, 'imu', self.on_imu, 50)
+        self.map_pub = self.create_publisher(LandmarkArray, 'map', 10)
+        self.marker_pub = self.create_publisher(MarkerArray, 'map/markers', 10)
         self.create_timer(1.0 / publish_hz, self.publish)
         self.get_logger().info('mapper: mapping from power-on; origin = first GPS fix')
 

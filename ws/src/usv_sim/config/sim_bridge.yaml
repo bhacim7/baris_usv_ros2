@@ -1,7 +1,8 @@
 # sim_bridge: the simulated flight-controller side of the boat. Every number here describes
 # real hardware and is meant to be replaced by a measurement when one exists.
 # Lists must stay floats (1100.0, not 1100): ROS parameters are typed.
-sim_bridge:
+# '/**' = the sim_bridge of any boat (/azure, /marine): the launch gives this file to it only
+/**:
   ros__parameters:
     output_rate_hz: 50.0
 

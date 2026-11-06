@@ -1,6 +1,7 @@
 # fake_perception: the simulated ZED 2i. Every number describes the real camera and is to be
 # replaced by a measurement when one exists.
-fake_perception:
+# '/**' = the fake_perception of any boat (/azure, /marine): the launch gives this file to it only
+/**:
   ros__parameters:
     # 0 = different noise every run, any other number = the same noise every run
     random_seed: 0

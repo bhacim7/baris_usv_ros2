@@ -1,6 +1,7 @@
 # mapper parameters (usv_core.world_map.MapConfig). First values, to be tuned from the
 # map-quality report (ws/tools/run_report.py, phase 6 R1.6).
-mapper:
+# '/**' = the mapper of any boat (/azure, /marine): the launch gives this file to it only
+/**:
   ros__parameters:
     merge_radius_m: 1.5       # a sighting joins the nearest landmark of its kind within this
                               # (the dock indicators stand 2 m apart)

@@ -30,6 +30,7 @@ import statistics
 import sys
 
 from ament_index_python.packages import get_package_share_directory
+import bag_topics
 from rclpy.serialization import deserialize_message
 import rosbag2_py
 from rosidl_runtime_py.utilities import get_message
@@ -51,14 +52,15 @@ def read_bag(path):
     reader.open(rosbag2_py.StorageOptions(uri=path, storage_id=''),
                 rosbag2_py.ConverterOptions('', ''))
     types = {t.name: get_message(t.type) for t in reader.get_all_topics_and_types()}
-    missing = [t for t in TOPICS if t not in types]
+    topic_of = bag_topics.names(types, TOPICS)      # /azure/fix (or an old /usv/fix) -> /usv/fix
+    missing = [t for t in TOPICS if t not in topic_of.values()]
     if missing:
         sys.exit(f'bag has no {", ".join(missing)} - record them (see daily-startup.md)')
     data = {t: [] for t in TOPICS}
     while reader.has_next():
         topic, raw, t_ns = reader.read_next()
-        if topic in data:
-            data[topic].append((t_ns * 1e-9, deserialize_message(raw, types[topic])))
+        if topic in topic_of:
+            data[topic_of[topic]].append((t_ns * 1e-9, deserialize_message(raw, types[topic])))
     return data
 
 

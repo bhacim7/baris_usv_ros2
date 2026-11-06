@@ -18,7 +18,7 @@ Visualization Manager:
       Name: World map
       Enabled: true
       Topic:
-        Value: /usv/map/markers
+        Value: /azure/map/markers
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last

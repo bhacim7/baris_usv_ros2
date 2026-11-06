@@ -149,6 +149,12 @@ Yalnızca bir dosyayı denemek için: `python3 -m pytest test/test_survey.py -v`
 
 ## 4. Simülasyon: tek komut, ne açılır
 
+> **İsim alanı (6 Kasım):** düğümler teknenin adıyla çalışır: varsayılan `boat:=azure`, yani
+> bütün konular ve servisler `/azure/...` (`/azure/fix`, `/azure/set_manual`). Marine için
+> `boat:=marine` → `/marine/...`. Bu değişiklikten (6 Kasım) önceki kayıtlarda konular
+> `/usv/...`; rapor ve yeniden oynatma araçları ikisini de okur, ama `ros2 bag play ...
+> --topics` ile eski bir kaydı oynatırken `/usv/...` yazmak gerekir.
+
 Her şey tek bir launch ile açılır; `Ctrl + C` hepsini kapatır:
 
 ```bash
@@ -159,7 +165,7 @@ Sırayla ne olur:
 1. `make_course_world.py`, parkur dosyasından dünyayı `/tmp/usv_sim_<parkur>.sdf` olarak üretir.
    Dünya bu yüzden hiçbir zaman parkurdan eski olamaz.
 2. Gazebo, `ros_gz_bridge`, `sim_bridge` (Cube: itici, dümen, röle, GPS, hız, FC pruvası),
-   `fake_perception` (ZED: pruva, yalpa, tespitler), `heading_source` (`/usv/heading`) ve
+   `fake_perception` (ZED: pruva, yalpa, tespitler), `heading_source` (`/azure/heading`) ve
    `mapper` (dünya haritası, her zaman açık) açılır.
 3. Seçeneğe göre: `navigator`, RViz, `survey_drive`, `ros2 bag record`.
 
@@ -209,14 +215,14 @@ parkurun görevi `TASK2_START` ile başlar ve saniyede 25 kez 1500 yayınlar (te
 Ayrı bir container terminalinde otomatiğe al (yer istasyonunun "otonom" komutunun karşılığı):
 
 ```bash
-ros2 service call /usv/set_manual std_srvs/srv/SetBool "{data: false}"
+ros2 service call /azure/set_manual std_srvs/srv/SetBool "{data: false}"
 ```
 Beklenen: `success=True`; tekne kalkış kontrolünden (GPS ve pruva var mı) geçince sürmeye başlar.
 
 Görev durumu:
 
 ```bash
-ros2 topic echo /usv/nav_status --once
+ros2 topic echo /azure/nav_status --once
 ```
 
 ### 5.2 Doğrudan otomatik başlat
@@ -236,35 +242,35 @@ Beklenen: Görev 1 kapıları → Görev 2 koridoru → Görev 3 → `FINISHED`.
 Manuele dön:
 
 ```bash
-ros2 service call /usv/set_manual std_srvs/srv/SetBool "{data: true}"
+ros2 service call /azure/set_manual std_srvs/srv/SetBool "{data: true}"
 ```
 
 Görev seç:
 
 ```bash
-ros2 service call /usv/set_task usv_interfaces/srv/SetTask "{task: TASK2_START}"
+ros2 service call /azure/set_task usv_interfaces/srv/SetTask "{task: TASK2_START}"
 ```
 
 Acil durum (navigator kilitlenir, aynı döngüde nötr):
 
 ```bash
-ros2 service call /usv/navigator/emergency_stop std_srvs/srv/Trigger
+ros2 service call /azure/navigator/emergency_stop std_srvs/srv/Trigger
 ```
 
 Gerçek acil durumda Cube tarafı da çağrılır (iticiler 1500, röle kapalı):
 
 ```bash
-ros2 service call /usv/emergency_stop std_srvs/srv/Trigger
+ros2 service call /azure/emergency_stop std_srvs/srv/Trigger
 ```
 
 Acil durumdan çıkış (ARCHITECTURE §9): önce röleyi aç, sonra görevi yeniden seç. Mod korunur.
 
 ```bash
-ros2 service call /usv/set_relay std_srvs/srv/SetBool "{data: true}"
+ros2 service call /azure/set_relay std_srvs/srv/SetBool "{data: true}"
 ```
 
 ```bash
-ros2 service call /usv/set_task usv_interfaces/srv/SetTask "{task: TASK2_START}"
+ros2 service call /azure/set_task usv_interfaces/srv/SetTask "{task: TASK2_START}"
 ```
 
 ### 5.4 Deney koşusu ve rapor
@@ -295,8 +301,8 @@ Gölcük'ten farkları:
   Görev 1 (giriş, dönüş, çıkış) yazıldı (R2.4); Görev 2, 3, 5 henüz yok (R3): "skipped" deyip
   geçilir. Elle sürmek ya da ölçüm rotası için navigator kapalı olmalı (`navigator:=false`
   ya da `survey:=true`): açıkken manuel modda sürekli 1500 yayınlar.
-- `fake_perception` burada `/usv/buoys` değil `/usv/detections` yayınlar (13 sınıf, her kutu
-  ölçülmüş haliyle). `mapper` bunlardan kalıcı haritayı (`/usv/map`) kurar.
+- `fake_perception` burada `/azure/buoys` değil `/azure/detections` yayınlar (13 sınıf, her kutu
+  ölçülmüş haliyle). `mapper` bunlardan kalıcı haritayı (`/azure/map`) kurar.
 - Harita sistem açıldığı anda başlar, manuel sürüşte de çalışır.
 
 ### 6.1 Parkuru ve haritayı görmek
@@ -333,7 +339,7 @@ ros2 launch usv_sim sim.launch.py course:=roboboat_2026 auto:=true record:=t1_<a
 ```
 Kayıtta `Phase T1_ENTRY`, `Course map: ...`, `T1_ENTRY: done`, `Phase RETURN`, `Phase T1_EXIT`,
 `Run FINISHED`. Manuelde başlatıp sonra otomatiğe almak da olur (`auto:=true` vermeden,
-`/usv/set_manual` `false`). Bir aşamaya atlamak ya da baştan almak: `/usv/set_task` ile aşama
+`/azure/set_manual` `false`). Bir aşamaya atlamak ya da baştan almak: `/azure/set_task` ile aşama
 adı (`WAIT_START`, `T1_ENTRY`, `RETURN`, `T1_EXIT` ...). `FINISHED` görününce Ctrl+C, sonra
 Gazebo'nun gerçek konumundan rapor:
 
@@ -443,19 +449,19 @@ bırakınca tekne 0,5 saniye sonra durur (Cube zaman aşımı).
 İleri (1680 = navigator'ın seyir PWM'i, ≈1,3 m/s):
 
 ```bash
-ros2 topic pub -r 20 /usv/thrusters/pwm usv_interfaces/msg/ThrusterPwm "{rear_left: 1680, rear_right: 1680, front_left: 1680, front_right: 1680, steer: 1500}"
+ros2 topic pub -r 20 /azure/thrusters/pwm usv_interfaces/msg/ThrusterPwm "{rear_left: 1680, rear_right: 1680, front_left: 1680, front_right: 1680, steer: 1500}"
 ```
 
 İleri giderken sağa dön (dümen 1700, sol iticiler biraz fazla):
 
 ```bash
-ros2 topic pub -r 20 /usv/thrusters/pwm usv_interfaces/msg/ThrusterPwm "{rear_left: 1780, rear_right: 1580, front_left: 1730, front_right: 1630, steer: 1700}"
+ros2 topic pub -r 20 /azure/thrusters/pwm usv_interfaces/msg/ThrusterPwm "{rear_left: 1780, rear_right: 1580, front_left: 1730, front_right: 1630, steer: 1700}"
 ```
 
 Yerinde sağa dön (sol ileri, sağ geri):
 
 ```bash
-ros2 topic pub -r 20 /usv/thrusters/pwm usv_interfaces/msg/ThrusterPwm "{rear_left: 1700, rear_right: 1300, front_left: 1700, front_right: 1300, steer: 1700}"
+ros2 topic pub -r 20 /azure/thrusters/pwm usv_interfaces/msg/ThrusterPwm "{rear_left: 1700, rear_right: 1300, front_left: 1700, front_right: 1300, steer: 1700}"
 ```
 
 ### 6.4 Parkuru başka bir yere koymak
@@ -479,7 +485,7 @@ Tree'de modele tıkla → sağdaki **Component Inspector** → Pose.
 
 Kayıt için launch'ta `record:=<ad>` yeterli. Hangi konuların kaydedildiği `sim.launch.py`
 içindeki `RECORD_TOPICS` listesinde: navigator durumu ve PWM, Gazebo'nun gerçek konumu ve IMU'su
-(`/usv/sim/navsat`, `/usv/sim/imu`), GPS, pruva, hız, tespitler, harita.
+(`/azure/sim/navsat`, `/azure/sim/imu`), GPS, pruva, hız, tespitler, harita.
 
 | Araç | Ne için | Örnek |
 |---|---|---|
@@ -487,7 +493,7 @@ içindeki `RECORD_TOPICS` listesinde: navigator durumu ve PWM, Gazebo'nun gerçe
 | `map_report.py` | RoboBoat haritası: hatanın kaynakları, harita kalitesi | 6.2 |
 
 Koşuyu RViz'de tekrar izlemek (teknenin haritası koşu sırasında nasıl büyüdü). Üç ayrı container
-terminalinde, bu sırayla; kayıt 1 Kasım akşamından sonra alınmış olmalı (`/usv/map/markers`
+terminalinde, bu sırayla; kayıt 1 Kasım akşamından sonra alınmış olmalı (`/azure/map/markers`
 ondan beri kaydediliyor):
 
 ```bash
@@ -499,7 +505,7 @@ rviz2 -d /ws/install/usv_nodes/share/usv_nodes/config/map.rviz
 ```
 
 ```bash
-ros2 bag play /ws/bags/t1_<ad> --topics /usv/map/markers
+ros2 bag play /ws/bags/t1_<ad> --topics /azure/map/markers
 ```
 
 Kayıtları elle incelemek:
@@ -509,12 +515,12 @@ ros2 bag info /ws/bags/survey_base
 ```
 
 ```bash
-ros2 bag play /ws/bags/survey_base --topics /usv/map /usv/fix
+ros2 bag play /ws/bags/survey_base --topics /azure/map /azure/fix
 ```
 
 - Aynı adla ikinci kez kayıt alınamaz (`already exists`); her seferinde yeni ad ver.
 - Kayıtlar ana makinede `~/usv_ros2/ws/bags` altında durur ve git'e girmez.
-- Launch dışında elle kayıt: `ros2 bag record -o <ad> /usv/fix /usv/heading`.
+- Launch dışında elle kayıt: `ros2 bag record -o <ad> /azure/fix /azure/heading`.
 
 ---
 
@@ -524,9 +530,9 @@ ros2 bag play /ws/bags/survey_base --topics /usv/map /usv/fix
 |---|---|
 | `ros2 node list` | Çalışan node'lar |
 | `ros2 topic list` | Var olan topic'ler |
-| `ros2 topic echo /usv/fix --once` | Bir topic'ten tek mesaj |
-| `ros2 topic hz /usv/detections` | Topic'in gerçek yayın hızı (kamera ≈30 Hz) |
-| `ros2 topic info /usv/thrusters/pwm` | Mesaj tipi, kaç yayıncı var (birden fazlaysa çakışma) |
+| `ros2 topic echo /azure/fix --once` | Bir topic'ten tek mesaj |
+| `ros2 topic hz /azure/detections` | Topic'in gerçek yayın hızı (kamera ≈30 Hz) |
+| `ros2 topic info /azure/thrusters/pwm` | Mesaj tipi, kaç yayıncı var (birden fazlaysa çakışma) |
 | `ros2 param list /mapper` | Bir node'un parametreleri |
 | `ros2 param get /mapper merge_radius_m` | Tek parametrenin değeri |
 | `ros2 service list` | Var olan servisler |
@@ -683,7 +689,7 @@ yeniden başlatır.
 | `Package 'usv_...' not found` | Terminal yeni derlemeyi tanımıyor | `source /ws/install/setup.bash` |
 | Yeni node ya da launch seçeneği bulunamıyor | Yeni dosya eklendi ama derlenmedi | `cd /ws && colcon build --symlink-install` |
 | Kayıt başlamıyor: `already exists` | Aynı `record:=` adı daha önce kullanıldı | Yeni ad ver |
-| Elle `topic pub` ile tekne kıpırdamıyor | Navigator da açık, manuel modda 1500 yayınlıyor | `navigator:=false` ile aç (`ros2 topic info /usv/thrusters/pwm` iki yayıncı gösterir) |
+| Elle `topic pub` ile tekne kıpırdamıyor | Navigator da açık, manuel modda 1500 yayınlıyor | `navigator:=false` ile aç (`ros2 topic info /azure/thrusters/pwm` iki yayıncı gösterir) |
 | RoboBoat'ta Görev 2, 3, 5 "skipped" | Henüz yazılmadı (R3) | Beklenen |
 | Harita dosyası önceki koşununki gibi değil | `map_<parkur>.json` her koşuda üzerine yazılır | Saklamak için kopyala (6.1) |
 | Parkur suda değil, karanın altında ya da hiç görünmüyor | Yer alttan bakarak seçilmiş (kara alttan görünmez) | Konumu yukarıdan bakarak seç (6.4) |

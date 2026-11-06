@@ -2,7 +2,8 @@
 # test/test_navigator_io.py checks that this file gives exactly usv_core's NavConfig(), which
 # usv_core/test/test_nav_config.py checks against the frozen legacy config.py.
 # The simulation launch overrides start_task, the waypoints and the Task 3 colour per course.
-navigator:
+# '/**' = the navigator of any boat (/azure, /marine): the launch gives this file to it only
+/**:
   ros__parameters:
     # --- node ---
     start_manual: true            # legacy main_orchestrator starts in MANUAL

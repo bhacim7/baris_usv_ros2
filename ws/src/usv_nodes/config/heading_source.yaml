@@ -1,4 +1,5 @@
-heading_source:
+# '/**' = the heading_source of any boat (/azure, /marine): the launch gives this file to it only
+/**:
   ros__parameters:
     # config.py HEADING_SOURCE: 'ZED' (ZED 2i magnetometer, used on the boat), 'FC' (Orange
     # Cube EKF) or 'FUSED' (half way between the two)

@@ -55,6 +55,7 @@ import statistics
 import sys
 
 from ament_index_python.packages import get_package_share_directory
+import bag_topics
 from rclpy.serialization import deserialize_message
 import rosbag2_py
 from rosidl_runtime_py.utilities import get_message
@@ -84,25 +85,26 @@ def read_bag(path):
     reader.open(rosbag2_py.StorageOptions(uri=path, storage_id=''),
                 rosbag2_py.ConverterOptions('', ''))
     types = {t.name: get_message(t.type) for t in reader.get_all_topics_and_types()}
-    missing = [t for t in NEEDED if t not in types]
+    topic_of = bag_topics.names(types, NEEDED + OPTIONAL)   # /azure/fix (old: /usv/fix)
+    missing = [t for t in NEEDED if t not in topic_of.values()]
     if missing:
         sys.exit(f'bag has no {", ".join(missing)} - record with sim.launch.py record:=<name>')
     data = {t: [] for t in NEEDED + OPTIONAL}
     while reader.has_next():
         topic, raw, t_ns = reader.read_next()
-        if topic in data:
+        if topic in topic_of:
             try:
                 msg = deserialize_message(raw, types[topic])
             except Exception as e:
                 sys.exit(f'cannot read {topic} ({e}): recorded with older messages? '
                          'Record the run again')
-            data[topic].append((t_ns * 1e-9, msg))
+            data[topic_of[topic]].append((t_ns * 1e-9, msg))
     return data
 
 
 def ros_params(share, name):
     with open(os.path.join(share, 'config', name + '.yaml')) as f:
-        return yaml.safe_load(f)[name]['ros__parameters']
+        return yaml.safe_load(f)['/**']['ros__parameters']
 
 
 @dataclass

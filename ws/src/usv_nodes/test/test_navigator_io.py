@@ -24,7 +24,7 @@ NODE_ONLY = {'start_manual', 'status_hz', 'competition'}
 
 def yaml_params():
     with open(CONFIG) as f:
-        params = yaml.safe_load(f)['navigator']['ros__parameters']
+        params = yaml.safe_load(f)['/**']['ros__parameters']
     flat = {k: v for k, v in params.items() if k not in ('waypoints', 'roboboat')}
     flat.update({'waypoints.' + k: v for k, v in params['waypoints'].items()})
     return flat
@@ -32,7 +32,7 @@ def yaml_params():
 
 def roboboat_params():
     with open(CONFIG) as f:
-        rb = yaml.safe_load(f)['navigator']['ros__parameters']['roboboat']
+        rb = yaml.safe_load(f)['/**']['ros__parameters']['roboboat']
     flat = {'roboboat.' + k: v for k, v in rb.items() if k not in ('hint', 'drive', 'debris')}
     flat.update({'roboboat.hint.' + k: v for k, v in rb['hint'].items()})
     flat.update({'roboboat.drive.' + k: v for k, v in rb['drive'].items()})
