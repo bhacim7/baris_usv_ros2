@@ -24,9 +24,15 @@
 name: roboboat_2027
 classes: roboboat
 
-# VRX nbpark world origin (Nathan Benderson Park, Sarasota, Florida). The park's land model
-# stays in the world (venue), so the reported lat/lon are the real park's.
-origin: {lat: 27.367256, lon: -82.451120}
+# Where the Gazebo world's (0, 0) is on the earth (Nathan Benderson Park, Sarasota, Florida).
+# The park's land model stays in the world (venue). VRX's own origin for it (27.367256,
+# -82.451120) put the model 76 m north and 35 m west of the real park: measured 2026-11-11
+# by Baris against the GCS's satellite map (the peninsula's south-west corner, Gazebo
+# (-166.24, 678.83); the boat 38 m west of it showed 105 m at 316 deg from the corner on the
+# map). Corrected here, so the simulated GPS reads the real park's lat/lon. One point was
+# measured: an offset, not a scale or rotation check. Bags recorded before this carry the
+# old origin: report them with a course file that has it (git show 063587e:<this file>).
+origin: {lat: 27.366566, lon: -82.450768}
 venue: nbpark
 # Where the course sits in the park: the named start is at (east, north) of the Gazebo
 # world, pointing heading_deg (compass), and the whole layout below follows it. Chosen by

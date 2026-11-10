@@ -48,10 +48,8 @@ sağ panelde görünür.
 
 ## Gazebo ile GCS haritası
 
-DOĞRULANMADI: Barış'a göre tekne iki ekranda aynı yerde değil; 11 Kasım'da yarımadadaki
-binadan hiza alınarak bakılacak. 10 Kasım'daki ilk açıklama şuydu:
-- Gazebo'nun kamerasında yukarı kuzey olmak zorunda değil (açılışta kamera teknenin
-  baktığı yöne, batıya döner); GCS haritasında yukarı her zaman kuzey.
-- VRX'in park modeli sadeleştirilmiş (ör. yarımadanın doğusundaki küçük ada yok) ve
-  simülasyondaki şamandıralar GCS'nin uydu görüntüsünde yok; görüntüdeki turuncu noktalar
-  gerçek kürek şeridinin şamandıraları.
+VRX'in park modeli, kendi coğrafi başlangıcıyla gerçek parka göre 76 m kuzeyde ve 35 m
+batıda duruyordu (11 Kasım'da yarımadanın güneybatı köşesinden ölçüldü). Parkur
+dosyalarındaki `origin` düzeltildi; simülasyonun GPS'i artık GCS haritasıyla örtüşmeli.
+Bilinen farklar: Gazebo'nun kamerasında yukarı kuzey olmayabilir (GCS'de hep kuzey), park
+modeli sadeleştirilmiş (küçük ada yok), simülasyonun şamandıraları uydu görüntüsünde yok.
