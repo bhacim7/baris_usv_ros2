@@ -74,7 +74,7 @@ These are not cleaned up during the port, because the gains were tuned against t
 | `perception` | `camera_process` | ZED (pyzed) + YOLO + object memory in one process. Publishes buoys, ZED heading, attitude and FPS. Writes the HUD video (frames never leave the process) |
 | `heading_source` | heading selection in `nav_process` | Selects ZED, FC or fused heading (`HEADING_SOURCE`) and publishes `/usv/heading` |
 | `navigator` | `nav_process` | 25 Hz timer: mission state machine, local costmap, A*, Task 2 corridor, LOS/PID and Pure Pursuit, mixer. Publishes `ThrusterPwm` and `NavStatus`. Parameter `competition` picks the rule book: `teknofest` (legacy, GPS points, `/usv/buoys`) or `roboboat` (the run from `/usv/map` and `/usv/detections`); GCS services, modes and the emergency latch are shared (`usv_core.nav_base`) |
-| `telemetry_bridge` | `telem_process`, `utils/telem.py` | RFD900x JSON protocol unchanged. Turns GCS commands into service calls and echoes `aq` after a successful call |
+| `telemetry_bridge` | `telem_process`, `utils/telem.py` | 2026 JSON protocol unchanged, over two links at once (2027: Ubiquiti UDP + RFD900x, `usv_core/gcs_link.py`); a command is done once whichever link brings it, `aq` echoed after its service answered. Written 2026-11-10 (step 5a) |
 | `recorder` | CSV + `CostmapRecorder` | Competition deliverables: vehicle CSV (2 Hz, legacy header) and costmap record |
 | `sim_bridge` | new | Stands in for `fc_bridge`: commands to Gazebo, FC-side sensors back, with the real hardware's rates and errors (section 10) |
 | `fake_perception` | new | Stands in for `perception`: buoys from ground truth within camera FOV and range, ZED heading and attitude, all with ZED-like errors |

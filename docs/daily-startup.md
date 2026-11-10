@@ -490,6 +490,26 @@ Tree'de modele tıkla → sağdaki **Component Inspector** → Pose.
 
 ---
 
+## 6.5 Yer istasyonu bağlantısı (iki hat: Ubiquiti + RFD)
+
+Tekne komutları ve telemetriyi iki hattan birden alır ve yollar (Adım 5a). Simülasyonda
+Ubiquiti yerine bu bilgisayardaki UDP, RFD yerine sahte bir telsiz (`fake_radio.py`) var.
+
+```bash
+ros2 launch usv_sim sim.launch.py course:=roboboat_2027 gui:=false link:=true
+```
+
+Başka bir terminalde (container içinde) metin GCS ile izle ya da komut gönder:
+
+```bash
+python3 /ws/tools/gcs_cli.py --udp --rfd /tmp/usv_rfd_gcs watch
+python3 /ws/tools/gcs_cli.py --udp --rfd /tmp/usv_rfd_gcs send azure set_manual false
+python3 /ws/tools/gcs_cli.py --rfd /tmp/usv_rfd_gcs send azure set_manual true
+```
+
+`watch` ile `send` aynı anda çalışmaz (ikisi de 15600 portunu dinler). Yalnız `--udp` ya da
+yalnız `--rfd` vererek her hattı tek başına denersin.
+
 ## 7. Kayıt ve analiz
 
 Kayıt için launch'ta `record:=<ad>` yeterli. Hangi konuların kaydedildiği `sim.launch.py`

@@ -478,6 +478,28 @@ RoboCommand (10.10.10.1:50000) ──Ethernet── GCS ──Ubiquiti (ana)─�
   - İHA kısımları kapatılır (silinmez: başka yarışmalarda gerekebilir);
   - RFD'nin yanına Ubiquiti bağlantısı ve RoboCommand aktarıcısı eklenir.
 
+**Kararlar (Barış, 10 Kasım):**
+- Komutlar ve telemetri **iki hattan da** gider; RFD yalnız yedek değil, aynı veriyi taşır.
+  Tekne her komutu bir kez uygular (numarasından), GCS her teknenin en yeni telemetrisini
+  gösterir.
+- Ubiquiti üzerinde UDP (TCP değil): kayıp paketin arkasında kimse beklemez, bağlantı kurmak
+  gerekmez; komutların kendi yeniden gönderimi var.
+- GCS ROS'suz, düz Python + PySide6 (ROS bir şey katarsa konuşulur). Görseller (`background.png`,
+  `halat.png`, `roboboat.jpg`) depoya girer.
+- Adresler şimdilik: GCS 192.168.1.10, Azure .11, Marine .12; portlar 15600 / 15601 / 15602.
+- RFD'de telemetri 2026'daki gibi her tekne için 0,3 s; ölçülecek.
+
+**5a yazıldı (10 Kasım): iki hatlı GCS bağlantısı.**
+- `usv_core/gcs_link.py` (ROS'suz, kütüphanesiz; teknede ve GCS'de aynı kod): 2026 protokolü
+  (kısa anahtarlar, `cq`/`aq`, `q`), satır toparlama, tekne tarafında kopya ayıklama
+  (`CommandFilter`), GCS tarafında en yeni telemetri (`NewestFilter`), tekne başına numaralı
+  yeniden gönderim (`ReliableSender`), UDP ve seri hat (pyserial'siz).
+- Teknede `telemetry_bridge` düğümü: iki hattı dinler, komutları navigatörün servislerine
+  çevirir, telemetriyi iki hattan yollar.
+- Simülasyon: `sim.launch.py link:=true` (UDP bu bilgisayarda, RFD yerine
+  `scripts/fake_radio.py`: kanal hızında, isteğe bağlı kayıplı sahte telsiz).
+- `ws/tools/gcs_cli.py`: GUI gelene kadar metin GCS (izle, komut gönder; hat seçilebilir).
+
 ### Adım 6. Görev yöneticisi
 - Sıradaki görevlerin yanında, acil görevle araya girip sonra kaldığı yerden devam etme
   (Task 4, Task 5).

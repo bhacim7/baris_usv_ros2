@@ -9,4 +9,8 @@ cameras:
   - {name: nav, model: zed2i, mount: hull, depth: true}
 lidar: false          # a 3D LiDAR goes on this boat if it arrives
 water_cannon: false
+# GCS link (usv_core.gcs_link): the Ubiquiti address (ASSUMED until the network is set
+# up, docs/baris-yapacaklar.md) and the UDP port the boat listens on (the GCS on 15600)
+ip: 192.168.1.11
+udp_port: 15601
 balls: 0

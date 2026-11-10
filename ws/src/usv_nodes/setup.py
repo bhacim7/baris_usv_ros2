@@ -26,6 +26,7 @@ setup(
             'heading_source = usv_nodes.heading_source:main',
             'navigator = usv_nodes.navigator:main',
             'mapper = usv_nodes.mapper:main',
+            'telemetry_bridge = usv_nodes.telemetry_bridge:main',
         ],
     },
 )

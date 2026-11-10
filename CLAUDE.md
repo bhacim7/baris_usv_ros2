@@ -22,12 +22,18 @@ Docker içinde (Gazebo Harmonic + VRX), gerçek tekneler Jetson. Hedef: RoboBoat
   `start:=readiness|competition`, `mission:=readiness`.
 - Adım 4a bitti: commit `8bffdca` (RoboBuoy, ışıklar, rastgele Task 1 alanı).
 - Adım 4b bitti: commit `338b325` (marina, pencere ışıkları, Primer yerleşimi).
-- Adım 4e yazıldı: Task 4 tekneleri yelken levhasında şekille (`circle`, `square` sınıfları).
-  Barış'ın testi ve commit'i bekleniyor. Pinger simüle edilmedi.
-- Sıradaki: Adım 5, RoboCommand ve haberleşme (GCS görselleri Barış'tan istenecek).
+- Adım 4e bitti: commit `a7575b1` (Task 4 şekilli tekneler). Pinger simüle edilmedi.
+- Adım 5a yazıldı: iki hatlı GCS bağlantısı (`usv_core/gcs_link.py`, `telemetry_bridge`,
+  `sim.launch.py link:=true`, `scripts/fake_radio.py`, `ws/tools/gcs_cli.py`). Barış'ın
+  testi ve commit'i bekleniyor.
+- Sıradaki: 5b, GCS uygulaması depoya (`gcs/`, iki tekne paneli; görseller
+  `~/Downloads/GCSresimler`, `~/Downloads/GCSv1000.py`).
 - Bilinen: raporda "yeşil 330°" uyarısı GPS/harita kaymasından (R3.5 ertelendi).
 
 ## Çalışma şekli (değişmez kurallar)
+- Barış'tan beklenenler `docs/baris-yapacaklar.md`'de: veri seti adları, ölçümler, donanım
+  soruları, takvim. Yeni bir varsayım ya da Barış'a düşen iş çıkınca oraya ekle. Barış
+  "benden beklenen ne var?" diye sorunca o listeyi özetle.
 - Türkçe konuş. Kod, yorumlar, commit mesajları ve ROS adları İngilizce.
 - **Container'da hiçbir komutu sen çalıştırma.** Barış öğrenmek için kendisi çalıştırır:
   komutları tek tek, kopyalanabilir, nerede çalışacağı (ana makine / container) ve

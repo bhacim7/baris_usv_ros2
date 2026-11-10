@@ -29,6 +29,8 @@ class BoatProfile:
     lidar: bool = False
     water_cannon: bool = False
     balls: int = 0
+    ip: str = ''                  # on the Ubiquiti network (GCS link)
+    udp_port: int = 0             # the boat listens for the GCS here
 
     def can(self, capability):
         """Return whether the boat has the capability (one of CAPABILITIES)."""

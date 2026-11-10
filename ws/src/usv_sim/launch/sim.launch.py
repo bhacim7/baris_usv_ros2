@@ -37,6 +37,12 @@ Experiments (phase 5.6), one command each:
     max_range_m:=10.0          fake_perception: no detections beyond 10 m
   e.g.  ros2 launch usv_sim sim.launch.py auto:=true record:=exp_compass8 compass_offset_deg:=8.0
 
+GCS link (RoboBoat 2027 step 5a):
+    link:=true                 telemetry_bridge on the boat, over UDP on this computer (the
+                               Ubiquiti network) and a pretend RFD radio (fake_radio.py:
+                               /tmp/usv_rfd_gcs for the GCS, /tmp/usv_rfd_<boat> for the
+                               boat); talk to it with ws/tools/gcs_cli.py
+
 Map measurements (phase 6 R1.6):
     survey:=true               no navigator; survey_drive drives the course's survey route
                                from Gazebo's true pose, the same path every run
@@ -275,6 +281,16 @@ def setup(context):
                          output='screen',
                          parameters=[{'course': course, 'course_file': course_file,
                                       'gnss_antenna_mount_m': antenna}]))
+    link = LaunchConfiguration('link').perform(context).lower() == 'true'
+    if link:
+        ours.append(Node(package='usv_nodes', executable='telemetry_bridge', namespace=boat,
+                         output='screen',
+                         parameters=[os.path.join(nodes_config, 'telemetry_bridge.yaml'),
+                                     {'boat_number': profile.number,
+                                      'udp_listen_port': profile.udp_port,
+                                      'gcs_host': '127.0.0.1',
+                                      'serial_port': f'/tmp/usv_rfd_{boat}'}],
+                         respawn=True, respawn_delay=2.0))
     if record:
         ours.append(ExecuteProcess(
             cmd=['ros2', 'bag', 'record', '-o', os.path.join('/ws/bags', record)]
@@ -284,7 +300,13 @@ def setup(context):
     start_rest = RegisterEventHandler(OnProcessExit(
         target_action=make_world, on_exit=[gazebo, bridge] + ours))
 
-    return [
+    radio = []
+    if link:
+        # The pretend RFD network, before the boat's bridge opens its end
+        radio.append(ExecuteProcess(
+            cmd=['python3', os.path.join(share, 'scripts', 'fake_radio.py'), 'gcs', boat],
+            output='screen'))
+    return radio + [
         LogInfo(msg=f'Boat {profile.name} (number {profile.number}, {profile.computer}); can: '
                 + (', '.join(profile.capabilities()) or 'nothing extra')),
         # Our boat model (usv_boat) for Gazebo; VRX and HullBuoyancy paths come from the
@@ -313,6 +335,9 @@ def generate_launch_description():
         DeclareLaunchArgument('level', default_value='',
                               description='Task 1 level: core, advanced, disruptive; empty = '
                               "the course file's"),
+        DeclareLaunchArgument('link', default_value='false',
+                              description='true = telemetry_bridge over UDP and a pretend '
+                              'RFD radio (GCS link)'),
         DeclareLaunchArgument('gui', default_value='true',
                               description='false = Gazebo without a window'),
         DeclareLaunchArgument('paused', default_value='false',

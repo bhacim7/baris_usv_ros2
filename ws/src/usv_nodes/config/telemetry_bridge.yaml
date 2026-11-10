@@ -1,0 +1,14 @@
+# telemetry_bridge parameters (usv_nodes/telemetry_bridge.py, usv_core/gcs_link.py).
+# '/**' = the bridge of any boat. The boat's number and UDP port come from its profile
+# (config/boats/<boat>.yaml); sim.launch.py link:=true sets them, the GCS address and the
+# pretend radio's port.
+/**:
+  ros__parameters:
+    broadcast_s: 0.3          # telemetry on EACH link (2026: 0.3 s on the RFD); to be
+                              # measured with two boats and the drone on one RFD channel
+    waypoint_refresh_s: 10.0  # waypoint mini packets: on change and this often
+    gcs_host: 192.168.1.10    # Ubiquiti: the GCS (ASSUMED); '' = no network link
+    gcs_port: 15600
+    udp_listen_port: 15601    # set from the boat profile
+    serial_port: ''           # RFD900x, e.g. /dev/ttyUSB0 on the Jetson; '' = none
+    serial_baud: 57600

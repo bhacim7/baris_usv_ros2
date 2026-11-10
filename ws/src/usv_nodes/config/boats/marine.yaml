@@ -12,4 +12,8 @@ cameras:
   - {name: turret, model: zed2i, mount: turret, depth: true}
 lidar: false
 water_cannon: true
+# GCS link (usv_core.gcs_link): the Ubiquiti address (ASSUMED until the network is set
+# up, docs/baris-yapacaklar.md) and the UDP port the boat listens on (the GCS on 15600)
+ip: 192.168.1.12
+udp_port: 15602
 balls: 3
