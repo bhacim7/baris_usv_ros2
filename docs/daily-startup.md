@@ -47,7 +47,7 @@ Hızlı yol:
 | Parkur (`usv_sim/courses/`) | Ne | Durum |
 |---|---|---|
 | `golcuk_2026_10_14` | 14 Ekim TEKNOFEST koşusu, videodan kurulmuş | Donmuş: yeni iş yok, yalnızca karşılaştırma |
-| `roboboat_2026` | RoboBoat 2026 parkuru, Nathan Benderson Park | Şu anki iş (Faz 6) |
+| `roboboat_2027` | RoboBoat parkuru, Nathan Benderson Park: 2026'nın Görev 1–2'si (Proof of Readiness videosu için); 2027 parkuru aynı haritaya eklenecek | Şu anki iş |
 
 ---
 
@@ -173,7 +173,9 @@ Bir node çökerse 2 saniye sonra kendiliğinden yeniden başlar (teknedeki gibi
 
 | Seçenek | Varsayılan | Ne yapar |
 |---|---|---|
-| `course:=` | `golcuk_2026_10_14` | Parkur: `golcuk_2026_10_14` ya da `roboboat_2026` |
+| `course:=` | `golcuk_2026_10_14` | Parkur: `golcuk_2026_10_14` ya da `roboboat_2027` |
+| `start:=` | parkurun varsayılanı | `roboboat_2027`: teknenin başladığı yer. Şimdilik yalnız `readiness` (eski Görev 1'in önü); 2027 parkuru yerleşince `competition` eklenecek |
+| `mission:=` | parkurun varsayılanı | `roboboat_2027`: navigatörün koştuğu görev. Şimdilik yalnız `readiness` (2026 Görev 1 + Görev 2) |
 | `gui:=false` | `true` | Gazebo penceresi açılmaz (daha hızlı) |
 | `paused:=true` | `false` | Duraklatılmış başlar; sol alttaki ▶'e bas |
 | `rviz:=true` | `false` | RViz dünya haritasıyla açılır |
@@ -297,7 +299,7 @@ Nathan Benderson Park'taki RoboBoat 2026 parkuru. Parkurun yeri parkur dosyasın
 
 Gölcük'ten farkları:
 - Navigator burada RoboBoat beyniyle açılır (`competition: roboboat`, parkur dosyasından).
-  Koşu: `WAIT_START → T1_ENTRY → task2 → task3 → task5 → RETURN → T1_EXIT → FINISHED`.
+  Koşu (`mission:=readiness`): `WAIT_START → T1_ENTRY → task2 → RETURN → T1_EXIT → FINISHED`.
   Görev 1 (giriş, dönüş, çıkış) yazıldı (R2.4); Görev 2, 3, 5 henüz yok (R3): "skipped" deyip
   geçilir. Elle sürmek ya da ölçüm rotası için navigator kapalı olmalı (`navigator:=false`
   ya da `survey:=true`): açıkken manuel modda sürekli 1500 yayınlar.
@@ -308,11 +310,11 @@ Gölcük'ten farkları:
 ### 6.1 Parkuru ve haritayı görmek
 
 ```bash
-ros2 launch usv_sim sim.launch.py course:=roboboat_2026 navigator:=false rviz:=true
+ros2 launch usv_sim sim.launch.py course:=roboboat_2027 navigator:=false rviz:=true
 ```
 Beklenen:
 - terminalde `boat start x -189.17 y 947.45 heading 270.0 deg` ve
-  `fake_perception ready: course roboboat_2026 (roboboat, 52 camera targets)`;
+  `fake_perception ready: course roboboat_2027 (roboboat, 23 camera targets)`;
 - Gazebo'da park, Görev 1 direkleri teknenin önünde;
 - RViz'de yukarıdan bakış.
 
@@ -321,12 +323,12 @@ RViz'de neyi okuyacağın:
 - yazılar tür ve görülme sayısı (`buoy_red x42` gibi);
 - mavi ok tekne, mavi çizgi GPS izi (gerçek yol değil).
 
-`Ctrl + C` ile kapatınca harita `/ws/bags/map_roboboat_2026.json` dosyasına yazılır
+`Ctrl + C` ile kapatınca harita `/ws/bags/map_roboboat_2027.json` dosyasına yazılır
 (`map saved: ... (N landmarks)`). Bu dosya **her koşuda üzerine yazılır**; saklamak istersen
 kapattıktan sonra kopyala:
 
 ```bash
-cp /ws/bags/map_roboboat_2026.json /ws/bags/map_roboboat_2026_<ad>.json
+cp /ws/bags/map_roboboat_2027.json /ws/bags/map_roboboat_2027_<ad>.json
 ```
 
 ### 6.1b RoboBoat koşusu: Görev 1 (R2.4)
@@ -335,7 +337,7 @@ Tekne kendi başına: iki giriş kapısı → Görev 2 (kanalı bul, dört kapı
 (Görev 3, 5 henüz yok, atlanır) → kapılara dönüş → iki kapıdan ters yönde çıkış → `FINISHED`. Kaydederek başlat:
 
 ```bash
-ros2 launch usv_sim sim.launch.py course:=roboboat_2026 auto:=true record:=t1_<ad>
+ros2 launch usv_sim sim.launch.py course:=roboboat_2027 auto:=true record:=t1_<ad>
 ```
 Kayıtta `Phase T1_ENTRY`, `Course map: ...`, `T1_ENTRY: done`, `Phase RETURN`, `Phase T1_EXIT`,
 `Run FINISHED`. Manuelde başlatıp sonra otomatiğe almak da olur (`auto:=true` vermeden,
@@ -346,8 +348,8 @@ Gazebo'nun gerçek konumundan rapor:
 ```bash
 python3 /ws/tools/roboboat_report.py /ws/bags/t1_<ad>
 ```
-Enkaz taramasını denemek için yeşilin kanaldan görünmediği parkur kopyası: `course:=roboboat_2026_far`
-(raporda da `--course roboboat_2026_far` ver; rapor gerçek yerleri parkur dosyasından okur).
+Enkaz taramasını denemek için yeşilin kanaldan görünmediği parkur kopyası: `course:=roboboat_2027_far`
+(raporda da `--course roboboat_2027_far` ver; rapor gerçek yerleri parkur dosyasından okur).
 
 **Bir koşuda tekne ne düşündü? (yeniden oynatma, `ws/tools/dev/replay.py`)** Kayıttaki GPS,
 pusula, harita ve kamera verisi navigatöre aynı sırayla yeniden verilir; tekne her an hangi
@@ -360,7 +362,7 @@ Navigatörün kaydı (aşamalar, `task2: done ...` özeti). Diğer kullanımlar:
 `... t3d_s1 moves` (her hareket, ne zaman, sonucu), `... t3d_s1 trace 60 90 --path` (60–90 s
 arası her saniye: hareket, konum, komut, yakındaki şamandıralar, çizilen yol),
 `... t3d_s1 channel 70 150` (parkur modelinin o anlardaki kanal kapıları),
-`... t3dfar_s1 map --course roboboat_2026_far --map copy_merge_radius_m=3.0` (harita kayıttaki
+`... t3dfar_s1 map --course roboboat_2027_far --map copy_merge_radius_m=3.0` (harita kayıttaki
 kamera karelerinden, istenen ayarla yeniden kurulup gerçek parkurla karşılaştırılır).
 Açık döngüdür: tekne kayıtta nereye gittiyse oraya gider; kod değiştiyse "yeni kod aynı yerde
 ne karar verirdi"yi gösterir, teknenin sonra nereye gideceğini değil.
@@ -379,22 +381,24 @@ Kayıttaki haritada parkur modelini çalıştırıp gerçek parkurla öğe öğe
 python3 /ws/tools/course_report.py /ws/bags/survey1_d6
 ```
 `--gps-true` ile aynı tespitler GPS kusursuzmuş gibi yeniden haritalanır (ölçüm zinciri).
-Mapper'ın kapanışta yazdığı JSON da verilebilir: `/ws/bags/map_roboboat_2026.json`.
+Mapper'ın kapanışta yazdığı JSON da verilebilir: `/ws/bags/map_roboboat_2027.json`.
 Navigator çalışırken bulduklarını kayda yazar: `Course map: Task 1 gates: 2, ...`.
 
 ### 6.2 Ölçüm koşusu: sabit rota + harita kalitesi raporu (R1.6)
 
 Haritanın ne kadar doğru olduğunu ölçmenin yolu bu. `survey_drive`, parkur dosyasındaki
-`survey` rotasını Gazebo'nun **gerçek** konumuyla sürer. Rota yaklaşık 155 m: Görev 1
-kapıları, yerinde 360° dönüş, kanal, enkaz alanı, Görev 3 kapısı, gemiler, marina ve dönüş.
+`survey` rotasını Gazebo'nun **gerçek** konumuyla sürer. Rota yaklaşık 130 m: Görev 1
+kapıları, yerinde 360° dönüş, kanal, enkaz alanı ve kanalın doğusundan başa dönüş. (10 Kasım'a
+kadar rota Görev 3 kapısı ve marinadan da geçiyordu, ~155 m; eski ölçümlerle sayılar birebir
+karşılaştırılamaz.)
 GPS ve pusula yönü etkilemediği için her koşu aynı yoldan gider. `seed:=1` ile gürültü de aynı
 olur; böylece bir düzeltmenin öncesi ve sonrası karşılaştırılabilir.
 
 ```bash
-ros2 launch usv_sim sim.launch.py course:=roboboat_2026 survey:=true seed:=1 record:=survey_<ad> rviz:=true
+ros2 launch usv_sim sim.launch.py course:=roboboat_2027 survey:=true seed:=1 record:=survey_<ad> rviz:=true
 ```
 Beklenen:
-- `survey_drive: 19 steps on roboboat_2026, starting 8 s after the first true pose`;
+- `survey_drive: 15 steps on roboboat_2027, starting 8 s after the first true pose`;
 - `survey started`, ardından adım adım `step N/19 reached (... m off)`; 3. adımda `turned +36x deg`;
 - yaklaşık 220 saniye sonra `survey done in ... s; holding neutral`.
 
@@ -469,10 +473,10 @@ ros2 topic pub -r 20 /azure/thrusters/pwm usv_interfaces/msg/ThrusterPwm "{rear_
 Parkur dosyasındaki yeri değiştirmeden denemek için teknenin başlangıç noktasını ve yönünü ver:
 
 ```bash
-ros2 launch usv_sim sim.launch.py course:=roboboat_2026 navigator:=false course_east:=-189.17 course_north:=947.45 course_heading:=270
+ros2 launch usv_sim sim.launch.py course:=roboboat_2027 navigator:=false course_east:=-189.17 course_north:=947.45 course_heading:=270
 ```
-Launch yerleştirilmiş kopyayı `/tmp/usv_sim_roboboat_2026_placed.yaml` olarak yazar. O koşunun
-raporunu alırken `map_report.py`'ye `--course-file /tmp/usv_sim_roboboat_2026_placed.yaml` ekle.
+Launch yerleştirilmiş kopyayı `/tmp/usv_sim_roboboat_2027_placed.yaml` olarak yazar. O koşunun
+raporunu alırken `map_report.py`'ye `--course-file /tmp/usv_sim_roboboat_2027_placed.yaml` ekle.
 Yer kalıcı olacaksa parkur dosyasındaki `placement` satırı değiştirilir.
 
 Yer seçerken: Gazebo'nun su düzlemi karanın altından da devam eder ve kara alttan görünmez.

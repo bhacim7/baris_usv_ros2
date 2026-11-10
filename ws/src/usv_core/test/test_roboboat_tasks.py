@@ -22,14 +22,14 @@ POLES = [('pole_red', -4.33, 0.0), ('pole_green', 4.33, 0.0),
          ('pole_red', -4.33, 7.95), ('pole_green', 4.33, 7.95)]
 
 
-# The roboboat_2026 channel, from the first Task 1 gate's centre: 2.5 m gates, 6 m apart
+# The roboboat_2027 channel, from the first Task 1 gate's centre: 2.5 m gates, 6 m apart
 CHANNEL = []
 for cx, y in ((1.52, 21.13), (2.12, 27.13), (2.72, 33.13), (3.72, 39.13)):
     CHANNEL += [('buoy_red', cx - 1.25, y), ('buoy_green', cx + 1.25, y)]
 BLACKS = [('buoy_black', 2.07, 33.33), ('buoy_black', 3.07, 39.43)]   # inside gates 3 and 4
 OFF_LINE = [('buoy_black', 1.82, 24.13)]      # between gates 1 and 2, on the way
 DEBRIS = [('buoy_black', 4.30, 45.13)]        # 6 m past gate 4, on the channel's line
-# The roboboat_2026 debris field, from the first Task 1 gate's centre (course east - 2.05):
+# The roboboat_2027 debris field, from the first Task 1 gate's centre (course east - 2.05):
 # five black buoys, the green indicator (a black 2.8 m from it) and the red one
 FIELD = [('buoy_black', 5.47, 45.13), ('buoy_black', 10.47, 47.13), ('buoy_black', 14.47, 52.13),
          ('buoy_black', 18.47, 55.13), ('buoy_black', 7.47, 54.13),
@@ -217,7 +217,7 @@ def test_task2_debris_scan_finds_the_green():
 
 
 def test_task2_debris_scan_far_green():
-    """Find the green by the scan where roboboat_2026_far puts it, 14.8 m past the channel."""
+    """Find the green by the scan where roboboat_2027_far puts it, 14.8 m past the channel."""
     green = ('indicator', 1.50 - 2.05, 56.06, 'green')
     field = [it for it in FIELD if it[-1] != 'green'] + [green]
     run, track, every = run_task1(0.0, seconds=700.0, items=POLES + CHANNEL + BLACKS + field,

@@ -305,7 +305,7 @@ def main():
     ch.add_argument('times', type=float, nargs='+')
     mp = sub.add_parser('map', help='the map built again from the frames, against the truth')
     mp.add_argument('--map', action='append', default=[], metavar='KEY=VALUE')
-    mp.add_argument('--course', default='roboboat_2026')
+    mp.add_argument('--course', default='roboboat_2027')
     mp.add_argument('--near', type=float, default=2.5)
     args = ap.parse_args()
     if args.what in (None, 'log'):

@@ -367,6 +367,16 @@ RoboCommand (10.10.10.1:50000) ──Ethernet── GCS ──Ubiquiti (ana)─�
   - `mission:=roboboat_2027`: 2027 görevleri.
   - `mission:=readiness`: bugünkü Task 1 + Task 2.
   - 2026 görev kodu silinmez.
+- **3a yazıldı (10 Kasım):** dosyalar `roboboat_2027.yaml` ve `roboboat_2027_far.yaml`.
+  - Kalan: Task 1 direkleri, Task 2 kanalı ve enkaz alanı, enkazdaki siyah tekne.
+  - Dosyada `starts` ve `missions` bölümleri; `course.select` birini seçer. Şimdilik yalnız
+    `readiness` var ve varsayılan o. `competition` ve `roboboat_2027` yer seçilince ve
+    Adım 6'da eklenir; varsayılan o zaman değişir.
+  - Survey rotası kısaldı (~130 m, Task 2'den sonra başa döner): eski harita ölçümleriyle
+    sayılar birebir karşılaştırılamaz.
+  - Eski tam parkur: `ws/src/usv_sim/test/data/roboboat_2026_full.yaml` (iskele ve tekne
+    testleri onu okur) ve git geçmişi (`4cf5496`).
+- **3b bekliyor:** 2027 parkurunun yerini Barış Gazebo'da seçecek.
 - `roboboat_2026_far.yaml` yeni dosyanın bir varyantı olarak kalır. Testler, survey rotası ve
   raporlar yeni dosyaya göre güncellenir. Eski kayıtların gerçek konumlarla karşılaştırılması
   için eski dosya git geçmişinde duruyor.

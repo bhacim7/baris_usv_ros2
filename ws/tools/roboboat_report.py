@@ -5,7 +5,7 @@ Report on one simulated RoboBoat run, from Gazebo's ground truth (phase 6 R2.4).
 Usage (inside the container, after `source /ws/install/setup.bash`):
     python3 /ws/tools/roboboat_report.py BAG_DIR [--course NAME] [--course-file PATH]
 
-Record with sim.launch.py course:=roboboat_2026 auto:=true record:=<name>. What the boat
+Record with sim.launch.py course:=roboboat_2027 auto:=true record:=<name>. What the boat
 believed does not count here; where it really was does (/usv/sim/navsat + /usv/sim/imu,
 the hull outline as in run_report.py):
 
@@ -262,7 +262,7 @@ def debris_field(debris, seen, track, t0, ring_m=5.0, found_m=2.0):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[1])
     ap.add_argument('bag')
-    ap.add_argument('--course', default='roboboat_2026')
+    ap.add_argument('--course', default='roboboat_2027')
     ap.add_argument('--course-file', default='')
     ap.add_argument('--antenna-behind', type=float, default=run_report.ANTENNA_BEHIND_M)
     ap.add_argument('--plot', default='')

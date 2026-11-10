@@ -639,7 +639,7 @@ def plot(path, data, setup, objects, recs, means, map_part):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('bag')
-    ap.add_argument('--course', default='roboboat_2026')
+    ap.add_argument('--course', default='roboboat_2027')
     ap.add_argument('--course-file', default='',
                     help='a placed course file (/tmp/usv_sim_<course>_placed.yaml) when '
                     'the run used course_east/north/heading')

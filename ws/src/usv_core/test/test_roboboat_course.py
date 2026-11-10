@@ -1,7 +1,7 @@
 """
 The course model (usv_core.roboboat_course): course elements recognised on a world map.
 
-The layout is the roboboat_2026 course file's (east / north metres, drawn heading north),
+The layout is the roboboat_2027 course file's (east / north metres, drawn heading north),
 turned and moved to show that nothing depends on the course's orientation.
 
 Run: cd /ws/src/usv_core && python3 -m pytest test/test_roboboat_course.py -v

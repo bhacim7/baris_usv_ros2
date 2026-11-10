@@ -16,9 +16,11 @@ Docker içinde (Gazebo Harmonic + VRX), gerçek tekneler Jetson. Hedef: RoboBoat
   için duruyor). TEKNOFEST kodu donmuş; altın testler koruyor, dokunma.
 - Adım 1 (isim alanları) bitti: commit `bb16137`. Düğümler `/azure/...` altında; Gazebo koşusu
   temiz (FINISHED 245 s, temas yok).
-- Adım 2 (tekne profilleri) yazıldı: `ws/src/usv_nodes/config/boats/`, `usv_core/boat.py`.
-  Barış'ın testi ve commit'i bekleniyor.
-- Sıradaki: Adım 3, tek parkur `roboboat_2027` (2026 Task 1–2 + 2027 parkuru).
+- Adım 2 (tekne profilleri) bitti: commit `4cf5496`. `ws/src/usv_nodes/config/boats/`,
+  `usv_core/boat.py`.
+- Adım 3a yazıldı: parkur `roboboat_2027` (2026 Task 1–2), `start:=` / `mission:=`
+  (şimdilik yalnız `readiness`). Barış'ın testi ve commit'i bekleniyor.
+- Sıradaki: Adım 3b, Barış 2027 parkurunun yerini Gazebo'da seçer; sonra Adım 4.
 - Bilinen: raporda "yeşil 330°" uyarısı GPS/harita kaymasından (R3.5 ertelendi).
 
 ## Çalışma şekli (değişmez kurallar)

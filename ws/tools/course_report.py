@@ -61,7 +61,7 @@ def load_course(name, path):
     path = path or os.path.join(get_package_share_directory('usv_sim'), 'courses',
                                 name + '.yaml')
     with open(path) as f:
-        data = yaml.safe_load(f)
+        data = course_mod.select(yaml.safe_load(f))     # the default start and mission
     return course_mod.load(data), data.get('mission', {})
 
 
@@ -114,7 +114,7 @@ def show_point(label, found, truth):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[1])
     ap.add_argument('source', help='bag directory or map JSON')
-    ap.add_argument('--course', default='roboboat_2026')
+    ap.add_argument('--course', default='roboboat_2027')
     ap.add_argument('--course-file', default='')
     ap.add_argument('--gps-true', action='store_true')
     args = ap.parse_args()

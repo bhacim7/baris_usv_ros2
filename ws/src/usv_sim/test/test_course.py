@@ -16,6 +16,9 @@ from usv_sim.geo import enu
 import yaml
 
 COURSES = os.path.join(os.path.dirname(__file__), '..', 'courses')
+# The whole 2026 course (Task 1-6: docks, vessels, yellow buoys), as roboboat_2026.yaml was
+# before it became roboboat_2027: every element course.py can build
+FULL_2026 = os.path.join(os.path.dirname(__file__), 'data', 'roboboat_2026_full.yaml')
 
 
 def read(name):
@@ -23,13 +26,18 @@ def read(name):
         return yaml.safe_load(f)
 
 
+def read_full_2026():
+    with open(FULL_2026) as f:
+        return yaml.safe_load(f)
+
+
 def by_class(course):
     return Counter(course.class_names[t.class_id] for t in course.targets)
 
 
-def roboboat_local():
+def roboboat_local(data=None):
     """Load the RoboBoat course as laid out in the file, before the anchor moves it."""
-    data = read('roboboat_2026')
+    data = data or read('roboboat_2027')
     data.pop('anchor', None)
     data.pop('placement', None)
     return course_mod.load(data)
@@ -44,7 +52,7 @@ def test_anchor_moves_and_turns_the_layout():
 
 
 def test_placement_puts_the_boat_start_where_asked():
-    data = read('roboboat_2026')
+    data = read('roboboat_2027')
     c = course_mod.load(data)
     assert c.venue == 'nbpark'
     p = data['placement']
@@ -78,8 +86,49 @@ def test_golcuk_targets_are_what_fake_perception_built_before():
     assert c.targets == expected
 
 
-def test_roboboat_course_has_every_element():
-    c = course_mod.load(read('roboboat_2026'))
+def test_roboboat_2027_has_the_readiness_tasks():
+    c = course_mod.load(read('roboboat_2027'))
+    assert c.profile == 'roboboat' and c.class_names == ROBOBOAT
+    assert len(c.buoys) == 21                  # Task 1: 4 poles; Task 2: 10 channel, 7 debris
+    assert [m.name for m in c.models] == ['vessel_00_black']
+    assert by_class(c) == {
+        'pole_red': 2, 'pole_green': 2, 'buoy_red': 4, 'buoy_green': 4, 'buoy_black': 7,
+        'indicator_red': 1, 'indicator_green': 1, 'plus': 2}
+    assert c.mission == {'roboboat.task_order': ['task2'], 'roboboat.hint.task2': '21.1,-1.5'}
+
+
+def test_select_start_and_mission():
+    data = read('roboboat_2027')
+    data['starts']['competition'] = {'east': 60.0, 'north': 10.0, 'heading_deg': 90.0}
+    data['missions']['roboboat_2027'] = {'roboboat.task_order': []}
+    base = course_mod.load(data)
+    chosen = course_mod.select(data, 'competition', 'roboboat_2027')
+    assert 'starts' not in chosen and 'missions' not in chosen and 'default' not in chosen
+    c = course_mod.load(chosen)
+    # The layout stays where the placement puts it; only the boat starts elsewhere
+    assert c.targets == base.targets and c.survey == base.survey
+    assert c.mission == {'roboboat.task_order': []}
+    # 58 m to the right of the readiness start and 18 m ahead of it (the course heads west)
+    assert c.boat['east'] == pytest.approx(base.boat['east'] - 18.0)
+    assert c.boat['north'] == pytest.approx(base.boat['north'] + 58.0)
+    assert c.boat['heading_deg'] % 360.0 == pytest.approx(0.0)
+    assert data['starts'] and data['placement']['start'] == 'readiness'   # input untouched
+
+
+def test_select_refuses_what_the_course_does_not_have():
+    data = read('roboboat_2027')
+    with pytest.raises(ValueError, match='start competition'):
+        course_mod.select(data, start='competition')
+    with pytest.raises(ValueError, match='mission roboboat_2027'):
+        course_mod.select(data, mission='roboboat_2027')
+    golcuk = read('golcuk_2026_10_14')
+    assert course_mod.select(golcuk) == golcuk
+    with pytest.raises(ValueError, match='one start only'):
+        course_mod.select(golcuk, start='readiness')
+
+
+def test_full_2026_course_has_every_element():
+    c = course_mod.load(read_full_2026())
     assert c.profile == 'roboboat' and c.class_names == ROBOBOAT
     assert len(c.buoys) == 28
     assert len(c.models) == 8                  # 4 vessels, 2 docks, 2 vessels in slips
@@ -98,7 +147,7 @@ def test_positions_in_metres_or_degrees():
 
 
 def test_dock_banners_face_into_their_slips():
-    c = roboboat_local()
+    c = roboboat_local(read_full_2026())
     banners = [t for t in c.targets
                if isinstance(t, Panel) and c.class_names[t.class_id].startswith('digit')]
     south = sorted((t for t in banners if t.x < 23.0), key=lambda t: t.y)
@@ -113,7 +162,7 @@ def test_dock_banners_face_into_their_slips():
 
 
 def test_moored_vessel_lies_in_its_slip_bow_to_the_spine():
-    c = roboboat_local()
+    c = roboboat_local(read_full_2026())
     m = next(m for m in c.models if m.name == 'dock_S_slip1_yellow')
     first_slip_y = -14.0 + course_mod.FIRST_TINE_X + course_mod.CUBE + \
         course_mod.SLIP_WIDTH / 2.0
@@ -144,7 +193,7 @@ def test_indicator_buoy_target_is_the_cylinder_on_top():
 
 
 def test_survey_route_follows_the_placement():
-    course = course_mod.load(read('roboboat_2026'))
+    course = course_mod.load(read('roboboat_2027'))
     local = roboboat_local()
     assert len(course.survey) == len(local.survey) > 5
     assert any('spin_deg' in s for s in course.survey)
@@ -174,13 +223,13 @@ def test_survey_route_keeps_clear_of_the_buoys():
 
 def test_far_variant_hides_the_green_from_the_channel():
     """
-    Check roboboat_2026_far: only the green indicator moves, out of reach from the channel.
+    Check roboboat_2027_far: only the green indicator moves, out of reach from the channel.
 
     The channel counts as ended 3 m past gate 4 (Task2.run_on_m); from there the green has
     to be more than 14 m away (the mapper's 12 m and the turn there), and within reach of
     the debris scan: its far row runs 13.5 m past gate 4, 7 m to each side (DebrisConfig).
     """
-    base, far = read('roboboat_2026'), read('roboboat_2026_far')
+    base, far = read('roboboat_2027'), read('roboboat_2027_far')
     assert {k: v for k, v in base.items() if k != 'buoys'} == \
         {k: v for k, v in far.items() if k != 'buoys'}
     moved = [(a, b) for a, b in zip(base['buoys'], far['buoys']) if a != b]

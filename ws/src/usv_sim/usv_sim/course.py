@@ -6,6 +6,12 @@ camera sees cannot drift apart. ROS-free, unit tested (test/test_course.py).
 
 A course file has:
   name, origin {lat, lon}, magnetic_field, boat {lat/lon or east/north, heading_deg}
+  starts         instead of boat, {name: {east, north, heading_deg}}: several places to
+                 start from (roboboat_2027: readiness, competition), one chosen with
+                 `select` (sim.launch.py start:=<name>)
+  missions       instead of mission, {name: navigator overrides}: chosen the same way
+                 (mission:=<name>)
+  default        {start, mission}: the ones used when none is asked for
   venue          optional: 'nbpark' keeps the Nathan Benderson Park land model in the world
   anchor         optional {east, north, rotation_deg}: east/north positions in the file are
                  laid out around this point of the world, turned by rotation_deg
@@ -13,7 +19,8 @@ A course file has:
                  headings in the file turn with it
   placement      optional {east, north, heading_deg}, instead of anchor: where in the world
                  the boat starts and which way it points; the whole layout follows (the
-                 anchor is worked out from the boat's own position in the file)
+                 anchor is worked out from the boat's own position in the file). With
+                 `starts`, it names the start it places: {start: readiness, east, ...}
   classes        'teknofest' (default) or 'roboboat': the class list (usv_core.classes)
   mission        optional, navigator overrides (see sim.launch.py)
   buoy_types     shapes: sphere, pear, cylinder (legacy), pole, indicator; class by name
@@ -137,8 +144,42 @@ def anchor_for(placement, boat):
             'rotation_deg': rot}
 
 
+def select(data, start=None, mission=None):
+    """
+    Return the course file's dict with one start (`boat`) and one mission chosen.
+
+    For a file with `starts` / `missions`; start and mission default to the file's
+    `default`. The layout stays where the file's placement puts it whichever start is
+    chosen: the placement becomes the anchor it stands for. A file with a plain `boat` and
+    `mission` comes back as it is.
+    """
+    out = dict(data)
+    default = out.pop('default', {})
+    if 'starts' in out:
+        starts = out.pop('starts')
+        name = start or default['start']
+        if name not in starts:
+            raise ValueError(f'start {name}: the course has {", ".join(sorted(starts))}')
+        if 'placement' in out:
+            placement = dict(out.pop('placement'))
+            out['anchor'] = anchor_for(placement, starts[placement.pop('start')])
+        out['boat'] = starts[name]
+    elif start:
+        raise ValueError(f'start {start}: the course has one start only')
+    if 'missions' in out:
+        missions = out.pop('missions')
+        name = mission or default['mission']
+        if name not in missions:
+            raise ValueError(f'mission {name}: the course has {", ".join(sorted(missions))}')
+        out['mission'] = missions[name]
+    elif mission:
+        raise ValueError(f'mission {mission}: the course has one mission only')
+    return out
+
+
 def load(data):
-    """Build a Course from a parsed course file (dict)."""
+    """Build a Course from a parsed course file (dict); the default start and mission."""
+    data = select(data)
     origin = data['origin']
     anchor = data.get('anchor')
     if 'placement' in data:

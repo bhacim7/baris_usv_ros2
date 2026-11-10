@@ -141,7 +141,7 @@ Dosyalar işe göre bölünür; her TEKNOFEST dosyasının RoboBoat'ta bir eşi 
 | `usv_sim/survey.py`, `survey_drive.py` | Ölçüm rotasını Gazebo'nun gerçek konumuyla süren pilot (yalnızca ölçüm koşusu) |
 | `usv_sim/launch/sim.launch.py` | Her şeyi tek komutla açar |
 | `usv_sim/scripts/make_course_world.py` | Parkur dosyasından Gazebo dünyası üretir |
-| `usv_sim/courses/*.yaml` | Parkurlar: `golcuk_2026_10_14` (TEKNOFEST), `roboboat_2026` |
+| `usv_sim/courses/*.yaml` | Parkurlar: `golcuk_2026_10_14` (TEKNOFEST), `roboboat_2027` (2026 Görev 1–2 + ileride 2027 parkuru; `start:=`, `mission:=` ile seçilir) |
 | `ws/tools/*.py` | Rapor araçları (§5) |
 
 ---
@@ -319,7 +319,7 @@ Kitapçığa göre (3.5) bir koşu: Görev 1 kapılarından gir, istediğin gör
 kapılardan ters yönde çık.
 
 ```
-WAIT_START → T1_ENTRY → task2 → task3 → task5 → RETURN → T1_EXIT → FINISHED
+WAIT_START → T1_ENTRY → task2 → RETURN → T1_EXIT → FINISHED      (mission:=readiness)
 ```
 
 - Görev sırası koşudan önce ayar olarak verilir (`roboboat.task_order`).
@@ -398,7 +398,7 @@ birkaç metre hata eklenecek.
 
 | Araç | Ne için | Nasıl çalışıyor |
 |---|---|---|
-| `survey_drive` (launch `survey:=true`) | Haritayı ölçmek | Navigator kapalı. Parkur dosyasındaki ~155 m'lik rotayı Gazebo'nun **gerçek** konumuyla sürer; her koşu aynı yoldan gider, ölçtüğümüz şeyler (GPS, pusula) yönü etkilemez |
+| `survey_drive` (launch `survey:=true`) | Haritayı ölçmek | Navigator kapalı. Parkur dosyasındaki ~130 m'lik rotayı Gazebo'nun **gerçek** konumuyla sürer; her koşu aynı yoldan gider, ölçtüğümüz şeyler (GPS, pusula) yönü etkilemez |
 | `map_report.py` | Harita doğruluğu | Her tespiti geldiği gerçek nesneyle eşleştirir (açı ve derinlikten; GPS ve pusula kullanmadan). Girdileri tek tek gerçeğe çekerek hatanın kaynağını ayırır. Üç harita: 3a koşudaki, 3b kayıttan yeniden kurulan, 3c GPS kusursuzmuş gibi kurulan (ölçüm zinciri hedefi). `--map AYAR=DEĞER` ile harita ayarı yeni koşu yapmadan denenir |
 | `course_report.py` | Parkur modeli doğruluğu | Parkur modelini bir kez gerçek konumlarla, bir kez haritayla çalıştırır, öğe öğe karşılaştırır; ipuçlarının haritada doğru yeri gösterip göstermediğine bakar |
 | `roboboat_report.py` | RoboBoat koşusu | Gazebo'nun gerçek izinden: aşama süreleri, kapı geçişleri (yön, ortadan sapma, gövdenin tamamı direklerin arasından mı), temaslar, dümen ölçüleri. Resim: gerçek iz, GPS noktaları, teknenin haritası, pruva ve dümen grafikleri |
@@ -469,7 +469,8 @@ RViz, ölçüm pilotu, kayıt. Ctrl+C hepsini kapatır (harita JSON'u o anda yaz
 
 | Seçenek | Ne yapar |
 |---|---|
-| `course:=roboboat_2026` | Parkur (`golcuk_2026_10_14` varsayılan) |
+| `course:=roboboat_2027` | Parkur (`golcuk_2026_10_14` varsayılan) |
+| `start:=readiness`, `mission:=readiness` | `roboboat_2027`: başlangıç yeri ve görev (boş = parkurun varsayılanı) |
 | `gui:=false` | Gazebo penceresiz (daha hafif) |
 | `paused:=true` | Duraklatılmış başlar |
 | `rviz:=true` | RViz'de teknenin haritası, canlı |
@@ -498,14 +499,14 @@ RViz, ölçüm pilotu, kayıt. Ctrl+C hepsini kapatır (harita JSON'u o anda yaz
 | `ros2 topic hz /usv/detections` | Bir topic'in gerçek yayın hızı |
 | `ros2 topic info /usv/thrusters/pwm` | Kaç yayıncı var (iki yayıncı = çakışma) |
 | `ros2 topic pub -r 20 /usv/thrusters/pwm ...` | Elle sürmek (navigator kapalıyken) |
-| `ros2 launch ... course:=roboboat_2026 survey:=true seed:=1 record:=survey_x` | Harita ölçüm koşusu |
+| `ros2 launch ... course:=roboboat_2027 survey:=true seed:=1 record:=survey_x` | Harita ölçüm koşusu |
 | `python3 /ws/tools/map_report.py /ws/bags/survey_x --plot ...` | Harita doğruluğu |
 | `python3 /ws/tools/course_report.py /ws/bags/<ad> [--gps-true]` | Parkur modeli doğruluğu |
-| `ros2 launch ... course:=roboboat_2026 auto:=true record:=t1_x` | RoboBoat koşusu (Görev 1) |
+| `ros2 launch ... course:=roboboat_2027 auto:=true record:=t1_x` | RoboBoat koşusu (Görev 1) |
 | `python3 /ws/tools/roboboat_report.py /ws/bags/t1_x --plot ...` | Koşunun gerçek izden değerlendirmesi |
 | `ros2 bag info /ws/bags/<ad>` | Kayıtta ne var |
 | `ros2 run tf2_ros static_transform_publisher --frame-id map --child-frame-id usv_map` + `rviz2 -d .../map.rviz` + `ros2 bag play ... --topics /usv/map/markers` | Koşuyu RViz'de tekrar izlemek |
-| `cp /ws/bags/map_roboboat_2026.json ...` | Harita JSON'unu saklamak (her koşuda üzerine yazılır) |
+| `cp /ws/bags/map_roboboat_2027.json ...` | Harita JSON'unu saklamak (her koşuda üzerine yazılır) |
 
 ---
 

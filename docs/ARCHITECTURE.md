@@ -90,6 +90,14 @@ no benefit, and becomes trivial later once the classes exist.
 All topics use the default reliable QoS (depth 10) unless marked *latched*
 (transient local, depth 1). Camera images are not published.
 
+**One course, several starts and missions (2026-11-10):** `roboboat_2026.yaml` became
+`roboboat_2027.yaml`: the 2026 Task 1-2 stay (Proof of Readiness video), the Task 3-6
+elements are out (full copy: `usv_sim/test/data/roboboat_2026_full.yaml`), the 2027 course
+joins in the same map. A course file may hold `starts` and `missions`; `course.select`
+picks one of each (`sim.launch.py start:=readiness mission:=readiness`, or the file's
+`default`). The placement names the start it places, so the layout stays put whichever
+start is used.
+
 **Namespaces (2026-11-06, RoboBoat 2027, two boats):** every node uses relative names and
 runs in its boat's namespace: Azure (AGX Thor) `/azure/...`, Marine (AGX Orin)
 `/marine/...` (`sim.launch.py boat:=azure|marine`). The tables write `/usv/...` for "the

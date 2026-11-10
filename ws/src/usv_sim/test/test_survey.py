@@ -61,7 +61,7 @@ def test_stays_on_the_leg():
 
 
 def test_roboboat_survey_route_finishes():
-    with open(os.path.join(COURSES, 'roboboat_2026.yaml')) as f:
+    with open(os.path.join(COURSES, 'roboboat_2027.yaml')) as f:
         course = course_mod.load(yaml.safe_load(f))
     pilot = SurveyPilot(course.survey)
     drive(pilot, course.boat['east'], course.boat['north'], course.boat['heading_deg'])

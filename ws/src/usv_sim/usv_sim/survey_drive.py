@@ -41,7 +41,7 @@ class SurveyDrive(Node):
     def __init__(self):
         super().__init__('survey_drive')
         p = self.declare_parameter
-        course_name = p('course', 'roboboat_2026').value
+        course_name = p('course', 'roboboat_2027').value
         course_path = p('course_file', '').value or os.path.join(
             get_package_share_directory('usv_sim'), 'courses', course_name + '.yaml')
         with open(course_path) as f:

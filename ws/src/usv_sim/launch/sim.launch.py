@@ -9,9 +9,16 @@ The whole simulation with one command.
     ros2 launch usv_sim sim.launch.py navigator:=false     # drive by hand (ros2 topic pub)
     ros2 launch usv_sim sim.launch.py rviz:=true           # also RViz on the world map
     ros2 launch usv_sim sim.launch.py boat:=marine         # the boat's name = its namespace
-    ros2 launch usv_sim sim.launch.py course:=roboboat_2026 course_east:=182.5 \
+    ros2 launch usv_sim sim.launch.py course:=roboboat_2027 course_east:=182.5 \
         course_north:=952.2 course_heading:=180    # put the course elsewhere: boat start
                                                    # (Gazebo x, y) and heading; layout follows
+
+RoboBoat 2027 (course:=roboboat_2027): one course file, several starts and missions
+    start:=readiness           where the boat starts: before the 2026 Task 1 gates
+                               (`competition`, the 2027 course, joins when it is placed)
+    mission:=readiness         what the navigator runs: 2026 Task 1 + Task 2, for the Proof
+                               of Readiness video (`roboboat_2027` joins with roadmap step 6)
+    empty = the course file's `default`
 
 Experiments (phase 5.6), one command each:
     auto:=true                 navigator starts in AUTO (no set_manual call needed)
@@ -30,9 +37,9 @@ Map measurements (phase 6 R1.6):
     true_distance:=false       RoboBoat detections: ZED depth used as the distance (legacy, D2)
     from_camera:=false         RoboBoat detections: placed from the GPS antenna (legacy, D1)
     add_radius:=false          RoboBoat detections: front of the object, no radius (D6)
-  e.g.  ros2 launch usv_sim sim.launch.py course:=roboboat_2026 survey:=true seed:=1 \
+  e.g.  ros2 launch usv_sim sim.launch.py course:=roboboat_2027 survey:=true seed:=1 \
             record:=map_base
-        then: python3 /ws/tools/map_report.py /ws/bags/map_base --course roboboat_2026
+        then: python3 /ws/tools/map_report.py /ws/bags/map_base --course roboboat_2027
 
 What starts, in this order:
   1. make_course_world.py builds the world from the course file into /tmp, so the world
@@ -66,6 +73,7 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from usv_core import boat as usv_boat
+from usv_sim import course as course_mod
 import yaml
 
 PERCEPTION_KNOBS = ('compass_offset_deg', 'detect_prob', 'max_range_m')
@@ -102,8 +110,15 @@ def setup(context):
     with open(course_file) as f:
         course_data = yaml.safe_load(f)
 
-    # Course placed elsewhere from the command line: a placed copy in /tmp, used by the
-    # world generator and fake_perception alike
+    # One start and one mission of the course (roboboat_2027 has several; empty = its
+    # default). A start that is not the default, or a course placed elsewhere from the
+    # command line: a copy in /tmp, used by the world generator and fake_perception alike
+    start = LaunchConfiguration('start').perform(context)
+    mission_name = LaunchConfiguration('mission').perform(context)
+    try:
+        course_data = course_mod.select(course_data, start or None, mission_name or None)
+    except ValueError as e:
+        raise RuntimeError(f'course:={course}: {e}')
     placement = [LaunchConfiguration(n).perform(context)
                  for n in ('course_east', 'course_north', 'course_heading')]
     if any(placement):
@@ -112,6 +127,7 @@ def setup(context):
         course_data.pop('anchor', None)
         course_data['placement'] = {'east': float(placement[0]), 'north': float(placement[1]),
                                     'heading_deg': float(placement[2])}
+    if any(placement) or start:
         course_file = os.path.join('/tmp', f'usv_sim_{course}_placed.yaml')
         with open(course_file, 'w') as f:
             yaml.safe_dump(course_data, f, sort_keys=False)
@@ -267,6 +283,12 @@ def generate_launch_description():
                               description='usv_sim/courses/<course>.yaml'),
         DeclareLaunchArgument('boat', default_value='azure',
                               description='azure or marine: the namespace of our nodes'),
+        DeclareLaunchArgument('start', default_value='',
+                              description="one of the course's starts (roboboat_2027: "
+                              "readiness); empty = the course's default"),
+        DeclareLaunchArgument('mission', default_value='',
+                              description="one of the course's missions (roboboat_2027: "
+                              "readiness); empty = the course's default"),
         DeclareLaunchArgument('gui', default_value='true',
                               description='false = Gazebo without a window'),
         DeclareLaunchArgument('paused', default_value='false',
