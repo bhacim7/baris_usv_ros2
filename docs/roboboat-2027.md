@@ -376,7 +376,13 @@ RoboCommand (10.10.10.1:50000) ──Ethernet── GCS ──Ubiquiti (ana)─�
     sayılar birebir karşılaştırılamaz.
   - Eski tam parkur: `ws/src/usv_sim/test/data/roboboat_2026_full.yaml` (iskele ve tekne
     testleri onu okur) ve git geçmişi (`4cf5496`).
-- **3b bekliyor:** 2027 parkurunun yerini Barış Gazebo'da seçecek.
+- **3a ölçüldü (10 Kasım, `r27_s1`):** FINISHED 265 s, kapılar ve kanal temiz, temas 0.
+  Video için dikkat: yeşil 349° döndü (haritada 0,16 m doğru yerde olduğu halde; kayma
+  açıklaması burada yetmiyor), bir siyah şamandıraya en yakın geçiş +0,02 m.
+- **3b yazıldı (10 Kasım):** `competition` başlangıcı Gazebo (-197,80; 809,98), batıya bakar
+  (eski parkurla aynı yön; Barış seçti). Readiness başlangıcının ~137 m güneyi. Parkur boş;
+  unsurlar Adım 4'te bu noktanın önüne çizilir. Varsayılan şimdilik `readiness` kalıyor: boş
+  bir parkurda başlamak işe yaramaz; Adım 4'te unsurlar gelince `competition` olur.
 - `roboboat_2026_far.yaml` yeni dosyanın bir varyantı olarak kalır. Testler, survey rotası ve
   raporlar yeni dosyaya göre güncellenir. Eski kayıtların gerçek konumlarla karşılaştırılması
   için eski dosya git geçmişinde duruyor.

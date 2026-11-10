@@ -13,7 +13,8 @@
 #   readiness     the 2026 Task 1 (entry/exit gates) and Task 2 (channel + debris field),
 #                 kept for the Proof of Readiness video. Built from the 2026 Team Handbook,
 #                 section 3.2; the run that works today (phase 6 R3).
-#   competition   the 2027 course. NOT PLACED YET: Baris picks its place in Gazebo, the
+#   competition   the 2027 course, about 137 m south of the readiness start in the park
+#                 (start chosen by Baris in Gazebo, 2026-11-10). EMPTY for now: its
 #                 elements come with roadmap step 4 (docs/roboboat-2027.md, section 8).
 #
 # Until 2026-11-10 this file was roboboat_2026.yaml and also held the 2026 Task 3-6 elements
@@ -50,10 +51,14 @@ placement: {start: readiness, east: -189.17, north: 947.45, heading_deg: 270.0}
 # rounded WMM values for Sarasota (ASSUMED)
 magnetic_field: {declination_deg: -6.0, inclination_deg: 55.5, strength_uT: 45.5}
 
-# Where the boat starts: sim.launch.py start:=<name>. `competition` joins when the 2027
-# course is placed, and becomes the default then.
+# Where the boat starts: sim.launch.py start:=<name>. Same frame as the buoys (drawn heading
+# north; the placement turns it to head west in the park).
+#   competition  Gazebo (-197.80, 809.98), heading west like the readiness course (Baris,
+#                2026-11-10). The 2027 elements will be drawn ahead of it (north here);
+#                the default becomes competition when they are there (step 4).
 starts:
-  readiness: {east: 2.0, north: -8.0, heading_deg: 0.0}    # 8 m before the first Task 1 gate
+  readiness:   {east: 2.0,     north: -8.0, heading_deg: 0.0}  # 8 m before the first Task 1 gate
+  competition: {east: -135.47, north: 0.63, heading_deg: 0.0}
 
 # Navigator settings per mission: sim.launch.py mission:=<name> passes them on
 # (competition: roboboat follows from `classes`). `roboboat_2027` joins with the mission

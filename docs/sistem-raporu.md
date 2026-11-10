@@ -470,7 +470,7 @@ RViz, ölçüm pilotu, kayıt. Ctrl+C hepsini kapatır (harita JSON'u o anda yaz
 | Seçenek | Ne yapar |
 |---|---|
 | `course:=roboboat_2027` | Parkur (`golcuk_2026_10_14` varsayılan) |
-| `start:=readiness`, `mission:=readiness` | `roboboat_2027`: başlangıç yeri ve görev (boş = parkurun varsayılanı) |
+| `start:=readiness\|competition`, `mission:=readiness` | `roboboat_2027`: başlangıç yeri ve görev (boş = parkurun varsayılanı) |
 | `gui:=false` | Gazebo penceresiz (daha hafif) |
 | `paused:=true` | Duraklatılmış başlar |
 | `rviz:=true` | RViz'de teknenin haritası, canlı |

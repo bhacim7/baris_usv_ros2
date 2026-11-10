@@ -15,7 +15,7 @@ The whole simulation with one command.
 
 RoboBoat 2027 (course:=roboboat_2027): one course file, several starts and missions
     start:=readiness           where the boat starts: before the 2026 Task 1 gates
-                               (`competition`, the 2027 course, joins when it is placed)
+    start:=competition         the start of the 2027 course (empty until roadmap step 4)
     mission:=readiness         what the navigator runs: 2026 Task 1 + Task 2, for the Proof
                                of Readiness video (`roboboat_2027` joins with roadmap step 6)
     empty = the course file's `default`
@@ -285,7 +285,7 @@ def generate_launch_description():
                               description='azure or marine: the namespace of our nodes'),
         DeclareLaunchArgument('start', default_value='',
                               description="one of the course's starts (roboboat_2027: "
-                              "readiness); empty = the course's default"),
+                              "readiness, competition); empty = the course's default"),
         DeclareLaunchArgument('mission', default_value='',
                               description="one of the course's missions (roboboat_2027: "
                               "readiness); empty = the course's default"),

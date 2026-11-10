@@ -1,0 +1,9 @@
+source;share/usv_core/hook/pythonpath.ps1
+source;share/usv_core/hook/pythonpath.dsv
+source;share/usv_core/hook/pythonpath.sh
+source;share/usv_core/hook/ament_prefix_path.ps1
+source;share/usv_core/hook/ament_prefix_path.dsv
+source;share/usv_core/hook/ament_prefix_path.sh
+source;../../build/usv_core/share/usv_core/hook/pythonpath_develop.ps1
+source;../../build/usv_core/share/usv_core/hook/pythonpath_develop.dsv
+source;../../build/usv_core/share/usv_core/hook/pythonpath_develop.sh

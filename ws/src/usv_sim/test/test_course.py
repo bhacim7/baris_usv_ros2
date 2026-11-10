@@ -99,7 +99,6 @@ def test_roboboat_2027_has_the_readiness_tasks():
 
 def test_select_start_and_mission():
     data = read('roboboat_2027')
-    data['starts']['competition'] = {'east': 60.0, 'north': 10.0, 'heading_deg': 90.0}
     data['missions']['roboboat_2027'] = {'roboboat.task_order': []}
     base = course_mod.load(data)
     chosen = course_mod.select(data, 'competition', 'roboboat_2027')
@@ -108,17 +107,18 @@ def test_select_start_and_mission():
     # The layout stays where the placement puts it; only the boat starts elsewhere
     assert c.targets == base.targets and c.survey == base.survey
     assert c.mission == {'roboboat.task_order': []}
-    # 58 m to the right of the readiness start and 18 m ahead of it (the course heads west)
-    assert c.boat['east'] == pytest.approx(base.boat['east'] - 18.0)
-    assert c.boat['north'] == pytest.approx(base.boat['north'] + 58.0)
-    assert c.boat['heading_deg'] % 360.0 == pytest.approx(0.0)
+    # Where Baris picked it in Gazebo, heading west like the readiness start
+    assert c.boat['east'] == pytest.approx(-197.80)
+    assert c.boat['north'] == pytest.approx(809.98)
+    assert c.boat['heading_deg'] % 360.0 == pytest.approx(270.0)
+    assert base.boat['east'] == pytest.approx(-189.17)
     assert data['starts'] and data['placement']['start'] == 'readiness'   # input untouched
 
 
 def test_select_refuses_what_the_course_does_not_have():
     data = read('roboboat_2027')
-    with pytest.raises(ValueError, match='start competition'):
-        course_mod.select(data, start='competition')
+    with pytest.raises(ValueError, match='start finish: the course has competition, readiness'):
+        course_mod.select(data, start='finish')
     with pytest.raises(ValueError, match='mission roboboat_2027'):
         course_mod.select(data, mission='roboboat_2027')
     golcuk = read('golcuk_2026_10_14')

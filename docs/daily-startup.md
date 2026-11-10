@@ -174,7 +174,7 @@ Bir node çökerse 2 saniye sonra kendiliğinden yeniden başlar (teknedeki gibi
 | Seçenek | Varsayılan | Ne yapar |
 |---|---|---|
 | `course:=` | `golcuk_2026_10_14` | Parkur: `golcuk_2026_10_14` ya da `roboboat_2027` |
-| `start:=` | parkurun varsayılanı | `roboboat_2027`: teknenin başladığı yer. Şimdilik yalnız `readiness` (eski Görev 1'in önü); 2027 parkuru yerleşince `competition` eklenecek |
+| `start:=` | parkurun varsayılanı | `roboboat_2027`: teknenin başladığı yer. `readiness` (eski Görev 1'in önü, varsayılan) ya da `competition` (2027 parkurunun başı, Gazebo (-197,80; 809,98), batıya bakar; unsurlar Adım 4'te gelecek) |
 | `mission:=` | parkurun varsayılanı | `roboboat_2027`: navigatörün koştuğu görev. Şimdilik yalnız `readiness` (2026 Görev 1 + Görev 2) |
 | `gui:=false` | `true` | Gazebo penceresi açılmaz (daha hızlı) |
 | `paused:=true` | `false` | Duraklatılmış başlar; sol alttaki ▶'e bas |
