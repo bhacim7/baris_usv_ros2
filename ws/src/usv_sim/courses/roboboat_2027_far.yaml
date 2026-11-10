@@ -14,8 +14,8 @@
 #                 kept for the Proof of Readiness video. Built from the 2026 Team Handbook,
 #                 section 3.2; the run that works today (phase 6 R3).
 #   competition   the 2027 course, about 137 m south of the readiness start in the park
-#                 (start chosen by Baris in Gazebo, 2026-11-10). EMPTY for now: its
-#                 elements come with roadmap step 4 (docs/roboboat-2027.md, section 8).
+#                 (start chosen by Baris in Gazebo, 2026-11-10). So far: the Task 1
+#                 field (task1_field below); the other tasks come with roadmap step 4.
 #
 # Until 2026-11-10 this file was roboboat_2026.yaml and also held the 2026 Task 3-6 elements
 # (speed gate, yellow buoys, docks, vessels). That full course is in git history
@@ -84,6 +84,8 @@ buoy_types:
   # Color indicator: cylinder on an 18 in float frame, 1 ft above the water
   indicator_red:   {class: indicator_red,   shape: indicator, diameter: 0.457, height: 0.305, color: red}
   indicator_green: {class: indicator_green, shape: indicator, diameter: 0.457, height: 0.305, color: green}
+  # 2027: RoboBuoy with a Light Beacon (usv_sim/robobuoy.py); its class follows the light
+  robobuoy:        {shape: robobuoy, symbol: diamond}
 
 buoys:
   # --- Task 1: entry/exit gates, 8.7 m wide and 8.0 m apart as placed in Gazebo ---
@@ -112,6 +114,21 @@ buoys:
   - {type: indicator_green, east: 1.50,  north: 56.06}   # survivor: circle 360 and report
   #   (moved: roboboat_2027 has it at 14.52, 49.13, seen from the channel)
   - {type: indicator_red,   east: 18.52, north: 58.13}   # hazard: avoid and report
+
+# RoboBoat 2027 Task 1 (Safe Passage): a random field of RoboBuoys, the same for the same
+# seed (usv_sim/task1_field.py). sim.launch.py layout:=<seed> and level:=<level> override
+# seed and level. ENTRY 12 m ahead of the competition start, the field running on ahead
+# (west in the park). Size and spacing ASSUMED (no handbook gives them); 10 buoys as
+# RobotX 2026.
+task1_field:
+  seed: 1
+  entry: {east: -135.47, north: 12.63}
+  heading_deg: 0.0
+  length_m: 40.0
+  width_m: 25.0
+  buoys: 10
+  min_gap_m: 4.0
+  level: core               # core | advanced (the EXIT moves) | disruptive (and colours swap)
 
 vessels:
   - {color: black,  east: 6.52, north: 56.13, heading_deg: 30.0}  # in the debris field

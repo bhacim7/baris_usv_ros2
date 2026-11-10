@@ -15,7 +15,11 @@ The whole simulation with one command.
 
 RoboBoat 2027 (course:=roboboat_2027): one course file, several starts and missions
     start:=readiness           where the boat starts: before the 2026 Task 1 gates
-    start:=competition         the start of the 2027 course (empty until roadmap step 4)
+    start:=competition         the start of the 2027 course: the Task 1 field ahead
+    layout:=<n>                Task 1 field seed (a different field per number; empty =
+                               the course file's)
+    level:=core                Task 1 level: core, advanced (the EXIT moves while the boat
+                               is in the field), disruptive (and up to two colours swap)
     mission:=readiness         what the navigator runs: 2026 Task 1 + Task 2, for the Proof
                                of Readiness video (`roboboat_2027` joins with roadmap step 6)
     empty = the course file's `default`
@@ -127,7 +131,17 @@ def setup(context):
         course_data.pop('anchor', None)
         course_data['placement'] = {'east': float(placement[0]), 'north': float(placement[1]),
                                     'heading_deg': float(placement[2])}
-    if any(placement) or start:
+    # The Task 1 field (RoboBoat 2027): another seed or level
+    field_args = {k: LaunchConfiguration(k).perform(context) for k in ('layout', 'level')}
+    if any(field_args.values()):
+        if 'task1_field' not in course_data:
+            raise RuntimeError(f'course:={course} has no task1_field for layout:= / level:=')
+        course_data['task1_field'] = dict(course_data['task1_field'])
+        if field_args['layout']:
+            course_data['task1_field']['seed'] = int(field_args['layout'])
+        if field_args['level']:
+            course_data['task1_field']['level'] = field_args['level']
+    if any(placement) or start or any(field_args.values()):
         course_file = os.path.join('/tmp', f'usv_sim_{course}_placed.yaml')
         with open(course_file, 'w') as f:
             yaml.safe_dump(course_data, f, sort_keys=False)
@@ -289,6 +303,11 @@ def generate_launch_description():
         DeclareLaunchArgument('mission', default_value='',
                               description="one of the course's missions (roboboat_2027: "
                               "readiness); empty = the course's default"),
+        DeclareLaunchArgument('layout', default_value='',
+                              description="Task 1 field seed; empty = the course file's"),
+        DeclareLaunchArgument('level', default_value='',
+                              description='Task 1 level: core, advanced, disruptive; empty = '
+                              "the course file's"),
         DeclareLaunchArgument('gui', default_value='true',
                               description='false = Gazebo without a window'),
         DeclareLaunchArgument('paused', default_value='false',

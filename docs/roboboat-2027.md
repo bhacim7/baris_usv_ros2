@@ -405,6 +405,28 @@ RoboCommand (10.10.10.1:50000) ──Ethernet── GCS ──Ubiquiti (ana)─�
 - Task 1 alanı için seed'li rastgele parkur üreteci: her koşuda farklı düzen, ama her zaman
   geçerli bir yol var.
 - Sıra: Task 1, Task 3 marina, Task 5 toplanma, Task 2, Task 4.
+- **4a (Task 1) yazıldı (10 Kasım):**
+  - Sınıflar `beacon_red`, `beacon_green`, `beacon_blue`, `beacon_off` (Barış: şimdilik bu
+    adlar, veri seti değişirse haber verecek). Liste alfabetik; eski sınıfların numaraları
+    kaydı, kod adla çalışıyor.
+  - VRX'te 2026 RoboBuoy modeli yok (yalnız eski `robotx_light_buoy_*`, 2022 iskele ve
+    levhalar). Model RobotX 2026 yapım kılavuzunun ölçüleriyle üretildi
+    (`usv_sim/robobuoy.py`, `scripts/make_robobuoy_mesh.py`): 17×12 inç paneller, 8 inç
+    elmas, 3,5 inç ışık borusu, 10 inç şapka, havuz köpüğü çerçeve. Panellerin tepe genişliği,
+    elmasın eni ve köpüğün rengi tahmin.
+  - Işık kuralı (RobotX 2026 Task 1): kırmızı, yeşil ve ENTRY mavisi 1 s yanık, 1 s sönük;
+    EXIT mavisi sabit; sönük = engel. Çizimlerdeki "iki mavi farklı" sorusunun cevabı bu.
+    `fake_perception` her karede ışığın o anki halinden sınıf üretir (yanıp sönen ışık sönük
+    karelerde `beacon_off`). Gazebo ışığı başladığı renkte gösterir (Barış'la karar).
+  - Harita: dört sınıf tek tür, `beacon`; renk son 2,5 s'deki yanık görülmelerden okunur,
+    "sönük" yalnız o sürede hiç yanmadıysa.
+  - Alan üreteci (`usv_sim/task1_field.py`): 10 şamandıra, 40×25 m, aralık ≥ 4 m (alan
+    boyutu tahmin, el kitapları vermiyor). Önce ENTRY'den EXIT'e rastgele bir yol çizilir,
+    yeşiller soluna, kırmızılar sağına konur: her düzende geçerli bir yol var. `layout:=<n>`
+    ile başka düzen, `level:=advanced` ile EXIT tekne alanın ortasına gelince yer değiştirir,
+    `level:=disruptive` ile ayrıca en fazla iki kırmızı/yeşil renk değiştirir.
+  - Alan `competition` başlangıcının 12 m önünde. Varsayılan başlangıç hâlâ `readiness`:
+    2027 görevi (Adım 6) yazılınca `competition` olur.
 
 ### Adım 5. RoboCommand ve haberleşme
 - **GCS tarafı:** RoboCommand bağlantısı.

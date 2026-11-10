@@ -24,8 +24,13 @@ A course file has:
   classes        'teknofest' (default) or 'roboboat': the class list (usv_core.classes)
   mission        optional, navigator overrides (see sim.launch.py)
   buoy_types     shapes: sphere, pear, cylinder (legacy), pole, indicator; class by name
-                 (`class: pole_red`) or legacy id (`class_id: 3`)
-  buoys          {type, lat/lon or east/north}
+                 (`class: pole_red`) or legacy id (`class_id: 3`); robobuoy (RoboBoat
+                 2027, usv_sim/robobuoy.py): no class, its light gives it
+  buoys          {type, lat/lon or east/north, name (optional), light (robobuoy only: a
+                 colour, or {color, flash, phase_s, changes}, see robobuoy.parse_light)}
+  task1_field    optional, a random RoboBoat 2027 Task 1 field added to the buoys
+                 (usv_sim/task1_field.py): {seed, entry {east, north}, heading_deg,
+                 length_m, width_m, buoys, min_gap_m, level}
   vessels        {color: yellow|black, heading_deg, position}: RoboBoat stationary vessels
                  with a triangle (yellow) or plus (black) on both sides
   docks          {name, heading_deg, tines: left|right, slips: [{indicator, vessel}] x 3,
@@ -42,6 +47,7 @@ from dataclasses import dataclass, field
 import math
 
 from usv_core.classes import class_names
+from usv_sim import robobuoy, task1_field
 from usv_sim.camera import Buoy, Panel
 from usv_sim.geo import enu
 
@@ -199,10 +205,22 @@ def load(data):
 
     buoys, targets, models = [], [], []
     types = data.get('buoy_types', {})
-    for i, b in enumerate(data.get('buoys', [])):
+    entries = list(data.get('buoys', []))
+    if 'task1_field' in data:
+        entries += task1_field.course_entries(data['task1_field'])
+    for i, b in enumerate(entries):
         spec = types[b['type']]
         x, y = position(b, origin, anchor)
-        buoys.append((f"buoy_{i:02d}_{b['type']}", b['type'], spec, x, y))
+        name = b.get('name') or f"buoy_{i:02d}_{b['type']}"
+        if spec['shape'] == 'robobuoy':
+            light = robobuoy.parse_light(b.get('light', 'off'),
+                                         lambda p: position(p, origin, anchor))
+            # The world generator draws the light as it starts
+            buoys.append((name, b['type'], dict(spec, light=light.color), x, y))
+            targets.append(Buoy(x, y, robobuoy.CAMERA_RADIUS, robobuoy.TOP,
+                                cid(robobuoy.class_name(light.color)), light=light))
+            continue
+        buoys.append((name, b['type'], spec, x, y))
         if spec['shape'] == 'indicator':
             top = spec['height']
             targets.append(Buoy(x, y, INDICATOR_RADIUS, top, cid(spec),

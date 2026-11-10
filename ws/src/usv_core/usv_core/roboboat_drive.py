@@ -74,6 +74,7 @@ OBSTACLE_RADIUS_M = {
     'pole_red': 0.23, 'pole_green': 0.23, 'buoy_red': 0.10, 'buoy_green': 0.10,
     'buoy_black': 0.10, 'buoy_yellow': 0.18, 'indicator': 0.23, 'triangle': 0.85,
     'plus': 0.85, 'digit_1': 0.5, 'digit_2': 0.5, 'digit_3': 0.5,
+    'beacon': 0.26,           # RoboBuoy: its pool-noodle float frame, ~0.5 m square
 }
 DETECTION_MAX_AGE_S = 0.5
 MATCH_M = 2.0                 # a detection replaces a map position within this ...

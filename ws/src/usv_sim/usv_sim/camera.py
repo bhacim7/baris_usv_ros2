@@ -39,6 +39,7 @@ class Buoy:
     height: float         # top, above the water
     class_id: int
     z0: float = 0.0       # bottom of what YOLO boxes (an indicator sits on its buoy)
+    light: object = None  # usv_sim.robobuoy.Light: the class follows the light
 
 
 @dataclass

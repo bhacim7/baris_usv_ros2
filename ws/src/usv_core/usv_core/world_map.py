@@ -12,6 +12,11 @@ How a sighting (one measured box, usv_core.detection.measure_boxes) is used:
   * it joins the nearest landmark of the same kind within merge_radius_m, or starts one;
     the two indicator classes are one kind, 'indicator', with a colour voted over the
     last color_window sightings (the colour may change between runs, the object does not)
+  * the four light beacon classes are one kind, 'beacon' (RoboBoat 2027): its light may
+    change during the run and red/green flash 1 s on, 1 s off, so its colour is read from
+    the last beacon_window_s seconds before it was last seen: the most common lit colour,
+    'off' only if it was never lit in that time. One frame does not change it; a real
+    change shows within beacon_window_s.
   * positions are fused as a weighted mean, weight 1 / sigma^2 with
     sigma = sigma_base_m + sigma_per_m * range: close sightings dominate (the ZED's depth
     error grows with distance and a heading error moves far objects more)
@@ -65,7 +70,7 @@ from collections import Counter, deque
 from dataclasses import dataclass, field
 import math
 
-from usv_core.classes import INDICATOR_COLOR
+from usv_core.classes import BEACON_COLOR, INDICATOR_COLOR
 
 # D7: seen in this many frames together, two landmarks are two buoys (one such frame can
 # be a box with the wrong class: t2c_s1 had copies of two buoys seen together once); in
@@ -101,8 +106,10 @@ def latlon(east, north, origin_lat, origin_lon):
 
 
 def kind_of(class_name):
-    """Return the map kind of a class: the indicator colours are one kind."""
-    return 'indicator' if class_name in INDICATOR_COLOR else class_name
+    """Return the map kind of a class: the indicator colours, the beacon lights are one kind."""
+    if class_name in INDICATOR_COLOR:
+        return 'indicator'
+    return 'beacon' if class_name in BEACON_COLOR else class_name
 
 
 @dataclass(frozen=True)
@@ -113,6 +120,7 @@ class MapConfig:
     sigma_per_m: float = 0.1
     confirm_sightings: int = 3
     color_window: int = 15
+    beacon_window_s: float = 2.5      # more than one flash cycle (1 s on, 1 s off)
     heading_lag_s: float = 0.0            # D4: 0 = off
     new_landmark_max_turn_dps: float = 0.0    # D4: 0 = off
     confusion_ratio: float = 0.0          # D5: 0 = off
@@ -132,6 +140,8 @@ class Landmark:
     last_seen: float = 0.0
     closest_m: float = math.inf
     colors: deque = field(default_factory=deque)
+    lights: deque = field(default_factory=lambda: deque(maxlen=400))   # beacon (time, colour)
+    light_window_s: float = 2.5
     co_seen: dict = field(default_factory=dict)   # other landmark id -> frames seen together
 
     @property
@@ -148,6 +158,12 @@ class Landmark:
 
     @property
     def color(self):
+        if self.kind == 'beacon':
+            recent = [c for t, c in self.lights if t >= self.last_seen - self.light_window_s]
+            lit = [c for c in recent if c != 'off']
+            if lit:
+                return Counter(lit).most_common(1)[0][0]
+            return 'off' if recent else ''
         if not self.colors:
             return ''
         return Counter(self.colors).most_common(1)[0][0]
@@ -187,7 +203,8 @@ class WorldMap:
             if cfg.new_landmark_max_turn_dps > 0 and turn > cfg.new_landmark_max_turn_dps:
                 return None           # D4: no new landmark while turning fast
             best = Landmark(self._next_id, kind, first_seen=now,
-                            colors=deque(maxlen=cfg.color_window))
+                            colors=deque(maxlen=cfg.color_window),
+                            light_window_s=cfg.beacon_window_s)
             self._next_id += 1
             self.landmarks.append(best)
         sigma = cfg.sigma_base_m + cfg.sigma_per_m * dist
@@ -203,6 +220,8 @@ class WorldMap:
         best.closest_m = min(best.closest_m, dist)
         if kind == 'indicator':
             best.colors.append(INDICATOR_COLOR[det['class_name']])
+        elif kind == 'beacon':
+            best.lights.append((now, BEACON_COLOR[det['class_name']]))
         return best
 
     def add_frame(self, detections, now, yaw_rate_dps=0.0):
@@ -244,6 +263,8 @@ class WorldMap:
         keep.last_seen = max(keep.last_seen, gone.last_seen)
         keep.closest_m = min(keep.closest_m, gone.closest_m)
         keep.colors.extend(gone.colors)
+        keep.lights = deque(sorted(list(keep.lights) + list(gone.lights)),
+                            maxlen=keep.lights.maxlen)
         self.landmarks.remove(gone)
         for lm in self.landmarks:             # who was seen with the copy was seen with it
             n = lm.co_seen.pop(gone.landmark_id, 0)

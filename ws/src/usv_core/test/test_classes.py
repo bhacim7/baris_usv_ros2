@@ -15,10 +15,11 @@ def test_teknofest_ids_are_the_legacy_ones():
     assert classes.class_id('teknofest', 'green') == 4
 
 
-def test_roboboat_has_the_thirteen_dataset_classes_sorted():
-    assert len(classes.ROBOBOAT) == 13
+def test_roboboat_has_the_dataset_classes_sorted():
+    # 13 of the 2026 dataset, 4 light beacons (2027)
+    assert len(classes.ROBOBOAT) == 17
     assert list(classes.ROBOBOAT) == sorted(classes.ROBOBOAT)
-    assert len(set(classes.ROBOBOAT)) == 13
+    assert len(set(classes.ROBOBOAT)) == 17
 
 
 def test_every_roboboat_class_has_a_radius():
@@ -29,7 +30,7 @@ def test_every_roboboat_class_has_a_radius():
 def test_groups_only_name_existing_classes():
     names = set(classes.ROBOBOAT)
     for group in (classes.GATE_POLES, classes.CHANNEL_BUOYS, classes.INDICATOR_COLOR,
-                  classes.VESSEL_MARK_COLOR, classes.DIGIT_NUMBER):
+                  classes.BEACON_COLOR, classes.VESSEL_MARK_COLOR, classes.DIGIT_NUMBER):
         assert set(group) <= names
 
 

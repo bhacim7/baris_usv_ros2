@@ -18,19 +18,29 @@ RoboBoat groups (handbook 2026, section 3.2):
   indicator_red/indicator_green  color indicators (one cylinder, red OR green per run)
   triangle / plus                marks on the yellow (water) and black (ball) vessels
   digit_1 .. digit_3             Task 5 slip number banners
+
+RoboBoat 2027 (added 2026-11-10, names as Baris will label them; to change if the dataset
+names them otherwise):
+  beacon_red / beacon_green      RoboBuoy with its Light Beacon lit red / green, body and
+  beacon_blue / beacon_off       light labelled together (like indicator_*); off = not lit.
+                                 Task 1 (RobotX 2026 rules): red and green flash 1 s on,
+                                 1 s off, so a flashing beacon is beacon_off half the time;
+                                 flashing blue = ENTRY, solid blue = EXIT
 """
 
 TEKNOFEST = ('red', 'yellow', 'black', 'orange', 'green')
 
-ROBOBOAT = ('buoy_black', 'buoy_green', 'buoy_red', 'buoy_yellow', 'digit_1', 'digit_2',
-            'digit_3', 'indicator_green', 'indicator_red', 'plus', 'pole_green', 'pole_red',
-            'triangle')
+ROBOBOAT = ('beacon_blue', 'beacon_green', 'beacon_off', 'beacon_red', 'buoy_black',
+            'buoy_green', 'buoy_red', 'buoy_yellow', 'digit_1', 'digit_2', 'digit_3',
+            'indicator_green', 'indicator_red', 'plus', 'pole_green', 'pole_red', 'triangle')
 
 PROFILES = {'teknofest': TEKNOFEST, 'roboboat': ROBOBOAT}
 
 GATE_POLES = ('pole_red', 'pole_green')
 CHANNEL_BUOYS = ('buoy_red', 'buoy_green')
 INDICATOR_COLOR = {'indicator_red': 'red', 'indicator_green': 'green'}
+BEACON_COLOR = {'beacon_red': 'red', 'beacon_green': 'green', 'beacon_blue': 'blue',
+                'beacon_off': 'off'}
 VESSEL_MARK_COLOR = {'triangle': 'yellow', 'plus': 'black'}   # mark -> vessel colour
 DIGIT_NUMBER = {'digit_1': 1, 'digit_2': 2, 'digit_3': 3}
 
@@ -45,6 +55,9 @@ OBJECT_RADIUS_M = {
     'buoy_yellow': 0.184,                                   # A-2
     'indicator_red': 0.064, 'indicator_green': 0.064,       # 5 in cylinder
     'triangle': 0.0, 'plus': 0.0, 'digit_1': 0.0, 'digit_2': 0.0, 'digit_3': 0.0,
+    # RoboBuoy: its float frame at the water, ~19 in square (as the simulation measures
+    # it); on the real buoy the ZED may hit the sloping face, further in: to be measured
+    'beacon_red': 0.24, 'beacon_green': 0.24, 'beacon_blue': 0.24, 'beacon_off': 0.24,
 }
 
 

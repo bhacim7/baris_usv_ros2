@@ -15,8 +15,10 @@ physics, sensors, water, waves and our boat), with these changes:
     the course's magnetic_field instead (see usv_sim/zed.py)
   * the boat starts at the course's start pose
   * one static model per buoy, shaped from the course's buoy_types (sphere, pear,
-    cylinder, pole, indicator); one per vessel and dock (RoboBoat), geometry from
-    usv_sim/course.py, which fake_perception also uses
+    cylinder, pole, indicator, robobuoy); one per vessel and dock (RoboBoat), geometry
+    from usv_sim/course.py, which fake_perception also uses
+  * a RoboBuoy (RoboBoat 2027) is drawn with its light as it starts: Gazebo does not show
+    later changes or the flashing (what the camera sees does: fake_perception)
 
 Gazebo's world frame is ENU here: x east, y north, z up.
 
@@ -32,6 +34,7 @@ import xml.etree.ElementTree as ET
 # usv_sim.geo from the source tree, so the script also runs before a build
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 from usv_sim import course as course_mod  # noqa: E402
+from usv_sim import robobuoy as rb  # noqa: E402
 from usv_sim.geo import enu as geo_enu  # noqa: E402
 import yaml  # noqa: E402
 
@@ -45,6 +48,9 @@ COLOURS = {   # ambient/diffuse RGB
     'black_target': (0.04, 0.04, 0.04),
 }
 FLAG_RGB = (0.85, 0.1, 0.05)
+LIGHT_RGB = {'red': (1.0, 0.08, 0.05), 'green': (0.1, 1.0, 0.2), 'blue': (0.15, 0.35, 1.0),
+             'off': (0.12, 0.12, 0.12)}
+NOODLE_RGB = (0.25, 0.45, 0.8)      # ASSUMED: pool noodles come in any colour
 SUBMERGED_M = 0.25          # body extends this far below the water line
 
 
@@ -66,8 +72,60 @@ def material(parent, rgb):
     sub(m, 'diffuse', f'{rgb[0]} {rgb[1]} {rgb[2]} 1')
 
 
+def visual(link, name, pose, shape, size, rgb, emissive=None, uri=None):
+    v = sub(link, 'visual', name=name)
+    sub(v, 'pose', pose)
+    g = sub(v, 'geometry')
+    if shape == 'box':
+        sub(sub(g, 'box'), 'size', ' '.join(f'{s:.4f}' for s in size))
+    elif shape == 'cylinder':
+        c = sub(g, 'cylinder')
+        sub(c, 'radius', f'{size[0]:.4f}')
+        sub(c, 'length', f'{size[1]:.4f}')
+    else:
+        sub(sub(g, 'mesh'), 'uri', uri)
+    material(v, rgb)
+    if emissive:
+        sub(v.find('material'), 'emissive', f'{emissive[0]} {emissive[1]} {emissive[2]} 1')
+    return v
+
+
+def robobuoy_model(name, spec, x, y):
+    """Build a RoboBuoy (usv_sim/robobuoy.py): float frame, panels, diamonds, beacon, hat."""
+    model = ET.Element('model', name=name)
+    sub(model, 'static', 'true')
+    sub(model, 'pose', f'{x:.3f} {y:.3f} 0 0 0 0')
+    link = sub(model, 'link', name='link')
+    white, black = course_mod.RGB['white'], course_mod.RGB['black']
+    # Pool noodles round the square frame, centred on the water line
+    half = (rb.FLOAT_SIDE - rb.NOODLE_D) / 2.0
+    for k, (px, py, yaw) in enumerate(((half, 0, 0), (-half, 0, 0),
+                                       (0, half, 1.5708), (0, -half, 1.5708))):
+        visual(link, f'noodle{k}', f'{px:.4f} {py:.4f} 0 1.5708 0 {yaw}', 'cylinder',
+               (rb.NOODLE_D / 2.0, rb.FLOAT_SIDE), NOODLE_RGB)
+    for part, rgb in (('panels', white), ('diamonds', black)):
+        visual(link, part, '0 0 0 0 0 0', 'mesh', None, rgb,
+               uri=f'file://robobuoy/meshes/{part}.obj')
+    visual(link, 'flange', f'0 0 {rb.BEACON_BOTTOM - rb.FLANGE / 2.0:.4f} 0 0 0', 'cylinder',
+           (rb.BEACON_RADIUS + 0.01, rb.FLANGE), black)
+    color = spec.get('light', 'off')
+    lit = color != 'off'
+    visual(link, 'beacon', f'0 0 {rb.BEACON_BOTTOM + rb.BEACON_LENGTH / 2.0:.4f} 0 0 0',
+           'cylinder', (rb.BEACON_RADIUS, rb.BEACON_LENGTH), LIGHT_RGB[color],
+           emissive=LIGHT_RGB[color] if lit else None)
+    visual(link, 'hat', f'0 0 {rb.TOP - rb.HAT_THICKNESS / 2.0:.4f} 0 0 0', 'cylinder',
+           (rb.HAT_RADIUS, rb.HAT_THICKNESS), black)
+    col = sub(link, 'collision', name='collision')
+    sub(col, 'pose', f'0 0 {(rb.TOP - SUBMERGED_M) / 2.0:.3f} 0 0 0')
+    sub(sub(sub(col, 'geometry'), 'box'), 'size',
+        f'{rb.FLOAT_SIDE:.3f} {rb.FLOAT_SIDE:.3f} {rb.TOP + SUBMERGED_M:.3f}')
+    return model
+
+
 def buoy_model(name, kind, spec, x, y):
     """Build a static buoy: body (sphere or cylinder) spec['height'] above the water."""
+    if spec['shape'] == 'robobuoy':
+        return robobuoy_model(name, spec, x, y)
     model = ET.Element('model', name=name)
     sub(model, 'static', 'true')
     sub(model, 'pose', f'{x:.3f} {y:.3f} 0 0 0 0')

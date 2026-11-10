@@ -10,6 +10,7 @@
     sigma_per_m: 0.1
     confirm_sightings: 3      # a landmark is trusted after this many sightings
     color_window: 15          # indicator colour = majority of the last N sightings
+    beacon_window_s: 2.5      # light beacon colour = lit colours of the last N seconds
     # Clean-ups (phase 6 R1.7, usv_core/world_map.py); 0 = off
     heading_lag_s: 0.25       # D4: heading filter lag; a sighting taken while turning gets
                               # distance * tan(lag * yaw rate) more sigma (measured: mean

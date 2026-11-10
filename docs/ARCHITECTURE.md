@@ -98,6 +98,14 @@ picks one of each (`sim.launch.py start:=readiness mission:=readiness`, or the f
 `default`). The placement names the start it places, so the layout stays put whichever
 start is used.
 
+**RoboBoat 2027 Task 1 in simulation (2026-11-10):** RoboBuoys with Light Beacons
+(`usv_sim/robobuoy.py`, sizes from the RobotX 2026 build guides, meshes from
+`scripts/make_robobuoy_mesh.py`). A camera target may carry a light; `fake_perception`
+gives it the class of the moment (`beacon_red|green|blue|off`, red/green flash 1 s on,
+1 s off). The world map keeps one kind, `beacon`, coloured from the last
+`beacon_window_s`. A seeded random field (`usv_sim/task1_field.py`, `layout:=`, `level:=`)
+is built around a reference path, so a valid route always exists.
+
 **Namespaces (2026-11-06, RoboBoat 2027, two boats):** every node uses relative names and
 runs in its boat's namespace: Azure (AGX Thor) `/azure/...`, Marine (AGX Orin)
 `/marine/...` (`sim.launch.py boat:=azure|marine`). The tables write `/usv/...` for "the

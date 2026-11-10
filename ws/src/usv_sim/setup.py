@@ -19,6 +19,7 @@ setup(
         ('share/' + package_name + '/worlds', glob('worlds/*.sdf')),
         ('share/' + package_name + '/models/usv_boat', glob('models/usv_boat/model.*')),
         ('share/' + package_name + '/models/usv_boat/meshes', glob('models/usv_boat/meshes/*')),
+        ('share/' + package_name + '/models/robobuoy/meshes', glob('models/robobuoy/meshes/*')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,

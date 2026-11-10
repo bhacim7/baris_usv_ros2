@@ -84,6 +84,38 @@ def test_indicator_keeps_its_place_when_its_colour_changes():
     assert lm['kind'] == 'indicator' and lm['color'] == 'green' and lm['sightings'] == 10
 
 
+def test_flashing_beacon_keeps_its_colour():
+    """Check red and green flashing 1 s on, 1 s off: the dark frames do not make it 'off'."""
+    m = fresh_map()
+    for k in range(40):                          # 4 s at 10 frames a second
+        t = k * 0.1
+        cls = 'beacon_green' if t % 2.0 < 1.0 else 'beacon_off'
+        m.add(sighting(cls, 5.0, 2.0), now=t)
+    (lm,) = m.snapshot()
+    assert lm['kind'] == 'beacon' and lm['color'] == 'green'
+
+
+def test_beacon_colour_change_shows_within_the_window():
+    m = fresh_map()
+    for k in range(30):
+        m.add(sighting('beacon_green', 5.0, 2.0), now=k * 0.1)
+    m.add(sighting('beacon_red', 5.0, 2.0), now=3.0)       # one frame: still green
+    assert m.snapshot()[0]['color'] == 'green'
+    for k in range(1, 31):                                 # 3 s of red
+        m.add(sighting('beacon_red', 5.0, 2.0), now=3.0 + k * 0.1)
+    assert m.snapshot()[0]['color'] == 'red'
+
+
+def test_beacon_off_only_when_never_lit_in_the_window():
+    m = fresh_map()
+    for k in range(10):
+        m.add(sighting('beacon_blue', 5.0, 2.0), now=k * 0.1)
+    for k in range(1, 31):
+        m.add(sighting('beacon_off', 5.0, 2.0), now=1.0 + k * 0.1)
+    (lm,) = m.snapshot()
+    assert lm['color'] == 'off' and lm['sightings'] == 40
+
+
 def test_confirmation_needs_enough_sightings():
     m = fresh_map(confirm_sightings=3)
     m.add(sighting('triangle', 0.0, 0.0), now=0)

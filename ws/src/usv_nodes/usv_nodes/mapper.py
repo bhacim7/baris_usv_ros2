@@ -41,6 +41,7 @@ COLORS = {    # RGB per kind; indicators take their current colour
     'triangle': (1.0, 0.85, 0.0), 'plus': (0.05, 0.05, 0.05),
     'digit_1': (0.9, 0.9, 0.9), 'digit_2': (0.9, 0.9, 0.9), 'digit_3': (0.9, 0.9, 0.9),
     'red': (0.9, 0.1, 0.1), 'green': (0.1, 0.75, 0.2),
+    'blue': (0.1, 0.3, 1.0), 'off': (0.25, 0.25, 0.25),      # light beacons
 }
 FRAME = 'usv_map'
 
@@ -63,6 +64,7 @@ class MapperNode(Node):
             sigma_per_m=p('sigma_per_m', defaults.sigma_per_m).value,
             confirm_sightings=p('confirm_sightings', defaults.confirm_sightings).value,
             color_window=p('color_window', defaults.color_window).value,
+            beacon_window_s=p('beacon_window_s', defaults.beacon_window_s).value,
             heading_lag_s=p('heading_lag_s', defaults.heading_lag_s).value,
             new_landmark_max_turn_dps=p('new_landmark_max_turn_dps',
                                         defaults.new_landmark_max_turn_dps).value,

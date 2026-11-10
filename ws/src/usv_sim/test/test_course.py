@@ -86,12 +86,15 @@ def test_golcuk_targets_are_what_fake_perception_built_before():
     assert c.targets == expected
 
 
-def test_roboboat_2027_has_the_readiness_tasks():
+def test_roboboat_2027_has_the_readiness_tasks_and_the_task1_field():
     c = course_mod.load(read('roboboat_2027'))
     assert c.profile == 'roboboat' and c.class_names == ROBOBOAT
-    assert len(c.buoys) == 21                  # Task 1: 4 poles; Task 2: 10 channel, 7 debris
+    # Readiness: Task 1 4 poles; Task 2 10 channel, 7 debris. 2027: 10 RoboBuoys
+    assert len(c.buoys) == 31
     assert [m.name for m in c.models] == ['vessel_00_black']
-    assert by_class(c) == {
+    beacons = Counter(n for n in by_class(c).elements() if n.startswith('beacon'))
+    assert sum(beacons.values()) == 10 and beacons['beacon_blue'] == 2
+    assert {n: k for n, k in by_class(c).items() if not n.startswith('beacon')} == {
         'pole_red': 2, 'pole_green': 2, 'buoy_red': 4, 'buoy_green': 4, 'buoy_black': 7,
         'indicator_red': 1, 'indicator_green': 1, 'plus': 2}
     assert c.mission == {'roboboat.task_order': ['task2'], 'roboboat.hint.task2': '21.1,-1.5'}
@@ -113,6 +116,20 @@ def test_select_start_and_mission():
     assert c.boat['heading_deg'] % 360.0 == pytest.approx(270.0)
     assert base.boat['east'] == pytest.approx(-189.17)
     assert data['starts'] and data['placement']['start'] == 'readiness'   # input untouched
+
+
+def test_task1_field_stands_ahead_of_the_competition_start():
+    c = course_mod.load(course_mod.select(read('roboboat_2027'), 'competition'))
+    field = [b for b in c.targets if getattr(b, 'light', None)]
+    entry = next(b for b, (name, *_) in zip(c.targets, c.buoys) if name.endswith('entry'))
+    # 12 m ahead (west in the park) of the start, the field further west
+    assert entry.x == pytest.approx(c.boat['east'] - 12.0, abs=0.01)
+    assert entry.y == pytest.approx(c.boat['north'], abs=0.01)
+    assert all(b.x <= entry.x + 0.01 for b in field)
+    assert all(abs(b.y - entry.y) <= 12.5 for b in field)
+    # Far from the readiness course
+    readiness = [b for b in c.targets if getattr(b, 'light', None) is None]
+    assert min(abs(b.y - entry.y) for b in readiness) > 100.0
 
 
 def test_select_refuses_what_the_course_does_not_have():

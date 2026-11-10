@@ -55,6 +55,7 @@ from usv_interfaces.msg import Buoy as BuoyMsg, BuoyArray, Detection, DetectionA
 from usv_sim import course as course_mod
 from usv_sim.camera import CameraModel, Frame, Settings
 from usv_sim.geo import enu
+from usv_sim.robobuoy import lit_targets
 from usv_sim.sensors import make_rng, roll_pitch_from_quaternion
 from usv_sim.zed import body_field, FrameClock, magnetic_heading_deg, rotate, world_field_enu
 import yaml
@@ -115,8 +116,11 @@ class FakePerception(Node):
         self.camera_offset = (tuple(offset[:2]) if p('detection_from_camera', False).value
                               else (0.0, 0.0))
         self.origin = self.course.origin
-        # Everything the camera can report: buoys, indicators, vessel marks, slip banners
+        # Everything the camera can report: buoys, indicators, vessel marks, slip banners,
+        # RoboBuoys whose class follows their light (usv_sim/robobuoy.py)
         self.buoys = self.course.targets
+        self.lights = any(getattr(b, 'light', None) for b in self.buoys)
+        self.t_start = time.monotonic()      # the lights' clock (flashing, timed changes)
         # The legacy detection + object memory (/usv/buoys) speaks TEKNOFEST class ids;
         # RoboBoat detections get their own path (/usv/detections, phase 6 R1.4)
         self.legacy_buoys = self.course.profile == 'teknofest'
@@ -206,7 +210,11 @@ class FakePerception(Node):
         # Boat origin from the exact antenna position and attitude
         lever = rotate(self.orientation, self.antenna_mount)
         boat = tuple(a - l for a, l in zip(self.antenna_enu, lever))
-        frame = Frame(self.buoys, boat, self.orientation, self.cam, self.settings, self.rng)
+        targets = self.buoys
+        if self.lights:
+            targets = lit_targets(self.buoys, self.course.class_names,
+                                  time.monotonic() - self.t_start, boat[:2])
+        frame = Frame(targets, boat, self.orientation, self.cam, self.settings, self.rng)
         now = self.get_clock().now()
         lat, lon = self.fix if self.fix is not None else (0, 0)
         if not self.legacy_buoys:
