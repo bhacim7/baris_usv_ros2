@@ -500,6 +500,14 @@ RoboCommand (10.10.10.1:50000) ──Ethernet── GCS ──Ubiquiti (ana)─�
   `scripts/fake_radio.py`: kanal hızında, isteğe bağlı kayıplı sahte telsiz).
 - `ws/tools/gcs_cli.py`: GUI gelene kadar metin GCS (izle, komut gönder; hat seçilebilir).
 
+**5b yazıldı (10 Kasım): GCS depoda (`gcs/gcs.py`, `gcs/README.md`).**
+- 2026 `GCSv1000.py`'den: solda IDA 1 Azure, sağda IDA 2 Marine paneli, harita ortada; komutlar,
+  röle, hat istatistiği, klavye odağı tekne başına.
+- Tek bağlantı iş parçacığı (`LinkWorker`), iki hat (`gcs_link`); Windows'ta RFD pyserial ile.
+- 2026 haritasında ikinci teknenin işaretçisi ve izi hiç oluşturulmamıştı; eklendi.
+- İHA kutusu gizlendi; harita listesinde yalnız görseli olan haritalar.
+- ROS'suz; ana makinede sanal ortamda PySide6 ile çalışır.
+
 ### Adım 6. Görev yöneticisi
 - Sıradaki görevlerin yanında, acil görevle araya girip sonra kaldığı yerden devam etme
   (Task 4, Task 5).

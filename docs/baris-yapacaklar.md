@@ -38,6 +38,8 @@ Son güncelleme: 10 Kasım 2026.
 - [ ] Ubiquiti: teknelerin ve GCS'nin IP adresleri, ağ adı. Şimdilik GCS 192.168.1.10, Azure
       .11, Marine .12; portlar 15600/15601/15602 (`usv_nodes/config/boats/*.yaml`,
       `telemetry_bridge.yaml`).
+- [ ] GCS bilgisayarı: Windows mu Ubuntu mu? (GCS ikisinde de çalışır; Windows'ta RFD
+      pyserial ile.) Ana makinede bir kerelik `~/gcs-venv` kurulumu (`gcs/README.md`).
 - [ ] RFD doluluğu: iki tekne + drone aynı kanalda 0,3 s telemetriyle ölçülecek (gerçek
       telsizlerle).
 

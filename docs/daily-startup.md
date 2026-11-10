@@ -507,6 +507,9 @@ python3 /ws/tools/gcs_cli.py --udp --rfd /tmp/usv_rfd_gcs send azure set_manual 
 python3 /ws/tools/gcs_cli.py --rfd /tmp/usv_rfd_gcs send azure set_manual true
 ```
 
+Grafik GCS (`gcs/gcs.py`) ana makinede çalışır; kurulum ve kullanım `gcs/README.md`'de.
+`gcs_cli.py` ile GCS aynı anda çalışmaz (ikisi de 15600 portunu dinler).
+
 `watch` ile `send` aynı anda çalışmaz (ikisi de 15600 portunu dinler). Yalnız `--udp` ya da
 yalnız `--rfd` vererek her hattı tek başına denersin.
 

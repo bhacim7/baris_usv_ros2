@@ -24,13 +24,17 @@ The GCS numbers each boat's commands on their own (ReliableSender per boat), sin
 radio is shared and each boat acks only its own.
 """
 
-import fcntl
 import json
 import math
 import os
 import socket
-import termios
 import time
+
+try:                              # Linux / macOS; on Windows the GCS uses pyserial instead
+    import fcntl
+    import termios
+except ImportError:
+    fcntl = termios = None
 
 SEQ_MOD = 100000                  # q wraps here (2026)
 COPY_WINDOW = 1000                # a cq this far below the last one is a new GCS, not a copy
@@ -56,13 +60,20 @@ class LineReader:
     """
     Turn a byte stream (or datagrams) into dicts, surviving the radio's cuts.
 
-    The RFD splits long lines wherever its buffer fills and another node's bytes can land in
-    between (2026: GCSv1000._parse_or_recover). A line that does not parse is searched for
-    the start of a packet (one of MARKERS); what comes before it is dropped.
+    The RFD (Mavlink framing off) cuts long lines wherever its frame fills, and another
+    node's turn can fall between the pieces, so its packet lands inside ours (2026,
+    GCSv1000._parse_or_recover):
+        {"i":1,"a":16{"id":3,"drone_color":"KIRMIZI"}
+        77,"b":1722,...}
+    The complete packet at the end of a line is taken (it starts with one of MARKERS); the
+    head before it gets ONE chance to meet its tail, the next line (the radio delivers
+    bytes in order). Keeping heads longer made garbage valid JSON now and then (2026: the
+    kilometre jumps on the map).
     """
 
     def __init__(self):
         self.buf = b''
+        self.pending = ''
         self.bad = 0
 
     def feed(self, data):
@@ -70,33 +81,38 @@ class LineReader:
         out = []
         while b'\n' in self.buf:
             line, self.buf = self.buf.split(b'\n', 1)
-            obj = self._parse(line.strip())
-            if obj is not None:
+            text = line.decode('utf-8', errors='replace').strip()
+            if not text:
+                continue
+            glued = bool(self.pending)
+            if glued:
+                text, self.pending = self.pending + text, ''
+            obj, head = parse_or_recover(text)
+            self.pending = '' if glued or len(head) >= 2048 else head
+            if isinstance(obj, dict):
                 out.append(obj)
+            else:
+                self.bad += 1
         if len(self.buf) > MAX_LINE:
             self.buf = b''
             self.bad += 1
         return out
 
-    def _parse(self, line):
-        if not line:
-            return None
-        text = line.decode('utf-8', errors='replace')
-        try:
-            obj = json.loads(text)
-            return obj if isinstance(obj, dict) else None
-        except ValueError:
-            pass
-        for marker in MARKERS:
-            k = text.rfind(marker)
-            if k > 0:
-                try:
-                    obj = json.loads(text[k:])
-                    return obj if isinstance(obj, dict) else None
-                except ValueError:
-                    continue
-        self.bad += 1
-        return None
+
+def parse_or_recover(text):
+    """Return (packet or None, the unparsed head before it) for one received line."""
+    try:
+        return json.loads(text), ''
+    except ValueError:
+        pass
+    for marker in MARKERS:
+        start = text.find(marker, 1)
+        while start != -1:
+            try:
+                return json.loads(text[start:]), text[:start]
+            except ValueError:
+                start = text.find(marker, start + 1)
+    return None, ''
 
 
 class CommandFilter:
@@ -304,6 +320,8 @@ class SerialLink:
     name = 'rfd'
 
     def __init__(self, path, baud=57600, budget_s=0.5):
+        if termios is None:
+            raise OSError('SerialLink needs termios (Linux/macOS); use pyserial on Windows')
         self.path = path
         self.baud = int(baud)
         self.limit = int(self.baud / 10.0 * budget_s)
@@ -324,6 +342,7 @@ class SerialLink:
             speed = BAUDS.get(self.baud, termios.B57600)
             attrs[4] = attrs[5] = speed
             termios.tcsetattr(self.fd, termios.TCSANOW, attrs)
+            termios.tcflush(self.fd, termios.TCIFLUSH)      # what piled up unread is old
         except termios.error:
             pass                      # not a tty (a test pipe): bytes still flow
         self.rx_bytes = self.tx_bytes = 0

@@ -24,6 +24,17 @@ def test_lines_survive_cuts_and_junk():
     assert r.feed(b'garbage\n') == [] and r.bad == 1
 
 
+def test_a_packet_cut_by_another_radio_is_glued_back():
+    r = gcs_link.LineReader()
+    got = r.feed(b'{"i":1,"q":5,"a":16{"id":3,"drone_color":"KIRMIZI"}\n'
+                 b'00,"b":1722}\n')
+    assert got == [{'id': 3, 'drone_color': 'KIRMIZI'}, {'i': 1, 'q': 5, 'a': 1600,
+                                                         'b': 1722}]
+    # A head gets one chance only: two cut lines in a row are not glued into garbage
+    got = r.feed(b'{"i":1,"q":6,"a":1{"id":3}\n{"i":1,"q":7,"a":2{"id":3}\n9}\n')
+    assert got == [{'id': 3}, {'id': 3}] and r.pending == ''
+
+
 def test_encode_is_compact():
     line = gcs_link.encode({'target_id': 2, 'cmd': 'set_manual', 'value': True, 'cq': 4})
     assert line == b'{"target_id":2,"cmd":"set_manual","value":true,"cq":4}\n'

@@ -23,11 +23,10 @@ Docker içinde (Gazebo Harmonic + VRX), gerçek tekneler Jetson. Hedef: RoboBoat
 - Adım 4a bitti: commit `8bffdca` (RoboBuoy, ışıklar, rastgele Task 1 alanı).
 - Adım 4b bitti: commit `338b325` (marina, pencere ışıkları, Primer yerleşimi).
 - Adım 4e bitti: commit `a7575b1` (Task 4 şekilli tekneler). Pinger simüle edilmedi.
-- Adım 5a yazıldı: iki hatlı GCS bağlantısı (`usv_core/gcs_link.py`, `telemetry_bridge`,
-  `sim.launch.py link:=true`, `scripts/fake_radio.py`, `ws/tools/gcs_cli.py`). Barış'ın
-  testi ve commit'i bekleniyor.
-- Sıradaki: 5b, GCS uygulaması depoya (`gcs/`, iki tekne paneli; görseller
-  `~/Downloads/GCSresimler`, `~/Downloads/GCSv1000.py`).
+- Adım 5a bitti: commit `2195062` (iki hatlı GCS bağlantısı, `telemetry_bridge`).
+- Adım 5b yazıldı: GCS depoda (`gcs/gcs.py`, ROS'suz, PySide6; iki tekne paneli, Ubiquiti +
+  RFD). Barış'ın denemesi ve commit'i bekleniyor. GCS'yi Claude çalıştıramaz (PySide6 yok).
+- Sıradaki: 5c (`TaskRequest` mesajı), 5d (RoboCommand istemcisi + sahte sunucu).
 - Bilinen: raporda "yeşil 330°" uyarısı GPS/harita kaymasından (R3.5 ertelendi).
 
 ## Çalışma şekli (değişmez kurallar)
