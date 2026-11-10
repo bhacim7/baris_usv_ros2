@@ -59,11 +59,13 @@ import random
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (AppendEnvironmentVariable, DeclareLaunchArgument, ExecuteProcess,
-                            IncludeLaunchDescription, OpaqueFunction, RegisterEventHandler)
+                            IncludeLaunchDescription, LogInfo, OpaqueFunction,
+                            RegisterEventHandler)
 from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from usv_core import boat as usv_boat
 import yaml
 
 PERCEPTION_KNOBS = ('compass_offset_deg', 'detect_prob', 'max_range_m')
@@ -71,7 +73,6 @@ PERCEPTION_KNOBS = ('compass_offset_deg', 'detect_prob', 'max_range_m')
 CHAIN_SWITCHES = {'true_distance': 'detection_true_distance',
                   'from_camera': 'detection_from_camera',
                   'add_radius': 'detection_add_radius'}
-BOATS = ('azure', 'marine')
 # What ws/tools/run_report.py reads, plus what is handy to replay (in the boat's namespace)
 RECORD_TOPICS = ('nav_status', 'thrusters/pwm', 'sim/navsat', 'sim/imu', 'fix', 'heading',
                  'buoys', 'detections', 'map', 'speed', 'imu', 'map/markers')
@@ -82,9 +83,14 @@ def setup(context):
     course = LaunchConfiguration('course').perform(context)
     gui = LaunchConfiguration('gui').perform(context).lower() == 'true'
     paused = LaunchConfiguration('paused').perform(context).lower() == 'true'
+    # The boat's profile (usv_nodes/config/boats/<boat>.yaml): its name is the namespace
     boat = LaunchConfiguration('boat').perform(context)
-    if boat not in BOATS:
-        raise RuntimeError(f'boat:={boat}: one of {", ".join(BOATS)}')
+    boats = os.path.join(get_package_share_directory('usv_nodes'), 'config', 'boats')
+    if not os.path.isfile(os.path.join(boats, boat + '.yaml')):
+        known = sorted(f[:-len('.yaml')] for f in os.listdir(boats) if f.endswith('.yaml'))
+        raise RuntimeError(f'boat:={boat}: no such profile; there are {", ".join(known)}')
+    with open(os.path.join(boats, boat + '.yaml')) as f:
+        profile = usv_boat.load(yaml.safe_load(f))
 
     course_file = os.path.join(share, 'courses', course + '.yaml')
     world_file = os.path.join('/tmp', f'usv_sim_{course}.sdf')
@@ -245,6 +251,8 @@ def setup(context):
         target_action=make_world, on_exit=[gazebo, bridge] + ours))
 
     return [
+        LogInfo(msg=f'Boat {profile.name} (number {profile.number}, {profile.computer}); can: '
+                + (', '.join(profile.capabilities()) or 'nothing extra')),
         # Our boat model (usv_boat) for Gazebo; VRX and HullBuoyancy paths come from the
         # sourced setup files
         AppendEnvironmentVariable('GZ_SIM_RESOURCE_PATH', os.path.join(share, 'models')),

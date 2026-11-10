@@ -1,0 +1,12 @@
+# Azure: the boat with the Jetson AGX Thor (RoboBoat 2027, docs/roboboat-2027.md section 6).
+# A boat profile says what THIS boat has; what both boats share (hull, thrusters, Orange
+# Cube, GPS, batteries) is not repeated here. Read with usv_core.boat.load; the name is the
+# boat's ROS namespace (/azure/...) and `number` its number on the GCS link.
+name: azure
+number: 1
+computer: jetson_agx_thor
+cameras:
+  - {name: nav, model: zed2i, mount: hull, depth: true}
+lidar: false          # a 3D LiDAR goes on this boat if it arrives
+water_cannon: false
+balls: 0

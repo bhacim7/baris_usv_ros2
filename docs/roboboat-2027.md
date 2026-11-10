@@ -348,9 +348,12 @@ RoboCommand (10.10.10.1:50000) ──Ethernet── GCS ──Ubiquiti (ana)─�
   tekneli simülasyonla, iki teknenin ortak bir çerçevesiyle gelir.
 
 ### Adım 2. Tekne profilleri
-- İki dosya: `boats/azure.yaml` ve `boats/marine.yaml`. İçlerinde bilgisayar, kameralar,
-  LiDAR ve taret bilgisi var.
-- Launch profili okur. Görev yöneticisi "su sıkabilen tekne Marine" bilgisini buradan alır.
+- İki dosya: `ws/src/usv_nodes/config/boats/azure.yaml` ve `marine.yaml`. İçlerinde tekne
+  numarası (`number`, GCS.deki `i`), bilgisayar, kameralar, LiDAR, su topu ve top sayısı var.
+- `usv_core/boat.py` dosyayı okur; `can('water')` gibi sorulara cevap verir.
+- Launch profili okur ve açılışta yazar (`Boat marine ... can: water, balls, turret_camera`).
+  Görev yöneticisi "su sıkabilen tekne Marine" bilgisini buradan alacak.
+- Yazıldı (10 Kasım).
 
 ### Adım 3. Tek parkur: roboboat_2027 (2026 Task 1–2 + 2027 parkuru)
 - `roboboat_2026.yaml` dosyasının adı `roboboat_2027.yaml` olur.

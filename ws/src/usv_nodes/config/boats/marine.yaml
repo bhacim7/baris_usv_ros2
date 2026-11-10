@@ -1,0 +1,15 @@
+# Marine: the boat with the Jetson AGX Orin and the shooting system (RoboBoat 2027,
+# docs/roboboat-2027.md section 6): a stepper turret with a water cannon and a three-ball
+# launcher on the 40-pin header, and its own camera, which can also look out for the boat.
+# See azure.yaml for what a profile is.
+name: marine
+number: 2
+computer: jetson_agx_orin
+cameras:
+  - {name: nav, model: zed2i, mount: hull, depth: true}
+  # ASSUMED until measured on the Orin (roadmap step 8): a second ZED 2i with depth; if two
+  # are too much, depth off or a plain USB camera (Logitech Brio)
+  - {name: turret, model: zed2i, mount: turret, depth: true}
+lidar: false
+water_cannon: true
+balls: 3
