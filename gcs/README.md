@@ -48,8 +48,8 @@ sağ panelde görünür.
 
 ## Gazebo ile GCS haritası
 
-İkisi aynı yeri gösteriyor (10 Kasım'da tekne Gazebo'da bilinen bir noktaya taşınarak
-denendi). Farklı görünmesinin iki sebebi var:
+DOĞRULANMADI: Barış'a göre tekne iki ekranda aynı yerde değil; 11 Kasım'da yarımadadaki
+binadan hiza alınarak bakılacak. 10 Kasım'daki ilk açıklama şuydu:
 - Gazebo'nun kamerasında yukarı kuzey olmak zorunda değil (açılışta kamera teknenin
   baktığı yöne, batıya döner); GCS haritasında yukarı her zaman kuzey.
 - VRX'in park modeli sadeleştirilmiş (ör. yarımadanın doğusundaki küçük ada yok) ve

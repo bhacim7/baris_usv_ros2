@@ -24,8 +24,15 @@ Docker içinde (Gazebo Harmonic + VRX), gerçek tekneler Jetson. Hedef: RoboBoat
 - Adım 4b bitti: commit `338b325` (marina, pencere ışıkları, Primer yerleşimi).
 - Adım 4e bitti: commit `a7575b1` (Task 4 şekilli tekneler). Pinger simüle edilmedi.
 - Adım 5a bitti: commit `2195062` (iki hatlı GCS bağlantısı, `telemetry_bridge`).
-- Adım 5b yazıldı: GCS depoda (`gcs/gcs.py`, ROS'suz, PySide6; iki tekne paneli, Ubiquiti +
-  RFD). Barış'ın denemesi ve commit'i bekleniyor. GCS'yi Claude çalıştıramaz (PySide6 yok).
+- Adım 5b bitti: GCS depoda (`gcs/gcs.py`, ROS'suz, PySide6; iki tekne paneli, Ubiquiti +
+  RFD). GCS'yi Claude çalıştıramaz (PySide6 yalnız Barış'ın `~/gcs-venv`'inde).
+- **Açık konu (11 Kasım'da bakılacak):** Barış'a göre tekne Gazebo'da ve GCS haritasında aynı
+  yerde değil. Benim "kameranın yönü" açıklamamı yeterli bulmadı. Barış gösterecek; tekneyi
+  yarımadadaki binadan (2026 GCS haritasında da görünen bina) hiza alarak yerleştirip iki
+  ekranı karşılaştıracağız. Fark varsa: VRX park modeli ile coğrafi başlangıç
+  (`nbpark.sdf` spherical_coordinates 27.367256, -82.451120) ya da GCS harita köşeleri
+  (`roboboat.jpg`: N 27.381 S 27.356 W -82.455 E -82.445, 3 basamağa yuvarlanmış).
+  `gcs/README.md`'deki "aynı yeri gösteriyor" notu o zamana kadar doğrulanmış sayılmaz.
 - Sıradaki: 5c (`TaskRequest` mesajı), 5d (RoboCommand istemcisi + sahte sunucu).
 - Bilinen: raporda "yeşil 330°" uyarısı GPS/harita kaymasından (R3.5 ertelendi).
 
