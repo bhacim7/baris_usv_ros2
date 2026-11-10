@@ -47,7 +47,7 @@ import rclpy
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from sensor_msgs.msg import Imu, NavSatFix
-from std_msgs.msg import Float32
+from std_msgs.msg import Float32, String
 from usv_core.detection import measure_boxes, memory_snapshot, process_frame
 from usv_core.heading import HeadingFilter, LEGACY_DECLINATION_DEG, zed_heading
 from usv_core.teknofest_object_memory import ObjectMemoryManager
@@ -55,7 +55,7 @@ from usv_interfaces.msg import Buoy as BuoyMsg, BuoyArray, Detection, DetectionA
 from usv_sim import course as course_mod
 from usv_sim.camera import CameraModel, Frame, Settings
 from usv_sim.geo import enu
-from usv_sim.robobuoy import lit_targets
+from usv_sim.lights import fire, lit_targets
 from usv_sim.sensors import make_rng, roll_pitch_from_quaternion
 from usv_sim.zed import body_field, FrameClock, magnetic_heading_deg, rotate, world_field_enu
 import yaml
@@ -137,6 +137,8 @@ class FakePerception(Node):
         self.create_subscription(NavSatFix, 'sim/navsat', self.on_true_navsat, 10)
         self.create_subscription(Float32, 'heading', self.on_heading, 10)
         self.create_subscription(NavSatFix, 'fix', self.on_fix, 10)
+        # Course events for the lights, e.g. fire_out (the water cannon hit the window)
+        self.create_subscription(String, 'sim/event', self.on_event, 10)
         self.heading_pub = self.create_publisher(Float32, 'heading/zed', 10)
         self.attitude_pub = self.create_publisher(Vector3Stamped, 'attitude', 10)
         self.imu_pub = self.create_publisher(Imu, 'imu', 50)
@@ -185,6 +187,10 @@ class FakePerception(Node):
 
     def on_fix(self, msg):
         self.fix = (msg.latitude, msg.longitude)
+
+    def on_event(self, msg):
+        fire(self.buoys, msg.data)
+        self.get_logger().info(f'course event: {msg.data}')
 
     # ------------------------------------------------------------------ frames
     def poll_frame(self):

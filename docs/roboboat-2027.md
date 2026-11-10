@@ -425,8 +425,32 @@ RoboCommand (10.10.10.1:50000) ──Ethernet── GCS ──Ubiquiti (ana)─�
     yeşiller soluna, kırmızılar sağına konur: her düzende geçerli bir yol var. `layout:=<n>`
     ile başka düzen, `level:=advanced` ile EXIT tekne alanın ortasına gelince yer değiştirir,
     `level:=disruptive` ile ayrıca en fazla iki kırmızı/yeşil renk değiştirir.
-  - Alan `competition` başlangıcının 12 m önünde. Varsayılan başlangıç hâlâ `readiness`:
-    2027 görevi (Adım 6) yazılınca `competition` olur.
+  - Varsayılan başlangıç hâlâ `readiness`: 2027 görevi (Adım 6) yazılınca `competition` olur.
+- **4b (marina) ve Primer yerleşimi yazıldı (10 Kasım):**
+  - 2027 parkuru Primer'ın "Course layout" görseline göre kuruldu: görseldeki sol alttaki
+    siyah tekne bizim `competition` başlangıcımız, görselin yukarısı ileri (parkta batı).
+    Görsel ölçekli değil: 0,08 m/piksel tahmin (Task 1 şamandıraları ~10 m arayla, parkur
+    ~86×70 m). Unsurlar gerçek boyutta, çizildikleri yerin ortasında.
+  - Task 1: `layout: primer` görseldeki on şamandıra (ışınlı mavi = ENTRY yanıp sönen, ışınsız
+    mavi = EXIT sabit); `layout:=<n>` rastgele alan (aynı bölgede, ENTRY'den doğuya 30×22 m).
+  - Marina (`usv_sim/marina.py`), ölçüler RobotX 2026 "Docking Bay Structure" çizimlerinden
+    (Barış'ın PDF'i): 500 mm küpler, 13×2 güverte, 4 küplük parmaklar (bölme 1,5×2,0 m),
+    bina 1,0×0,75×1,0 m, pencereler 210×290 ve 280×360 mm (siyah çerçeve, arkada LED panel),
+    tabanda renk göstergesi. Bölme 2 yeşil, bölme 3'te tekne var (kırmızı).
+  - Pencere ışığı: tekne yeşil bölmede 3 s durunca pencere 2 kırmızı; `fire_out` olayı
+    (şimdilik elle: `ros2 topic pub --once /azure/sim/event std_msgs/msg/String "{data:
+    fire_out}"`, Adım 7'de taret) gelince 5 s yeşil, sonra sönük; `level: disruptive` ile
+    ardından 60 s iki renkli dizi (1. renk 1 s, sönük 1 s, 2. renk 1 s, sönük 2 s).
+  - Yeni sınıflar: `window_red|green|blue|off`, `buoy_blue`, `buoy_white` (Task 2 Polyform).
+    Haritada pencereler `window` türü, renk ışıklar gibi zaman penceresinden.
+  - Görselden ayrıca: Task 2'nin numaralı RoboBuoy'ları (tepede renk göstergesi, yüzlerde
+    numara: `digit_1..3`) ve altı Polyform şamandıra, dört köşe işaretçisi (harfli; kamera
+    sınıfı yok), Task 4 tekneleri (şimdilik eski sarı/üçgen, siyah/artı; şekiller 4e), Task 5
+    bölgesi (`zones`, suda bir şey yok). Pinger yok.
+  - Algılama yöntemi (Barış'ın sorusu): pencere ve bölme göstergesi için YOLO + OpenCV renk
+    okuması düşünülüyor (`~/Downloads/drone_color.py` deneyimi). Simülasyon algılamanın
+    sonucunu (`window_red` gibi) üretir; yöntem algılama tarafının kararı, navigasyon
+    değişmez.
 
 ### Adım 5. RoboCommand ve haberleşme
 - **GCS tarafı:** RoboCommand bağlantısı.

@@ -41,7 +41,8 @@ COLORS = {    # RGB per kind; indicators take their current colour
     'triangle': (1.0, 0.85, 0.0), 'plus': (0.05, 0.05, 0.05),
     'digit_1': (0.9, 0.9, 0.9), 'digit_2': (0.9, 0.9, 0.9), 'digit_3': (0.9, 0.9, 0.9),
     'red': (0.9, 0.1, 0.1), 'green': (0.1, 0.75, 0.2),
-    'blue': (0.1, 0.3, 1.0), 'off': (0.25, 0.25, 0.25),      # light beacons
+    'blue': (0.1, 0.3, 1.0), 'off': (0.25, 0.25, 0.25),      # light beacons, windows
+    'buoy_blue': (0.1, 0.3, 1.0), 'buoy_white': (0.95, 0.95, 0.95),
 }
 FRAME = 'usv_map'
 

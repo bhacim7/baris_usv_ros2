@@ -16,10 +16,14 @@ The whole simulation with one command.
 RoboBoat 2027 (course:=roboboat_2027): one course file, several starts and missions
     start:=readiness           where the boat starts: before the 2026 Task 1 gates
     start:=competition         the start of the 2027 course: the Task 1 field ahead
-    layout:=<n>                Task 1 field seed (a different field per number; empty =
-                               the course file's)
-    level:=core                Task 1 level: core, advanced (the EXIT moves while the boat
-                               is in the field), disruptive (and up to two colours swap)
+    layout:=primer             Task 1 as drawn in the 2027 Primer (the course file's
+                               default); layout:=<n> a random field, seed n
+    level:=core                Task 1 level with a random layout: core, advanced (the EXIT
+                               moves while the boat is in the field), disruptive (and up to
+                               two colours swap)
+    The marina window lights after the boat has stayed 3 s in the green bay; the water
+    hit is, until the turret (roadmap step 7), a course event given by hand:
+        ros2 topic pub --once /azure/sim/event std_msgs/msg/String "{data: fire_out}"
     mission:=readiness         what the navigator runs: 2026 Task 1 + Task 2, for the Proof
                                of Readiness video (`roboboat_2027` joins with roadmap step 6)
     empty = the course file's `default`
@@ -138,7 +142,7 @@ def setup(context):
             raise RuntimeError(f'course:={course} has no task1_field for layout:= / level:=')
         course_data['task1_field'] = dict(course_data['task1_field'])
         if field_args['layout']:
-            course_data['task1_field']['seed'] = int(field_args['layout'])
+            course_data['task1_field']['layout'] = field_args['layout']
         if field_args['level']:
             course_data['task1_field']['level'] = field_args['level']
     if any(placement) or start or any(field_args.values()):
@@ -304,7 +308,8 @@ def generate_launch_description():
                               description="one of the course's missions (roboboat_2027: "
                               "readiness); empty = the course's default"),
         DeclareLaunchArgument('layout', default_value='',
-                              description="Task 1 field seed; empty = the course file's"),
+                              description='Task 1: primer (as drawn) or a random field seed; '
+                              "empty = the course file's"),
         DeclareLaunchArgument('level', default_value='',
                               description='Task 1 level: core, advanced, disruptive; empty = '
                               "the course file's"),

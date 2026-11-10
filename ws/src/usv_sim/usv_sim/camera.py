@@ -39,7 +39,7 @@ class Buoy:
     height: float         # top, above the water
     class_id: int
     z0: float = 0.0       # bottom of what YOLO boxes (an indicator sits on its buoy)
-    light: object = None  # usv_sim.robobuoy.Light: the class follows the light
+    light: object = None  # usv_sim.lights.Light: the class follows the light
 
 
 @dataclass
@@ -52,6 +52,7 @@ class Panel:
     normal_deg: float     # ENU direction the printed face looks to (0 = east, 90 = north)
     class_id: int
     max_view_deg: float = 75.0
+    light: object = None  # usv_sim.lights.Light: the class follows the light
 
 
 @dataclass

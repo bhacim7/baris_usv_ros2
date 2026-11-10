@@ -14,8 +14,8 @@
 #                 kept for the Proof of Readiness video. Built from the 2026 Team Handbook,
 #                 section 3.2; the run that works today (phase 6 R3).
 #   competition   the 2027 course, about 137 m south of the readiness start in the park
-#                 (start chosen by Baris in Gazebo, 2026-11-10). So far: the Task 1
-#                 field (task1_field below); the other tasks come with roadmap step 4.
+#                 (start chosen by Baris in Gazebo, 2026-11-10), laid out as the
+#                 Primer's course layout picture: Task 1-5 (see below).
 #
 # Until 2026-11-10 this file was roboboat_2026.yaml and also held the 2026 Task 3-6 elements
 # (speed gate, yellow buoys, docks, vessels). That full course is in git history
@@ -86,6 +86,15 @@ buoy_types:
   indicator_green: {class: indicator_green, shape: indicator, diameter: 0.457, height: 0.305, color: green}
   # 2027: RoboBuoy with a Light Beacon (usv_sim/robobuoy.py); its class follows the light
   robobuoy:        {shape: robobuoy, symbol: diamond}
+  robobuoy_number: {shape: robobuoy, symbol: digit, top: indicator}   # Task 2, numbered
+  robobuoy_marker: {shape: robobuoy, symbol: letter, top: none}       # course corners
+  # 2027 Task 2: Polyform A-2 (ASSUMED size) in six colours
+  a2_red:          {class: buoy_red,        shape: sphere,    diameter: 0.368, height: 0.305, color: red}
+  a2_green:        {class: buoy_green,      shape: sphere,    diameter: 0.368, height: 0.305, color: green}
+  a2_black:        {class: buoy_black,      shape: sphere,    diameter: 0.368, height: 0.305, color: black}
+  a2_yellow:       {class: buoy_yellow,     shape: sphere,    diameter: 0.368, height: 0.305, color: yellow}
+  a2_blue:         {class: buoy_blue,       shape: sphere,    diameter: 0.368, height: 0.305, color: blue}
+  a2_white:        {class: buoy_white,      shape: sphere,    diameter: 0.368, height: 0.305, color: white}
 
 buoys:
   # --- Task 1: entry/exit gates, 8.7 m wide and 8.0 m apart as placed in Gazebo ---
@@ -114,24 +123,91 @@ buoys:
   - {type: indicator_green, east: 1.50,  north: 56.06}   # survivor: circle 360 and report
   #   (moved: roboboat_2027 has it at 14.52, 49.13, seen from the channel)
   - {type: indicator_red,   east: 18.52, north: 58.13}   # hazard: avoid and report
+  # --- 2027 Task 2 (Primer course layout) ---
+  - {type: robobuoy_number, name: task2_buoy1, east: -90.51, north: 47.51, number: 1, indicator: red}
+  - {type: robobuoy_number, name: task2_buoy2, east: -58.59, north: 35.51, number: 2, indicator: red}
+  - {type: robobuoy_number, name: task2_buoy3, east: -99.15, north: 15.19, number: 3, indicator: green}
+  - {type: a2_green,  name: task2_green,  east: -76.67, north: 50.87}
+  - {type: a2_white,  name: task2_white,  east: -62.59, north: 46.63}
+  - {type: a2_blue,   name: task2_blue,   east: -81.63, north: 34.15}
+  - {type: a2_red,    name: task2_red,    east: -97.07, north: 29.83}
+  - {type: a2_yellow, name: task2_yellow, east: -87.79, north: 20.39}
+  - {type: a2_black,  name: task2_black,  east: -75.31, north: 22.47}
+  # --- 2027 course markers at the corners (letters; the camera has no class for them) ---
+  - {type: robobuoy_marker, name: marker_a, east: -142.35, north: 59.35, letter: A}
+  - {type: robobuoy_marker, name: marker_b, east: -55.95,  north: 58.39, letter: B}
+  - {type: robobuoy_marker, name: marker_c, east: -142.35, north: -10.09, letter: C}
+  - {type: robobuoy_marker, name: marker_d, east: -55.95,  north: -10.09, letter: D}
 
-# RoboBoat 2027 Task 1 (Safe Passage): a random field of RoboBuoys, the same for the same
-# seed (usv_sim/task1_field.py). sim.launch.py layout:=<seed> and level:=<level> override
-# seed and level. ENTRY 12 m ahead of the competition start, the field running on ahead
-# (west in the park). Size and spacing ASSUMED (no handbook gives them); 10 buoys as
-# RobotX 2026.
+# RoboBoat 2027 Task 1 (Safe Passage). layout: primer = the ten buoys of task1_primer, as
+# drawn in the Primer; a number = a random field with that seed (usv_sim/task1_field.py),
+# laid out from entry along heading_deg; level (random fields only): core | advanced (the
+# EXIT moves) | disruptive (and colours swap). sim.launch.py layout:= and level:= override
+# them. Random field size and spacing ASSUMED (no handbook gives them); 10 buoys as RobotX.
 task1_field:
-  seed: 1
-  entry: {east: -135.47, north: 12.63}
-  heading_deg: 0.0
-  length_m: 40.0
-  width_m: 25.0
+  layout: primer
+  entry: {east: -138.27, north: 39.59}      # the Primer's ENTRY
+  heading_deg: 90.0                         # towards its EXIT (east here)
+  length_m: 30.0
+  width_m: 22.0
   buoys: 10
   min_gap_m: 4.0
-  level: core               # core | advanced (the EXIT moves) | disruptive (and colours swap)
+  level: core
+
+# ---------------------------------------------------------------------------------------
+# The 2027 competition course as drawn in the Primer's "Course layout" picture (1320 x 960
+# px): the boat start (its bottom-left black boat, px 152, 783) is the competition start;
+# picture up = north here (west in the park). The picture is not to scale: 0.08 m/px is
+# ASSUMED (Task 1 buoys ~10 m apart, the course ~86 x 70 m). Elements keep their real size
+# (the dock is 6.6 m long, drawn as ~32 m), centred where they are drawn.
+# ---------------------------------------------------------------------------------------
+# Task 1 as drawn: flashing blue = ENTRY (rays in the picture), solid blue = EXIT (none);
+# red and green flash. Phases differ (ASSUMED: the beacons are not synchronised).
+task1_primer:
+  - {type: robobuoy, name: task1_entry, east: -138.27, north: 39.59, light: {color: blue, flash: true, phase_s: 0.3}}
+  - {type: robobuoy, name: task1_exit,  east: -111.31, north: 29.43, light: {color: blue}}
+  - {type: robobuoy, name: task1_green_a, east: -137.23, north: 47.35, light: {color: green, flash: true, phase_s: 1.1}}
+  - {type: robobuoy, name: task1_off_a,   east: -123.71, north: 50.15, light: 'off'}
+  - {type: robobuoy, name: task1_red_a,   east: -114.19, north: 46.79, light: {color: red, flash: true, phase_s: 0.7}}
+  - {type: robobuoy, name: task1_red_b,   east: -127.47, north: 39.59, light: {color: red, flash: true, phase_s: 1.6}}
+  - {type: robobuoy, name: task1_green_b, east: -109.15, north: 39.03, light: {color: green, flash: true, phase_s: 0.2}}
+  - {type: robobuoy, name: task1_red_c,   east: -137.23, north: 29.19, light: {color: red, flash: true, phase_s: 1.3}}
+  - {type: robobuoy, name: task1_green_c, east: -121.15, north: 31.03, light: {color: green, flash: true, phase_s: 0.9}}
+  - {type: robobuoy, name: task1_off_b,   east: -128.11, north: 22.79, light: 'off'}
+
+# Task 3 (Navigate the Marina): bays open west in the picture; bay 1 is the top one (north
+# here), bay 3 holds a vessel (the orange one drawn in it), so it is red; bay 2 is free.
+# Its window 2 lights red once the boat has been in the bay 3 s (usv_sim/marina.py).
+marina:
+  name: M
+  east: -61.26              # middle of the deck's bay-side edge (deck centre px 1086, 712)
+  north: 6.31
+  heading_deg: 270.0        # the bays open to the west
+  level: core               # core | disruptive (the two-colour sequence after the green)
+  sequence: [red, blue]     # disruptive: first colour (red water / blue ball), second
+  hold_s: 3.0
+  bays:
+    - {indicator: red}
+    - {indicator: green, window: 2}
+    - {indicator: red, vessel: yellow}
+
+# Task 2 (Emergency Response Sprint): numbered RoboBuoys with a Color Indicator on top and
+# Polyform buoys in six colours. The pinger is not simulated.
+#
+# Task 4 (Delivery Run): vessels (see `vessels`); the 2027 shapes (cross, circle, square,
+# triangle) come with roadmap step 4e; for now yellow = triangle, black = plus.
+#
+# Task 5 (Dynamic Response): a zone, nothing in the water (for the mission, step 6).
+zones:
+  dynamic_response: {east: -116.03, north: 12.87, radius_m: 9.0}
 
 vessels:
   - {color: black,  east: 6.52, north: 56.13, heading_deg: 30.0}  # in the debris field
+  # 2027 Task 4 (Primer course layout; orange drawn = yellow here)
+  - {color: black,  east: -103.79, north: 52.07, heading_deg: 350.0}
+  - {color: yellow, east: -70.99,  north: 55.83, heading_deg: 300.0}
+  - {color: black,  east: -97.71,  north: 0.15,  heading_deg: 90.0}
+  - {color: yellow, east: -115.07, north: -4.65, heading_deg: 60.0}
 
 # Map-measurement route (phase 6 R1.6), driven by survey_drive from Gazebo's true pose, so
 # every run takes the same path: through the Task 1 gates, one full turn on the spot (the

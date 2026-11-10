@@ -72,7 +72,7 @@ def layout(seed, length_m=40.0, width_m=25.0, buoys=10, min_gap_m=4.0, level='co
     Return the field in its own frame: (path, buoys), buoys as dicts {x, y, role, light}.
 
     role: entry, exit, red, green, off, next_exit (advanced: off until the EXIT moves)
-    light: a course file light entry (robobuoy.parse_light); changes give `near` in the
+    light: a course file light entry (lights.parse_light); changes give `near` in the
     field frame ({x, y, within_m}), turned into file positions by `course_entries`.
     """
     if level not in LEVELS:

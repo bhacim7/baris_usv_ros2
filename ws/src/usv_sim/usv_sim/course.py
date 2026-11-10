@@ -27,10 +27,15 @@ A course file has:
                  (`class: pole_red`) or legacy id (`class_id: 3`); robobuoy (RoboBoat
                  2027, usv_sim/robobuoy.py): no class, its light gives it
   buoys          {type, lat/lon or east/north, name (optional), light (robobuoy only: a
-                 colour, or {color, flash, phase_s, changes}, see robobuoy.parse_light)}
-  task1_field    optional, a random RoboBoat 2027 Task 1 field added to the buoys
-                 (usv_sim/task1_field.py): {seed, entry {east, north}, heading_deg,
-                 length_m, width_m, buoys, min_gap_m, level}
+                 colour, or {color, flash, phase_s, changes}, see lights.parse_light)}
+  task1_field    optional, the RoboBoat 2027 Task 1 field added to the buoys: {layout,
+                 entry {east, north}, heading_deg, length_m, width_m, buoys, min_gap_m,
+                 level}; layout 'primer' = the buoys of task1_primer (as drawn in the
+                 Primer), a number = a random field with that seed (usv_sim/task1_field.py)
+  task1_primer   the Task 1 buoys as drawn in the 2027 Primer course layout
+  marina         optional, the RoboBoat 2027 marina (usv_sim/marina.py): {name, east,
+                 north (middle of the deck's bay-side edge), heading_deg (where the bays
+                 open), bays [{indicator, window, vessel}] x 3, level, sequence, hold_s}
   vessels        {color: yellow|black, heading_deg, position}: RoboBoat stationary vessels
                  with a triangle (yellow) or plus (black) on both sides
   docks          {name, heading_deg, tines: left|right, slips: [{indicator, vessel}] x 3,
@@ -47,7 +52,7 @@ from dataclasses import dataclass, field
 import math
 
 from usv_core.classes import class_names
-from usv_sim import robobuoy, task1_field
+from usv_sim import lights, marina, robobuoy, task1_field
 from usv_sim.camera import Buoy, Panel
 from usv_sim.geo import enu
 
@@ -71,7 +76,7 @@ BANNER_BOTTOM = 0.30              # ASSUMED: banner on a post, bottom edge above
 RGB = {
     'red': (0.75, 0.02, 0.02), 'green': (0.0, 0.55, 0.12), 'black': (0.04, 0.04, 0.04),
     'yellow': (1.0, 0.82, 0.0), 'white': (0.95, 0.95, 0.95), 'beige': (0.80, 0.72, 0.58),
-    'grey': (0.5, 0.5, 0.5),
+    'grey': (0.5, 0.5, 0.5), 'blue': (0.05, 0.2, 0.75),
 }
 
 
@@ -207,18 +212,23 @@ def load(data):
     types = data.get('buoy_types', {})
     entries = list(data.get('buoys', []))
     if 'task1_field' in data:
-        entries += task1_field.course_entries(data['task1_field'])
+        field_spec = data['task1_field']
+        if str(field_spec.get('layout', 'primer')) == 'primer':
+            if field_spec.get('level', 'core') != 'core':
+                raise ValueError('the primer Task 1 layout is core only; levels need a '
+                                 'random layout (layout:=<number>)')
+            entries += data.get('task1_primer', [])
+        else:
+            entries += task1_field.course_entries(dict(field_spec,
+                                                       seed=int(field_spec['layout'])))
     for i, b in enumerate(entries):
         spec = types[b['type']]
         x, y = position(b, origin, anchor)
         name = b.get('name') or f"buoy_{i:02d}_{b['type']}"
         if spec['shape'] == 'robobuoy':
-            light = robobuoy.parse_light(b.get('light', 'off'),
-                                         lambda p: position(p, origin, anchor))
-            # The world generator draws the light as it starts
-            buoys.append((name, b['type'], dict(spec, light=light.color), x, y))
-            targets.append(Buoy(x, y, robobuoy.CAMERA_RADIUS, robobuoy.TOP,
-                                cid(robobuoy.class_name(light.color)), light=light))
+            b_targets, drawn = robobuoy_targets(b, spec, x, y, names, origin, anchor)
+            buoys.append((name, b['type'], drawn, x, y))
+            targets.extend(b_targets)
             continue
         buoys.append((name, b['type'], spec, x, y))
         if spec['shape'] == 'indicator':
@@ -241,6 +251,18 @@ def load(data):
         models.extend(dock_models)
         targets.extend(dock_targets)
 
+    if 'marina' in data:
+        m = data['marina']
+        x, y = position(m, origin, anchor)
+        m_model, m_targets, moored = marina.build(m, x, y, heading(m, anchor), names, Part,
+                                                  Model)
+        models.append(m_model)
+        targets.extend(m_targets)
+        for v_name, color, vx, vy, vyaw in moored:
+            v_model, v_panels = vessel(v_name, color, vx, vy, vyaw, names)
+            models.append(v_model)
+            targets.extend(v_panels)
+
     survey = []
     for step in data.get('survey', []):
         if 'spin_deg' in step:
@@ -253,6 +275,36 @@ def load(data):
                   boat=boat, profile=profile, class_names=names,
                   mission=data.get('mission', {}), venue=data.get('venue', ''),
                   buoys=buoys, models=models, targets=targets, survey=survey)
+
+
+def robobuoy_targets(b, spec, x, y, names, origin, anchor):
+    """
+    Return the camera targets of a RoboBuoy and what the world generator draws.
+
+    top: beacon (Task 1, `light`), indicator (Task 2: `indicator` red/green, `number`
+    1-3 on the faces) or none (course markers: no class, the camera reports nothing).
+    """
+    top = spec.get('top', 'beacon')
+    if top == 'beacon':
+        light = lights.parse_light(b.get('light', 'off'), lambda p: position(p, origin, anchor))
+        # The world generator draws the light as it starts
+        return [Buoy(x, y, robobuoy.CAMERA_RADIUS, robobuoy.TOP,
+                     names.index(f'beacon_{light.color}'), light=light)], \
+            dict(spec, light=light.color)
+    if top == 'indicator':
+        color, number = b['indicator'], int(b['number'])
+        z0 = robobuoy.BEACON_BOTTOM
+        targets = [Buoy(x, y, INDICATOR_RADIUS, z0 + INDICATOR_HEIGHT,
+                        names.index(f'indicator_{color}'), z0=z0)]
+        out, zc = robobuoy.FACE_MID
+        half = 0.08                                          # ASSUMED: number 16 cm tall
+        for k in range(4):
+            a = k * math.pi / 2.0
+            targets.append(Panel(x + out * math.cos(a), y + out * math.sin(a), zc - half,
+                                 zc + half, 0.12, math.degrees(a),
+                                 names.index(f'digit_{number}'), max_view_deg=60.0))
+        return targets, dict(spec, indicator=color, number=number)
+    return [], dict(spec, letter=b.get('letter', ''))
 
 
 def vessel(name, color, x, y, yaw, names):

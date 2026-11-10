@@ -176,8 +176,11 @@ Bir node çökerse 2 saniye sonra kendiliğinden yeniden başlar (teknedeki gibi
 | `course:=` | `golcuk_2026_10_14` | Parkur: `golcuk_2026_10_14` ya da `roboboat_2027` |
 | `start:=` | parkurun varsayılanı | `roboboat_2027`: teknenin başladığı yer. `readiness` (eski Görev 1'in önü, varsayılan) ya da `competition` (2027 parkurunun başı, Gazebo (-197,80; 809,98), batıya bakar; unsurlar Adım 4'te gelecek) |
 | `mission:=` | parkurun varsayılanı | `roboboat_2027`: navigatörün koştuğu görev. Şimdilik yalnız `readiness` (2026 Görev 1 + Görev 2) |
-| `layout:=` | parkur dosyasındaki (1) | `roboboat_2027`: 2027 Task 1 alanının seed'i; her sayı başka bir düzen |
-| `level:=` | `core` | `roboboat_2027` Task 1: `core`, `advanced` (EXIT yer değiştirir), `disruptive` (renkler de değişir) |
+| `layout:=` | `primer` | `roboboat_2027` Task 1: `primer` (Primer görselindeki gibi) ya da bir sayı (rastgele alan, her sayı başka düzen) |
+| `level:=` | `core` | `roboboat_2027` Task 1, rastgele alanda: `core`, `advanced` (EXIT yer değiştirir), `disruptive` (renkler de değişir) |
+
+Marinada pencere, tekne yeşil bölmede 3 s durunca kırmızı yanar. Su isabeti (taret gelene
+kadar) elle verilir: `ros2 topic pub --once /azure/sim/event std_msgs/msg/String "{data: fire_out}"`.
 | `gui:=false` | `true` | Gazebo penceresi açılmaz (daha hızlı) |
 | `paused:=true` | `false` | Duraklatılmış başlar; sol alttaki ▶'e bas |
 | `rviz:=true` | `false` | RViz dünya haritasıyla açılır |

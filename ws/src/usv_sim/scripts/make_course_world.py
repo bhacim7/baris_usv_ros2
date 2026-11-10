@@ -103,18 +103,39 @@ def robobuoy_model(name, spec, x, y):
                                        (0, half, 1.5708), (0, -half, 1.5708))):
         visual(link, f'noodle{k}', f'{px:.4f} {py:.4f} 0 1.5708 0 {yaw}', 'cylinder',
                (rb.NOODLE_D / 2.0, rb.FLOAT_SIDE), NOODLE_RGB)
-    for part, rgb in (('panels', white), ('diamonds', black)):
-        visual(link, part, '0 0 0 0 0 0', 'mesh', None, rgb,
-               uri=f'file://robobuoy/meshes/{part}.obj')
+    visual(link, 'panels', '0 0 0 0 0 0', 'mesh', None, white,
+           uri='file://robobuoy/meshes/panels.obj')
+    symbol, top = spec.get('symbol', 'diamond'), spec.get('top', 'beacon')
+    if symbol == 'diamond':
+        visual(link, 'diamonds', '0 0 0 0 0 0', 'mesh', None, black,
+               uri='file://robobuoy/meshes/diamonds.obj')
+    else:
+        # A number 1-3 drawn as that many bars, a letter as one wide bar (looks only)
+        bars = int(spec.get('number', 1)) if symbol == 'digit' else 1
+        out, zc = rb.FACE_MID
+        for k in range(4):
+            a = k * math.pi / 2.0
+            for n in range(bars):
+                s = (n - (bars - 1) / 2.0) * 0.04
+                bx = (out + 0.004) * math.cos(a) - s * math.sin(a)
+                by = (out + 0.004) * math.sin(a) + s * math.cos(a)
+                width = 0.02 if symbol == 'digit' else 0.10
+                visual(link, f'mark{k}_{n}', f'{bx:.4f} {by:.4f} {zc:.4f} 0 {-rb.FACE_TILT:.4f} '
+                       f'{a:.4f}', 'box', (0.004, width, 0.16), black)
     visual(link, 'flange', f'0 0 {rb.BEACON_BOTTOM - rb.FLANGE / 2.0:.4f} 0 0 0', 'cylinder',
            (rb.BEACON_RADIUS + 0.01, rb.FLANGE), black)
-    color = spec.get('light', 'off')
-    lit = color != 'off'
-    visual(link, 'beacon', f'0 0 {rb.BEACON_BOTTOM + rb.BEACON_LENGTH / 2.0:.4f} 0 0 0',
-           'cylinder', (rb.BEACON_RADIUS, rb.BEACON_LENGTH), LIGHT_RGB[color],
-           emissive=LIGHT_RGB[color] if lit else None)
-    visual(link, 'hat', f'0 0 {rb.TOP - rb.HAT_THICKNESS / 2.0:.4f} 0 0 0', 'cylinder',
-           (rb.HAT_RADIUS, rb.HAT_THICKNESS), black)
+    if top == 'beacon':
+        color = spec.get('light', 'off')
+        lit = color != 'off'
+        visual(link, 'beacon', f'0 0 {rb.BEACON_BOTTOM + rb.BEACON_LENGTH / 2.0:.4f} 0 0 0',
+               'cylinder', (rb.BEACON_RADIUS, rb.BEACON_LENGTH), LIGHT_RGB[color],
+               emissive=LIGHT_RGB[color] if lit else None)
+        visual(link, 'hat', f'0 0 {rb.TOP - rb.HAT_THICKNESS / 2.0:.4f} 0 0 0', 'cylinder',
+               (rb.HAT_RADIUS, rb.HAT_THICKNESS), black)
+    elif top == 'indicator':
+        h = course_mod.INDICATOR_HEIGHT
+        visual(link, 'indicator', f'0 0 {rb.BEACON_BOTTOM + h / 2.0:.4f} 0 0 0', 'cylinder',
+               (course_mod.INDICATOR_RADIUS, h), course_mod.RGB[spec['indicator']])
     col = sub(link, 'collision', name='collision')
     sub(col, 'pose', f'0 0 {(rb.TOP - SUBMERGED_M) / 2.0:.3f} 0 0 0')
     sub(sub(sub(col, 'geometry'), 'box'), 'size',

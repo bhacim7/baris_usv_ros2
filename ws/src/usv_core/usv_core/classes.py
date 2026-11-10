@@ -26,13 +26,19 @@ names them otherwise):
                                  Task 1 (RobotX 2026 rules): red and green flash 1 s on,
                                  1 s off, so a flashing beacon is beacon_off half the time;
                                  flashing blue = ENTRY, solid blue = EXIT
+  window_red / window_green      Task 3 marina: a building window (LED panel) by its light
+  window_blue / window_off       (the sequences: usv_sim/marina.py). Whether YOLO gives
+                                 the colour or YOLO finds the building and OpenCV reads the
+                                 windows is a perception choice; navigation sees these names
+  buoy_blue / buoy_white         Task 2 Polyform buoys in the colours 2026 did not have
 """
 
 TEKNOFEST = ('red', 'yellow', 'black', 'orange', 'green')
 
 ROBOBOAT = ('beacon_blue', 'beacon_green', 'beacon_off', 'beacon_red', 'buoy_black',
-            'buoy_green', 'buoy_red', 'buoy_yellow', 'digit_1', 'digit_2', 'digit_3',
-            'indicator_green', 'indicator_red', 'plus', 'pole_green', 'pole_red', 'triangle')
+            'buoy_blue', 'buoy_green', 'buoy_red', 'buoy_white', 'buoy_yellow', 'digit_1',
+            'digit_2', 'digit_3', 'indicator_green', 'indicator_red', 'plus', 'pole_green',
+            'pole_red', 'triangle', 'window_blue', 'window_green', 'window_off', 'window_red')
 
 PROFILES = {'teknofest': TEKNOFEST, 'roboboat': ROBOBOAT}
 
@@ -41,6 +47,8 @@ CHANNEL_BUOYS = ('buoy_red', 'buoy_green')
 INDICATOR_COLOR = {'indicator_red': 'red', 'indicator_green': 'green'}
 BEACON_COLOR = {'beacon_red': 'red', 'beacon_green': 'green', 'beacon_blue': 'blue',
                 'beacon_off': 'off'}
+WINDOW_COLOR = {'window_red': 'red', 'window_green': 'green', 'window_blue': 'blue',
+                'window_off': 'off'}
 VESSEL_MARK_COLOR = {'triangle': 'yellow', 'plus': 'black'}   # mark -> vessel colour
 DIGIT_NUMBER = {'digit_1': 1, 'digit_2': 2, 'digit_3': 3}
 
@@ -58,6 +66,8 @@ OBJECT_RADIUS_M = {
     # RoboBuoy: its float frame at the water, ~19 in square (as the simulation measures
     # it); on the real buoy the ZED may hit the sloping face, further in: to be measured
     'beacon_red': 0.24, 'beacon_green': 0.24, 'beacon_blue': 0.24, 'beacon_off': 0.24,
+    'window_red': 0.0, 'window_green': 0.0, 'window_blue': 0.0, 'window_off': 0.0,
+    'buoy_blue': 0.184, 'buoy_white': 0.184,            # ASSUMED A-2 (Task 2 drawing)
 }
 
 

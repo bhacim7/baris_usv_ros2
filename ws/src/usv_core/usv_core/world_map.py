@@ -12,11 +12,12 @@ How a sighting (one measured box, usv_core.detection.measure_boxes) is used:
   * it joins the nearest landmark of the same kind within merge_radius_m, or starts one;
     the two indicator classes are one kind, 'indicator', with a colour voted over the
     last color_window sightings (the colour may change between runs, the object does not)
-  * the four light beacon classes are one kind, 'beacon' (RoboBoat 2027): its light may
-    change during the run and red/green flash 1 s on, 1 s off, so its colour is read from
-    the last beacon_window_s seconds before it was last seen: the most common lit colour,
-    'off' only if it was never lit in that time. One frame does not change it; a real
-    change shows within beacon_window_s.
+  * the four light beacon classes are one kind, 'beacon', and the four window classes one
+    kind, 'window' (RoboBoat 2027): the light may change during the run and flash (1 s on,
+    1 s off), so its colour is read from the last beacon_window_s seconds before it was
+    last seen: the most common lit colour, 'off' only if it was never lit in that time.
+    One frame does not change it; a real change shows within beacon_window_s. (A window's
+    two-colour sequence needs the sightings in time order, not a colour: Landmark.lights.)
   * positions are fused as a weighted mean, weight 1 / sigma^2 with
     sigma = sigma_base_m + sigma_per_m * range: close sightings dominate (the ZED's depth
     error grows with distance and a heading error moves far objects more)
@@ -70,7 +71,10 @@ from collections import Counter, deque
 from dataclasses import dataclass, field
 import math
 
-from usv_core.classes import BEACON_COLOR, INDICATOR_COLOR
+from usv_core.classes import BEACON_COLOR, INDICATOR_COLOR, WINDOW_COLOR
+
+LIGHT_COLOR = {**BEACON_COLOR, **WINDOW_COLOR}
+LIGHT_KINDS = ('beacon', 'window')
 
 # D7: seen in this many frames together, two landmarks are two buoys (one such frame can
 # be a box with the wrong class: t2c_s1 had copies of two buoys seen together once); in
@@ -109,7 +113,9 @@ def kind_of(class_name):
     """Return the map kind of a class: the indicator colours, the beacon lights are one kind."""
     if class_name in INDICATOR_COLOR:
         return 'indicator'
-    return 'beacon' if class_name in BEACON_COLOR else class_name
+    if class_name in LIGHT_COLOR:
+        return class_name.rsplit('_', 1)[0]
+    return class_name
 
 
 @dataclass(frozen=True)
@@ -158,7 +164,7 @@ class Landmark:
 
     @property
     def color(self):
-        if self.kind == 'beacon':
+        if self.kind in LIGHT_KINDS:
             recent = [c for t, c in self.lights if t >= self.last_seen - self.light_window_s]
             lit = [c for c in recent if c != 'off']
             if lit:
@@ -220,8 +226,8 @@ class WorldMap:
         best.closest_m = min(best.closest_m, dist)
         if kind == 'indicator':
             best.colors.append(INDICATOR_COLOR[det['class_name']])
-        elif kind == 'beacon':
-            best.lights.append((now, BEACON_COLOR[det['class_name']]))
+        elif kind in LIGHT_KINDS:
+            best.lights.append((now, LIGHT_COLOR[det['class_name']]))
         return best
 
     def add_frame(self, detections, now, yaw_rate_dps=0.0):

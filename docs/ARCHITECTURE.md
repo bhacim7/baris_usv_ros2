@@ -98,6 +98,13 @@ picks one of each (`sim.launch.py start:=readiness mission:=readiness`, or the f
 `default`). The placement names the start it places, so the layout stays put whichever
 start is used.
 
+**RoboBoat 2027 course in simulation (2026-11-10, step 4b):** the competition part of
+`roboboat_2027` follows the Primer's course layout picture (0.08 m/px ASSUMED). Lights
+live in `usv_sim/lights.py` (programs, changes by time, by the boat staying near, by
+event); `usv_sim/marina.py` builds the Task 3 dock and buildings from the RobotX 2026
+drawings, windows report `window_<colour>`. Events reach the lights through
+`fake_perception`'s `sim/event` (String), e.g. `fire_out` until the turret exists.
+
 **RoboBoat 2027 Task 1 in simulation (2026-11-10):** RoboBuoys with Light Beacons
 (`usv_sim/robobuoy.py`, sizes from the RobotX 2026 build guides, meshes from
 `scripts/make_robobuoy_mesh.py`). A camera target may carry a light; `fake_perception`

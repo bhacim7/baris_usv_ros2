@@ -86,17 +86,17 @@ def test_golcuk_targets_are_what_fake_perception_built_before():
     assert c.targets == expected
 
 
-def test_roboboat_2027_has_the_readiness_tasks_and_the_task1_field():
+def test_roboboat_2027_has_the_readiness_tasks_and_the_2027_course():
     c = course_mod.load(read('roboboat_2027'))
     assert c.profile == 'roboboat' and c.class_names == ROBOBOAT
-    # Readiness: Task 1 4 poles; Task 2 10 channel, 7 debris. 2027: 10 RoboBuoys
-    assert len(c.buoys) == 31
-    assert [m.name for m in c.models] == ['vessel_00_black']
-    beacons = Counter(n for n in by_class(c).elements() if n.startswith('beacon'))
-    assert sum(beacons.values()) == 10 and beacons['beacon_blue'] == 2
-    assert {n: k for n, k in by_class(c).items() if not n.startswith('beacon')} == {
-        'pole_red': 2, 'pole_green': 2, 'buoy_red': 4, 'buoy_green': 4, 'buoy_black': 7,
-        'indicator_red': 1, 'indicator_green': 1, 'plus': 2}
+    # Readiness: 4 poles, 10 channel, 7 debris. 2027: 10 Task 1, 9 Task 2, 4 markers
+    assert len(c.buoys) == 44
+    assert len(c.models) == 7                  # 1 + 4 vessels, the marina, one in a bay
+    counts = by_class(c)
+    assert sum(k for n, k in counts.items() if n.startswith('beacon')) == 10
+    assert counts['beacon_blue'] == 2 and counts['window_off'] == 6
+    assert counts['buoy_blue'] == 1 and counts['buoy_white'] == 1
+    assert counts['digit_1'] == counts['digit_2'] == counts['digit_3'] == 4
     assert c.mission == {'roboboat.task_order': ['task2'], 'roboboat.hint.task2': '21.1,-1.5'}
 
 
@@ -118,18 +118,31 @@ def test_select_start_and_mission():
     assert data['starts'] and data['placement']['start'] == 'readiness'   # input untouched
 
 
-def test_task1_field_stands_ahead_of_the_competition_start():
+def test_2027_course_lies_ahead_of_the_competition_start():
     c = course_mod.load(course_mod.select(read('roboboat_2027'), 'competition'))
-    field = [b for b in c.targets if getattr(b, 'light', None)]
-    entry = next(b for b, (name, *_) in zip(c.targets, c.buoys) if name.endswith('entry'))
-    # 12 m ahead (west in the park) of the start, the field further west
-    assert entry.x == pytest.approx(c.boat['east'] - 12.0, abs=0.01)
-    assert entry.y == pytest.approx(c.boat['north'], abs=0.01)
-    assert all(b.x <= entry.x + 0.01 for b in field)
-    assert all(abs(b.y - entry.y) <= 12.5 for b in field)
-    # Far from the readiness course
-    readiness = [b for b in c.targets if getattr(b, 'light', None) is None]
-    assert min(abs(b.y - entry.y) for b in readiness) > 100.0
+    _, _, _, ex, ey = next(b for b in c.buoys if b[0] == 'task1_entry')
+    # The Primer's ENTRY: 39 m ahead (west in the park) and 2.8 m left (south) of the start
+    assert ex == pytest.approx(c.boat['east'] - 38.96, abs=0.01)
+    assert ey == pytest.approx(c.boat['north'] - 2.80, abs=0.01)
+    corners = [b for b in c.buoys if b[0].startswith('marker_')]
+    xs, ys = [b[3] for b in corners], [b[4] for b in corners]
+    in_2027 = [t for t in c.targets if t.y < 900.0]
+    assert len(in_2027) == 73 - 21 - 2         # all but the readiness buoys and its vessel
+    assert all(min(xs) <= t.x <= max(xs) + 0.5 and min(ys) - 0.5 <= t.y <= max(ys)
+               for t in in_2027)
+    readiness = [t for t in c.targets if t.y >= 900.0]
+    assert min(t.y for t in readiness) - max(ys) > 40.0
+
+
+def test_random_task1_layout_and_levels():
+    data = read('roboboat_2027')
+    data['task1_field'] = dict(data['task1_field'], layout='4', level='advanced')
+    c = course_mod.load(data)
+    assert sum(1 for b in c.buoys if b[0].startswith('task1_')) == 10
+    assert any('next_exit' in b[0] for b in c.buoys)
+    data['task1_field'] = dict(data['task1_field'], layout='primer')
+    with pytest.raises(ValueError, match='core only'):
+        course_mod.load(data)
 
 
 def test_select_refuses_what_the_course_does_not_have():
