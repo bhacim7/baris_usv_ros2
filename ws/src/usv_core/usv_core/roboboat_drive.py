@@ -77,6 +77,7 @@ OBSTACLE_RADIUS_M = {
     'beacon': 0.26,           # RoboBuoy: its pool-noodle float frame, ~0.5 m square
     'window': 0.6,            # marina building (1.0 x 0.75 m)
     'buoy_blue': 0.18, 'buoy_white': 0.18,
+    'circle': 0.85, 'square': 0.85,           # 2027 vessel shapes stand for the vessel
 }
 DETECTION_MAX_AGE_S = 0.5
 MATCH_M = 2.0                 # a detection replaces a map position within this ...

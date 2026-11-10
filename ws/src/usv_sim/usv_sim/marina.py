@@ -72,7 +72,8 @@ def build(spec, x0, y0, heading_deg, names, part, model_cls):
     sequence [first, second], hold_s}. (x0, y0): world ENU of the middle of the deck's
     bay-side edge; heading_deg: compass direction the bays open to. part / model_cls:
     course.Part and course.Model (passed in, course.py imports this module). Returns
-    (dock model, targets, [(name, colour, x, y, yaw) of vessels moored in bays]).
+    (dock model, targets, [(name, colour, x, y, yaw, shape) of vessels moored in bays]).
+    A bay's vessel may carry a 2027 shape (`shape`).
     """
     if len(spec['bays']) != 3:
         raise ValueError('a marina has three bays')
@@ -141,5 +142,5 @@ def build(spec, x0, y0, heading_deg, names, part, model_cls):
             # Moored in the bay, bow to the building (course.vessel builds it)
             mx, my = world(du, 0.95)
             moored.append((f"marina_bay{number}_{bay['vessel']}", bay['vessel'], mx, my,
-                           v_yaw + math.pi))
+                           v_yaw + math.pi, bay.get('shape')))
     return dock, targets, moored

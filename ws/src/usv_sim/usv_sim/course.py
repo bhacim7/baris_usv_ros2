@@ -36,8 +36,10 @@ A course file has:
   marina         optional, the RoboBoat 2027 marina (usv_sim/marina.py): {name, east,
                  north (middle of the deck's bay-side edge), heading_deg (where the bays
                  open), bays [{indicator, window, vessel}] x 3, level, sequence, hold_s}
-  vessels        {color: yellow|black, heading_deg, position}: RoboBoat stationary vessels
-                 with a triangle (yellow) or plus (black) on both sides
+  vessels        {color: yellow|black, heading_deg, position, shape}: RoboBoat stationary
+                 vessels; without shape (2026) a triangle (yellow) or plus (black) on both
+                 sides, with shape (2027: plus, circle, square, triangle) that shape on
+                 both faces of a white board standing on the vessel like a sail
   docks          {name, heading_deg, tines: left|right, slips: [{indicator, vessel}] x 3,
                  position of the start of the dock's spine}: RoboBoat floating docks
   survey         optional, the route survey_drive follows for map measurements: steps
@@ -51,7 +53,7 @@ ASSUMED is a guess to be replaced when known.
 from dataclasses import dataclass, field
 import math
 
-from usv_core.classes import class_names
+from usv_core.classes import class_names, VESSEL_SHAPES
 from usv_sim import lights, marina, robobuoy, task1_field
 from usv_sim.camera import Buoy, Panel
 from usv_sim.geo import enu
@@ -72,6 +74,9 @@ SLIP_WIDTH = 1.524                # 60 in
 FIRST_TINE_X = 0.60               # ASSUMED: spine before the first tine
 BANNER_SIZE = 0.61                # 24 x 24 in
 BANNER_BOTTOM = 0.30              # ASSUMED: banner on a post, bottom edge above the water
+SAIL_SIZE = 0.60                  # ASSUMED: 2027 vessel's white board, square
+SAIL_BOTTOM = 0.15                # ASSUMED: board's bottom edge above the deck
+SHAPE_SIZE = 0.40                 # ASSUMED: the black shape on it
 
 RGB = {
     'red': (0.75, 0.02, 0.02), 'green': (0.0, 0.55, 0.12), 'black': (0.04, 0.04, 0.04),
@@ -86,7 +91,7 @@ class Part:
 
     shape: str                    # box, cylinder or sphere
     size: tuple                   # box (sx, sy, sz); cylinder (radius, length); sphere (r,)
-    pose: tuple                   # (x, y, z, yaw)
+    pose: tuple                   # (x, y, z, yaw) or (x, y, z, roll, pitch, yaw)
     rgb: tuple
     collide: bool = True
 
@@ -241,7 +246,7 @@ def load(data):
     for i, v in enumerate(data.get('vessels', [])):
         x, y = position(v, origin, anchor)
         model, panels = vessel(f'vessel_{i:02d}_{v["color"]}', v['color'], x, y,
-                               compass_to_yaw(heading(v, anchor)), names)
+                               compass_to_yaw(heading(v, anchor)), names, v.get('shape'))
         models.append(model)
         targets.extend(panels)
 
@@ -258,8 +263,8 @@ def load(data):
                                                   Model)
         models.append(m_model)
         targets.extend(m_targets)
-        for v_name, color, vx, vy, vyaw in moored:
-            v_model, v_panels = vessel(v_name, color, vx, vy, vyaw, names)
+        for v_name, color, vx, vy, vyaw, shape in moored:
+            v_model, v_panels = vessel(v_name, color, vx, vy, vyaw, names, shape)
             models.append(v_model)
             targets.extend(v_panels)
 
@@ -307,14 +312,37 @@ def robobuoy_targets(b, spec, x, y, names, origin, anchor):
     return [], dict(spec, letter=b.get('letter', ''))
 
 
-def vessel(name, color, x, y, yaw, names):
-    """Build a stationary vessel and the two marks on its sides (camera panels)."""
-    mark = 'triangle' if color == 'yellow' else 'plus'
+def vessel(name, color, x, y, yaw, names, shape=None):
+    """
+    Build a stationary vessel and its marks (camera panels).
+
+    shape None (2026): a triangle (yellow) or plus (black) on both sides of the hull.
+    shape plus|circle|square|triangle (2027): that shape on both faces of a white board
+    standing amidships along the hull, like a sail.
+    """
     model = Model(name, x, y, yaw)
     h = VESSEL_FREEBOARD
     model.parts.append(Part('box', (VESSEL_LENGTH, VESSEL_WIDTH, h + 0.10),
                             (0.0, 0.0, (h - 0.10) / 2.0, 0.0), RGB[color]))
     panels = []
+    if shape is not None:
+        if shape not in VESSEL_SHAPES:
+            raise ValueError(f'vessel shape {shape!r}: one of {", ".join(VESSEL_SHAPES)}')
+        z0 = h + SAIL_BOTTOM
+        zc = z0 + SAIL_SIZE / 2.0
+        mast = (0.0, 0.0, h + SAIL_BOTTOM / 2.0, 0.0)
+        model.parts.append(Part('cylinder', (0.02, SAIL_BOTTOM), mast, RGB['grey'], False))
+        model.parts.append(Part('box', (SAIL_SIZE, 0.006, SAIL_SIZE), (0.0, 0.0, zc, 0.0),
+                                RGB['white'], False))
+        for side in (1, -1):
+            sy = side * 0.005
+            model.parts.extend(shape_parts(shape, sy, zc))
+            px, py = local_to_enu(x, y, yaw, 0.0, sy)
+            panels.append(Panel(px, py, zc - SHAPE_SIZE / 2.0, zc + SHAPE_SIZE / 2.0,
+                                SHAPE_SIZE, math.degrees(yaw) + 90.0 * side,
+                                names.index(shape)))
+        return model, panels
+    mark = 'triangle' if color == 'yellow' else 'plus'
     for side in (1, -1):
         sy = side * (VESSEL_WIDTH / 2.0 + 0.003)
         z0, z1 = 0.03, 0.03 + MARK_SIZE
@@ -324,6 +352,24 @@ def vessel(name, color, x, y, yaw, names):
         panels.append(Panel(px, py, z0, z1, MARK_SIZE,
                             math.degrees(yaw) + 90.0 * side, names.index(mark)))
     return model, panels
+
+
+def shape_parts(shape, y, zc):
+    """Thin black parts drawing a 2027 vessel shape on a board face at y (looks only)."""
+    t, s, black = 0.004, SHAPE_SIZE, RGB['black']
+    if shape == 'circle':
+        return [Part('cylinder', (s / 2.0, t), (0.0, y, zc, math.pi / 2.0, 0.0, 0.0), black,
+                     False)]
+    if shape == 'square':
+        return [Part('box', (0.85 * s, t, 0.85 * s), (0.0, y, zc, 0.0), black, False)]
+    if shape == 'plus':
+        bar = s / 3.0
+        return [Part('box', (s, t, bar), (0.0, y, zc, 0.0), black, False),
+                Part('box', (bar, t, s), (0.0, y, zc, 0.0), black, False)]
+    rows = 8
+    return [Part('box', (s * (rows - k) / rows, t, s / rows),
+                 (0.0, y, zc - s / 2.0 + (k + 0.5) * s / rows, 0.0), black, False)
+            for k in range(rows)]
 
 
 def mark_parts(mark, y, zc, white_back):

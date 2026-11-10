@@ -11,7 +11,7 @@ from usv_core.classes import ROBOBOAT
 from usv_sim import course as course_mod, lights, marina
 
 SPEC = {'name': 'M', 'bays': [{'indicator': 'red'}, {'indicator': 'green', 'window': 2},
-                              {'indicator': 'red', 'vessel': 'yellow'}]}
+                              {'indicator': 'red', 'vessel': 'yellow', 'shape': 'circle'}]}
 
 
 def build(spec=SPEC, heading=270.0):
@@ -79,8 +79,8 @@ def test_fire_sequence_core_and_disruptive():
 
 def test_vessel_moored_in_its_bay_and_wrong_specs_refused():
     _, _, moored = build()
-    (name, color, x, y, yaw), = moored
-    assert color == 'yellow' and name == 'marina_bay3_yellow'
+    (name, color, x, y, yaw, shape), = moored
+    assert color == 'yellow' and name == 'marina_bay3_yellow' and shape == 'circle'
     assert x == pytest.approx(-0.95) and y < 0.0
     assert math.cos(yaw) == pytest.approx(1.0)         # bow east, at the building
     with pytest.raises(ValueError):

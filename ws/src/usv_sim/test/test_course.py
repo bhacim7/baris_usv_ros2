@@ -213,6 +213,22 @@ def test_vessel_marks_are_on_both_sides():
     assert {ROBOBOAT[p.class_id] for p in panels} == {'plus'}
 
 
+def test_2027_vessel_shows_its_shape_on_both_faces_of_its_board():
+    yaw = course_mod.compass_to_yaw(0.0)       # heading north: faces east and west (ENU 0, 180)
+    for shape in ('plus', 'circle', 'square', 'triangle'):
+        model, panels = course_mod.vessel('v', 'black', 0.0, 0.0, yaw, ROBOBOAT, shape)
+        assert [ROBOBOAT[p.class_id] for p in panels] == [shape, shape]
+        assert sorted(p.normal_deg % 360.0 for p in panels) == [
+            pytest.approx(0.0), pytest.approx(180.0)]
+        top = course_mod.VESSEL_FREEBOARD + course_mod.SAIL_BOTTOM + course_mod.SAIL_SIZE
+        assert all(p.z1 < top for p in panels)
+    with pytest.raises(ValueError):
+        course_mod.vessel('v', 'black', 0.0, 0.0, yaw, ROBOBOAT, 'star')
+    c = course_mod.load(read('roboboat_2027'))
+    counts = by_class(c)
+    assert counts['circle'] == 4 and counts['square'] == 2      # one in the marina
+
+
 def test_indicator_buoy_target_is_the_cylinder_on_top():
     c = roboboat_local()
     ind = [t for t in c.targets if isinstance(t, Buoy)

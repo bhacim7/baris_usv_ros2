@@ -21,11 +21,10 @@ Docker içinde (Gazebo Harmonic + VRX), gerçek tekneler Jetson. Hedef: RoboBoat
 - Adım 3 bitti: commit `bce266c`. Parkur `roboboat_2027` (2026 Task 1–2),
   `start:=readiness|competition`, `mission:=readiness`.
 - Adım 4a bitti: commit `8bffdca` (RoboBuoy, ışıklar, rastgele Task 1 alanı).
-- Adım 4b yazıldı: marina (RobotX çizimleriyle), pencere ışıkları (`window_*`, `sim/event`
-  ile `fire_out`), 2027 parkuru Primer görselindeki yerleşimle (Task 1 `layout: primer`,
-  Task 2 şamandıraları, Task 4 tekneleri, köşe işaretçileri). Barış'ın testi ve commit'i
-  bekleniyor.
-- Sıradaki: 4e (Task 4 şekilli tekneler), Task 2'nin kalanı (pinger); sonra Adım 5.
+- Adım 4b bitti: commit `338b325` (marina, pencere ışıkları, Primer yerleşimi).
+- Adım 4e yazıldı: Task 4 tekneleri yelken levhasında şekille (`circle`, `square` sınıfları).
+  Barış'ın testi ve commit'i bekleniyor. Pinger simüle edilmedi.
+- Sıradaki: Adım 5, RoboCommand ve haberleşme (GCS görselleri Barış'tan istenecek).
 - Bilinen: raporda "yeşil 330°" uyarısı GPS/harita kaymasından (R3.5 ertelendi).
 
 ## Çalışma şekli (değişmez kurallar)

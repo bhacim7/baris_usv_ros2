@@ -178,13 +178,13 @@ marina:
   bays:
     - {indicator: red}
     - {indicator: green, window: 2}
-    - {indicator: red, vessel: yellow}
+    - {indicator: red, vessel: yellow, shape: circle}
 
 # Task 2 (Emergency Response Sprint): numbered RoboBuoys with a Color Indicator on top and
 # Polyform buoys in six colours. The pinger is not simulated.
 #
-# Task 4 (Delivery Run): vessels (see `vessels`); the 2027 shapes (cross, circle, square,
-# triangle) come with roadmap step 4e; for now yellow = triangle, black = plus.
+# Task 4 (Delivery Run): vessels (see `vessels`) with a 2027 shape (plus = cross, circle,
+# square, triangle) on a white board standing on them like a sail.
 #
 # Task 5 (Dynamic Response): a zone, nothing in the water (for the mission, step 6).
 zones:
@@ -192,11 +192,12 @@ zones:
 
 vessels:
   - {color: black,  east: 6.52, north: 56.13, heading_deg: 30.0}  # in the debris field
-  # 2027 Task 4 (Primer course layout; orange drawn = yellow here)
-  - {color: black,  east: -103.79, north: 52.07, heading_deg: 350.0}
-  - {color: yellow, east: -70.99,  north: 55.83, heading_deg: 300.0}
-  - {color: black,  east: -97.71,  north: 0.15,  heading_deg: 90.0}
-  - {color: yellow, east: -115.07, north: -4.65, heading_deg: 60.0}
+  # 2027 Task 4 (Primer course layout; orange drawn = yellow here). Shapes ASSUMED (the
+  # picture does not show them): one of each
+  - {color: black,  east: -103.79, north: 52.07, heading_deg: 350.0, shape: plus}
+  - {color: yellow, east: -70.99,  north: 55.83, heading_deg: 300.0, shape: circle}
+  - {color: black,  east: -97.71,  north: 0.15,  heading_deg: 90.0,  shape: square}
+  - {color: yellow, east: -115.07, north: -4.65, heading_deg: 60.0,  shape: triangle}
 
 # Map-measurement route (phase 6 R1.6), driven by survey_drive from Gazebo's true pose, so
 # every run takes the same path: through the Task 1 gates, one full turn on the spot (the

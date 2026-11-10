@@ -245,7 +245,9 @@ def course_model(m):
     sub(model, 'pose', f'{m.x:.3f} {m.y:.3f} 0 0 0 {m.yaw:.4f}')
     link = sub(model, 'link', name='link')
     for k, part in enumerate(m.parts):
-        pose = f'{part.pose[0]:.3f} {part.pose[1]:.3f} {part.pose[2]:.3f} 0 0 {part.pose[3]:.4f}'
+        rpy = part.pose[3:] if len(part.pose) == 6 else (0.0, 0.0, part.pose[3])
+        pose = (f'{part.pose[0]:.3f} {part.pose[1]:.3f} {part.pose[2]:.3f} '
+                f'{rpy[0]:.4f} {rpy[1]:.4f} {rpy[2]:.4f}')
         vis = sub(link, 'visual', name=f'v{k}')
         sub(vis, 'pose', pose)
         geometry(vis, part)

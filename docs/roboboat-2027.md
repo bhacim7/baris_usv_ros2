@@ -447,10 +447,17 @@ RoboCommand (10.10.10.1:50000) ──Ethernet── GCS ──Ubiquiti (ana)─�
     numara: `digit_1..3`) ve altı Polyform şamandıra, dört köşe işaretçisi (harfli; kamera
     sınıfı yok), Task 4 tekneleri (şimdilik eski sarı/üçgen, siyah/artı; şekiller 4e), Task 5
     bölgesi (`zones`, suda bir şey yok). Pinger yok.
+  - Barış Gazebo'da baktı (10 Kasım): yerleşim ve marina sorunsuz. Commit `338b325`.
   - Algılama yöntemi (Barış'ın sorusu): pencere ve bölme göstergesi için YOLO + OpenCV renk
     okuması düşünülüyor (`~/Downloads/drone_color.py` deneyimi). Simülasyon algılamanın
     sonucunu (`window_red` gibi) üretir; yöntem algılama tarafının kararı, navigasyon
     değişmez.
+- **4e (Task 4 tekneleri) yazıldı (10 Kasım):** 2027 teknesi, gövdenin ortasında yelken gibi
+  duran beyaz bir levha ve iki yüzünde siyah şekil: `plus` (artı), `circle`, `square`,
+  `triangle` (yeni sınıflar `circle`, `square`). Levha 60 cm, şekil 40 cm (tahmin). Parkurdaki
+  dört tekneye birer şekil (görselde görünmüyor, tahmin), marinadaki teknede daire.
+- **Adım 4'ten kalan:** pinger (Task 2 ileri seviyeler) simüle edilmedi: hidrofon kararı
+  yok. Gerekirse yalnız konum ve frekans bilgisi eklenir.
 
 ### Adım 5. RoboCommand ve haberleşme
 - **GCS tarafı:** RoboCommand bağlantısı.
