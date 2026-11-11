@@ -31,10 +31,13 @@ Docker içinde (Gazebo Harmonic + VRX), gerçek tekneler Jetson. Hedef: RoboBoat
   27.366566, -82.450768 oldu. Tek noktadan ölçüldü; Barış'ın doğrulaması ve commit'i
   bekleniyor. Eski kayıtlar eski origin'le (27.367256, -82.451120).
 - Adım 5c bitti: commit `f3de9fe` (`usv_interfaces/TaskRequest`, GCS komutu `task`).
-- Adım 5d yazıldı: `gcs/robocommand/` (RoboBoat 2026 resmi protobuf, TCP, heartbeat/hız
+- Adım 5d bitti (`5382a12`): `gcs/robocommand/` (RoboBoat 2026 resmi protobuf, TCP, heartbeat/hız
   köprüsü, kural denetleyen sahte sunucu, GCS kutusu). Barış'ın denemesi ve commit'i
   bekleniyor. MQTT taşıması 2027 el kitabı isterse. Veri yolu: tekne → GCS → Ethernet →
   RoboCommand.
+- Adım 6a yazıldı: `usv_core/mission.py` (görev yöneticisi çekirdeği, testleri). Readiness
+  eski `RoboBoatRun`'da donduruldu (yalnız video). Barış'ın testi ve commit'i bekleniyor.
+  Sıradaki 6b.
 - GCS'yi Claude ana makinede `QT_QPA_PLATFORM=offscreen ~/gcs-venv/bin/python` ile pencere
   açmadan deneyebilir; GCS testleri `~/gcs-venv/bin/python -m pytest gcs/test`.
 - Sıra (Barış'la, 11 Kasım): 5d (RoboCommand) → Adım 6 (görev yöneticisi) → Task 1 davranışı

@@ -533,6 +533,27 @@ ne olursa olsun ROS içinde bu mesaj sabit kalır; görev yöneticisi (Adım 6) 
   (Task 4, Task 5).
 - Görevleri profile göre tekneye dağıtma (su işi Marine'e).
 
+**Kararlar (Barış, 11 Kasım):**
+- Readiness koşusu (2026 Task 1 + 2, yalnız Proof of Readiness videosu için) eski
+  `RoboBoatRun`'da **dondurulur**; görev yöneticisi ona dokunmaz. Navigatör açılışta
+  `mission`'a bakar: `readiness` → eski koşu, `roboboat_2027` → görev yöneticisi. Video günü
+  açılış komutuna `mission:=readiness` yazılır; varsayılan (Adım 6 bitince) yarışma.
+- Askıya alınan görev baştan başlar, koşunun ortak hafızasıyla (yaptığını atlayabilir).
+- Tekneler arası paylaştırmayı GCS yapar, otomatik: RoboCommand'dan gelen isteği kendisi
+  çözüp tekneye iletir; operatör dokunmaz.
+- Plan bitince ya da süre dolunca: başlangıç noktasına dön, orada dur (ayarlanabilir).
+- Gazebo'da iki tekne 6e'de. İki tekne şu an tamamen aynı, aynı kodu çalıştırır; ileride
+  birine LiDAR, birine atış sistemi gelir.
+
+Parçalar: 6a çekirdek, 6b bağlantı (navigatör `task_request`'i dinler, plan parkur
+dosyasından, durum GCS'de), 6c `rally` ve `hold`/eve dönüş (yerinde durma), 6d rapor yolu
+(tekne → GCS → RoboCommand), 6e iki tekne arasında paylaştırma ve Gazebo'da iki tekne.
+
+**6a yazıldı (11 Kasım): `usv_core/mission.py`.** Plan, kuyruk, acil istekte askıya alma ve
+geri dönme (görev `start` ile yeniden başlar, hafıza ortak), yetenek denetimi (profil),
+görev ve koşu zaman aşımı, HOME (şimdilik boşta durma; sürüş 6c'de), olay listesi. Görevler
+fabrikalarla yaratılır, isteğin parametreleri göreve ulaşır. Henüz navigatöre bağlı değil.
+
 ### Adım 7. Atış sistemi (Marine)
 - `usv_core/turret.py`: saf mantık.
 - `turret` düğümü: Jetson sürücüsü ve sahte sürücü. Pinler, I2C ve kanallar ayar dosyasında.
