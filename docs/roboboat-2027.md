@@ -566,7 +566,15 @@ rally, hold) "not written yet" deyip atlanır.
 `hold_s`): noktaya git, orada dur (Task 5 Core). `hold`: olduğun yerde dur. HOME: koşunun
 başladığı yere dön, orada dur. Yerinde durma bir bant: 2 m içinde motorlar boşta, sürüklenip
 4 m'yi aşınca DriveTo ile geri (tahmin, Gazebo'da ölçülecek). Parametresi yanlış `rally`
-sebebiyle atlanır.
+sebebiyle atlanır. Barış Gazebo'da denedi: tekne noktaya gidip yerinde durdu, salınmadı.
+
+**6d yazıldı (11 Kasım): rapor yolu.** Görevler rapor üretir (`take_reports`); görev
+yöneticisi toplar; readiness koşusunda giriş/çıkış kapısı bitince "gate entry/exit" raporu.
+Navigatör `task_report` (yeni `usv_interfaces/TaskReport`) yayınlar → `telemetry_bridge` rapor
+paketi (`rp`, iki hattan) → GCS onaylar (`report_ack`), kopyaları atar, teknenin günlüğüne
+yazar ve bu yılın protokolünde mesajı olanları RoboCommand'a verir (2026: kapı, nesne,
+teslimat, yanaşma). Onay gelmeyen rapor tekneden her 1,2 s'de yeniden gönderilir. `rally`
+varınca "arrived" raporu üretir (2026'da karşılığı yok: yalnız GCS günlüğünde).
 
 ### Adım 7. Atış sistemi (Marine)
 - `usv_core/turret.py`: saf mantık.

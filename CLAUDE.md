@@ -39,12 +39,19 @@ Docker içinde (Gazebo Harmonic + VRX), gerçek tekneler Jetson. Hedef: RoboBoat
   donduruldu (yalnız video).
 - Adım 6b bitti (`a385769`): navigatör `mission:=roboboat_2027` ile görev yöneticisini
   kullanır, `task_request`'i dinler, sıradakiler GCS'de.
-- Adım 6c yazıldı: `rally`, `hold`, HOME (`usv_core/mission_tasks.py`, yerinde durma bandı
-  2/4 m). Barış'ın Gazebo denemesi ve commit'i bekleniyor. Sıradaki 6d (rapor yolu).
+- Adım 6c bitti (`d63c1d4`): `rally`, `hold`, HOME (yerinde durma bandı 2/4 m, Gazebo'da iyi).
+- Adım 6d yazıldı: rapor yolu tekne → GCS → RoboCommand (`TaskReport`, rapor paketleri,
+  `report_ack`). Barış'ın denemesi ve commit'i bekleniyor. Sıradaki 6e (paylaştırma + Gazebo'da
+  iki tekne).
 - Ana makinede (Claude) çekirdek testleri: `~/gcs-venv/bin/python` (numpy, pytest var; cv2
   yok, gerekirse sahte modülle).
 - GCS'yi Claude ana makinede `QT_QPA_PLATFORM=offscreen ~/gcs-venv/bin/python` ile pencere
   açmadan deneyebilir; GCS testleri `~/gcs-venv/bin/python -m pytest gcs/test`.
+- **Açık konu (11 Kasım):** readiness koşusu `auto:=true` ile otomatikken GCS'de MAN'a basınca
+  tekne manuele geçmedi. Manuel/oto iki görevde de ortak (`nav_base.set_manual`), yani eksik
+  özellik değil, bir hata. Henüz bakılmadı; Barış "ekle" deyince bakılacak. Önce launch
+  günlüğünde `Switched to MANUAL mode` ve GCS günlüğünde `TX[USV1]: set_manual->True` /
+  `KOMUT ULAŞMADI` var mı bakılacak.
 - Sıra (Barış'la, 11 Kasım): 5d (RoboCommand) → Adım 6 (görev yöneticisi) → Task 1 davranışı
   → marina Core → Task 5 → Task 2 Core; Adım 7-8 donanım hazır oldukça; Task 4 atıştan,
   Task 2 pinger seviyeleri hidrofondan sonra (docs/roboboat-2027.md §8 "Sıra").

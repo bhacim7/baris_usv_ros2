@@ -134,6 +134,31 @@ def test_task_command_becomes_task_request_fields():
         gcs_link.task_request({'cmd': 'task', 'task': 'x', 'p': [1, 2]})
 
 
+def test_report_packet_round_trip_and_size():
+    rep = {'id': 4, 'task': 'T1_ENTRY', 'type': 'gate', 'lat': 27.3738771234,
+           'lon': -82.4527689, 'fields': {'gate': 'entry'}}
+    pkt = gcs_link.report_packet(1, 100001, rep)
+    assert pkt['q'] == 1 and 'la' not in pkt                 # not the boat's position keys
+    back = gcs_link.report_from_packet(json.loads(gcs_link.encode(pkt)))
+    assert back == dict(rep, lat=27.3738771, lon=-82.4527689)
+    assert len(gcs_link.encode(pkt)) < 250
+    nowhere = gcs_link.report_packet(1, 0, {'id': 5, 'type': 'arrived', 'lat': float('nan'),
+                                            'lon': None})
+    assert 'ra' not in nowhere and gcs_link.report_from_packet(nowhere)['lat'] is None
+
+
+def test_report_sender_resends_until_acked():
+    s = gcs_link.ReportSender()
+    s.add({'id': 1, 'type': 'gate'})
+    s.add({'id': 2, 'type': 'gate'})
+    assert s.due(0.0)['id'] == 1 and s.due(0.0)['id'] == 2   # one per call, oldest first
+    assert s.due(0.5) is None                                  # not yet time to resend
+    assert s.due(1.3)['id'] == 1                               # resent
+    s.ack(1)
+    s.ack(1)                                                   # an ack's copy: harmless
+    assert s.due(2.5)['id'] == 2 and list(s.pending) == [2]
+
+
 def test_udp_link_both_ways():
     a = gcs_link.UdpLink(0, [], host='127.0.0.1')
     b = gcs_link.UdpLink(0, [('127.0.0.1', a.sock.getsockname()[1])], host='127.0.0.1')

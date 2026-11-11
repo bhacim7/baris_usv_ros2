@@ -21,14 +21,19 @@ every packet goes over both (RoboBoat 2027, step 5a):
   emergency_stop    emergency_stop (fc_bridge / sim_bridge) and navigator/emergency_stop
   task              no service: published on task_request (usv_interfaces/TaskRequest)
                     for the mission manager (2027: judges' and operator's tasks)
+  report_ack        the GCS has a report (n): it is not resent (no service)
   others            acked and ignored (report_status: telemetry runs on its own clock;
                     manual_control: the 2026 boat ignored it too)
+
+Reports: the run's (task_report, usv_interfaces/TaskReport) go out as report packets
+(gcs_link.report_packet) beside the telemetry, resent until the GCS acks them.
 
 Subscribes: nav_status, thrusters/pwm, fix, heading, speed, relay_state, perception/fps,
 mission/waypoints. Links: udp_listen_port / gcs_host:gcs_port (Ubiquiti; empty gcs_host
 = off) and serial_port at serial_baud (RFD; empty = off).
 """
 
+import math
 import time
 
 import rclpy
@@ -39,7 +44,7 @@ from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import Float32, Int8
 from std_srvs.srv import SetBool, Trigger
 from usv_core import gcs_link
-from usv_interfaces.msg import NavStatus, TaskRequest, ThrusterPwm, WaypointArray
+from usv_interfaces.msg import NavStatus, TaskReport, TaskRequest, ThrusterPwm, WaypointArray
 from usv_interfaces.srv import SetTargetColor, SetTask, SetWaypoint
 
 
@@ -84,6 +89,9 @@ class TelemetryBridge(Node):
         self.create_subscription(WaypointArray, 'mission/waypoints', self.on_waypoints,
                                  latched)
         self.task_pub = self.create_publisher(TaskRequest, 'task_request', 10)
+        # The run's reports: sent to the GCS with the telemetry, resent until it acks them
+        self.reports = gcs_link.ReportSender()
+        self.create_subscription(TaskReport, 'task_report', self.on_report, 10)
         self.srv_clients = {
             'set_manual': self.create_client(SetBool, 'set_manual'),
             'set_task': self.create_client(SetTask, 'set_task'),
@@ -120,6 +128,12 @@ class TelemetryBridge(Node):
         def store(m):
             self.state[key] = m.data
         return store
+
+    def on_report(self, m):
+        lat = m.latitude if math.isfinite(m.latitude) else None
+        lon = m.longitude if math.isfinite(m.longitude) else None
+        self.reports.add({'id': m.report_id, 'task': m.task, 'type': m.type, 'lat': lat,
+                          'lon': lon, 'fields': dict(zip(m.keys, m.values))})
 
     def on_waypoints(self, m):
         self.waypoints = {w.index: (w.latitude, w.longitude) for w in m.waypoints}
@@ -158,6 +172,10 @@ class TelemetryBridge(Node):
         elif cmd == 'emergency_stop':
             calls += [('emergency_stop', Trigger.Request()),
                       ('nav_emergency_stop', Trigger.Request())]
+        elif cmd == 'report_ack':
+            self.reports.ack(obj.get('n', -1))     # the GCS has the report: stop resending
+            self.finish(cq)
+            return
         elif cmd == 'task':
             try:
                 fields = gcs_link.task_request(obj)
@@ -230,6 +248,10 @@ class TelemetryBridge(Node):
             self.acked = self.filter.last
         self.links.send(packet)
         self.q = (self.q + 1) % gcs_link.SEQ_MOD
+        report = self.reports.due(now)
+        if report is not None:
+            self.links.send(gcs_link.report_packet(self.boat, self.q, report))
+            self.q = (self.q + 1) % gcs_link.SEQ_MOD
 
     def destroy_node(self):
         self.links.close()

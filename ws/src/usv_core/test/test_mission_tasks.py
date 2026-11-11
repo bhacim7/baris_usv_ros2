@@ -60,6 +60,8 @@ def test_rally_goes_to_the_point_and_keeps_station_against_a_drift():
     late = track[len(track) // 2:]
     assert max(math.dist(p, (30.0, 20.0)) for p in late) < 4.5
     assert task.result['returns'] >= 1                   # the drift took it out, it came back
+    assert [r['type'] for r in task.take_reports()] == ['arrived']
+    assert task.take_reports() == []                     # taken once
 
 
 def test_rally_with_hold_time_is_done_after_it():

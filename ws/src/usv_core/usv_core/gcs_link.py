@@ -213,6 +213,57 @@ class ReliableSender:
             self.tries += 1
 
 
+def report_packet(boat, q, report):
+    """
+    Return the wire packet of a task report (boat -> GCS).
+
+    report: {id, task, type, lat, lon, fields: {key: value}}. Wire: {i, q, rp: id, rk: task,
+    rt: type, ra, ro (position; absent if none), rf: fields}. Not the telemetry's la / lo:
+    the GCS would take a report for the boat's position.
+    """
+    out = {'i': int(boat), 'q': int(q) % SEQ_MOD, 'rp': int(report['id']),
+           'rk': str(report.get('task', '')), 'rt': str(report['type'])}
+    lat, lon = report.get('lat'), report.get('lon')
+    if lat is not None and lon is not None and math.isfinite(lat) and math.isfinite(lon):
+        out['ra'], out['ro'] = round(float(lat), 7), round(float(lon), 7)
+    if report.get('fields'):
+        out['rf'] = {str(k): str(v) for k, v in report['fields'].items()}
+    return out
+
+
+def report_from_packet(pkt):
+    """Return the report in a report packet (GCS side), as report_packet took it."""
+    return {'id': int(pkt['rp']), 'task': pkt.get('rk', ''), 'type': pkt.get('rt', ''),
+            'lat': pkt.get('ra'), 'lon': pkt.get('ro'), 'fields': dict(pkt.get('rf') or {})}
+
+
+class ReportSender:
+    """
+    The boat's reports to the GCS: each resent every RESEND_S until the GCS acks it.
+
+    The GCS acks with {target_id, cmd: report_ack, n}; it keeps the reports it has had,
+    so a resend that crosses the ack is not passed on twice.
+    """
+
+    def __init__(self):
+        self.pending = {}             # id -> (report, last sent)
+
+    def add(self, report):
+        self.pending[int(report['id'])] = (report, None)
+
+    def ack(self, n):
+        self.pending.pop(int(n), None)
+
+    def due(self, now):
+        """Return the oldest report due to be (re)sent now, or None; marks it sent."""
+        for n in sorted(self.pending):
+            report, sent = self.pending[n]
+            if sent is None or now - sent >= RESEND_S * 2:
+                self.pending[n] = (report, now)
+                return report
+        return None
+
+
 def task_request(obj):
     """
     Return the fields of a `task` command for usv_interfaces/TaskRequest.

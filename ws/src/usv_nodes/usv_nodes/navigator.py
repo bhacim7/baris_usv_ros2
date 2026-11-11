@@ -61,7 +61,8 @@ from usv_core.roboboat_navigator import Perception, RoboBoatNavigator
 from usv_core.safety import preflight_ready
 from usv_core.teknofest_navigator import TeknofestNavigator
 from usv_interfaces.msg import (BuoyArray, DetectionArray, LandmarkArray, NavStatus,
-                                TaskRequest, ThrusterPwm, Waypoint, WaypointArray)
+                                TaskReport, TaskRequest, ThrusterPwm, Waypoint,
+                                WaypointArray)
 from usv_interfaces.srv import SetTargetColor, SetTask, SetWaypoint
 
 from usv_nodes.navigator_io import (buoy_to_object, debris_config_from, detections_to_dicts,
@@ -138,6 +139,8 @@ class NavigatorNode(Node):
         if self.roboboat:
             # Tasks asked during the run (RoboCommand via the GCS; telemetry_bridge)
             self.create_subscription(TaskRequest, 'task_request', self.on_task_request, 10)
+            # What the run reports (gates passed, points reached): to the GCS, RoboCommand
+            self.report_pub = self.create_publisher(TaskReport, 'task_report', 10)
 
         self.pwm_pub = self.create_publisher(ThrusterPwm, 'thrusters/pwm', 10)
         self.status_pub = self.create_publisher(NavStatus, 'nav_status', 10)
@@ -256,8 +259,26 @@ class NavigatorNode(Node):
         seen = self.perception if self.roboboat else self.buoys
         cmd = self.nav.step(self.now_s(), (lat, lon), self.speed, heading, seen)
         self.publish_pwm(cmd)
+        if self.roboboat:
+            for report in self.nav.take_reports():
+                self.publish_report(report)
         if not self.roboboat and self.nav.waypoints != self.published_waypoints:
             self.publish_waypoints()
+
+    def publish_report(self, report):
+        msg = TaskReport()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.report_id = int(report['id'])
+        msg.task = str(report.get('task', ''))
+        msg.type = str(report['type'])
+        msg.latitude = _f(report.get('lat'))
+        msg.longitude = _f(report.get('lon'))
+        fields = report.get('fields') or {}
+        msg.keys = [str(k) for k in fields]
+        msg.values = [str(v) for v in fields.values()]
+        self.report_pub.publish(msg)
+        self.get_logger().info(f'Report {msg.report_id}: {msg.type} {dict(fields)} '
+                               f'({msg.task})')
 
     def publish_pwm(self, cmd):
         msg = ThrusterPwm()

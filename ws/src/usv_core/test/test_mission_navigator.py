@@ -6,7 +6,7 @@ Run: cd /ws/src/usv_core && python3 -m pytest test/test_mission_navigator.py -v
 
 from usv_core.mission import competition_factories, HOME, MissionConfig, MissionManager, Request
 from usv_core.roboboat_navigator import Perception, RoboBoatNavigator
-from usv_core.roboboat_run import RoboBoatRun
+from usv_core.roboboat_run import DONE, RoboBoatRun, RUNNING
 
 FIX = (27.37, -82.45)
 
@@ -35,6 +35,54 @@ def test_requests_reach_the_mission_manager_and_capabilities_count():
     marine, _ = navigator(capabilities=('water', 'balls'))
     assert marine.request(Request('task4'))
     assert marine.upcoming()[0] == 'task4'
+
+
+class Done:
+    """A phase that is done at once."""
+
+    def start(self, ctx):
+        pass
+
+    def step(self, ctx):
+        return DONE, None
+
+
+def test_readiness_gates_and_mission_tasks_make_reports():
+    # Readiness: the entry gates done -> a gate report at the boat's position
+    nav = RoboBoatNavigator(log=lambda m: None, mission_started=True, manual=False,
+                            phases={'T1_ENTRY': Done()})
+    nav.step(0.0, FIX, 0.0, 270.0, Perception())
+    nav.step(0.1, FIX, 0.0, 270.0, Perception())
+    reports = nav.take_reports()
+    assert reports[0] == {'type': 'gate', 'lat': FIX[0], 'lon': FIX[1],
+                          'fields': {'gate': 'entry'}, 'id': 1, 'task': 'T1_ENTRY'}
+    assert nav.take_reports() == []
+    # 2027: what a task reports reaches the navigator, numbered on
+    mm = MissionManager(MissionConfig(plan=('x',)),
+                        dict(competition_factories(), x=lambda p: Reporting()))
+    nav = RoboBoatNavigator(mission=mm, log=lambda m: None, mission_started=True,
+                            manual=False)
+    nav.step(0.0, FIX, 0.0, 270.0, Perception())
+    assert [(r['id'], r['task'], r['type']) for r in nav.take_reports()] == [(1, 'x', 'found')]
+
+
+class Reporting:
+    """A task that reports once and runs on."""
+
+    def __init__(self):
+        self.sent = False
+
+    def start(self, ctx):
+        pass
+
+    def step(self, ctx):
+        return RUNNING, None
+
+    def take_reports(self):
+        if self.sent:
+            return []
+        self.sent = True
+        return [{'type': 'found'}]
 
 
 def test_readiness_run_is_the_frozen_one_and_takes_no_requests():

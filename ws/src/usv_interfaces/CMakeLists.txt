@@ -19,6 +19,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Landmark.msg"
   "msg/LandmarkArray.msg"
   "msg/TaskRequest.msg"
+  "msg/TaskReport.msg"
   "srv/SetWaypoint.srv"
   "srv/SetTask.srv"
   "srv/SetTargetColor.srv"

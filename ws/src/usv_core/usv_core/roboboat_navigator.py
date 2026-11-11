@@ -33,6 +33,8 @@ from usv_core.roboboat_tasks import default_phases
 from usv_core.world_map import enu
 
 COURSE_PERIOD_S = 0.5
+# The readiness run's phases that pass a gate set, and the gate they report (2026 GatePass)
+GATE_PHASES = {'T1_ENTRY': 'entry', 'T1_EXIT': 'exit'}
 
 
 @dataclass
@@ -80,6 +82,9 @@ class RoboBoatNavigator(NavigatorBase):
             self.run = RoboBoatRun(run_cfg, {**default_phases(cfg, drive_cfg, run_cfg.hints,
                                                               debris_cfg),
                                              **(phases or {})}, self.log)
+        self.reports = []                   # report dicts for the GCS (step 6d)
+        self._report_id = 0
+        self._events_seen = 0
         self.course_model = CourseModel()
         self.course = None                  # latest CourseView
         self.course_found = set()
@@ -156,10 +161,34 @@ class RoboBoatNavigator(NavigatorBase):
                          boat_xy=boat_xy, map_origin=perception.origin,
                          course=self.course)
         command = self.run.step(ctx, self.mission_active)
+        self._collect_reports(gps)
         if command is None:
             self.mixer.mix(1500, 0)
         else:
             self.mixer.mix(*command)
+
+    def _collect_reports(self, gps):
+        """Turn what the run did this cycle into reports for the GCS (and RoboCommand)."""
+        lat, lon = (gps[0], gps[1]) if gps[0] else (None, None)
+        new = []
+        if hasattr(self.run, 'reports'):              # the 2027 mission manager
+            new += [(task, r) for task, r in self.run.reports]
+            self.run.reports = []
+        else:                                         # the readiness run: its gates
+            for now, kind, details in self.run.events[self._events_seen:]:
+                phase = details.get('phase')
+                if kind == 'phase_done' and phase in GATE_PHASES:
+                    new.append((phase, {'type': 'gate', 'lat': lat, 'lon': lon,
+                                        'fields': {'gate': GATE_PHASES[phase]}}))
+            self._events_seen = len(self.run.events)
+        for task, report in new:
+            self._report_id += 1
+            self.reports.append(dict(report, id=self._report_id, task=task))
+
+    def take_reports(self):
+        """Return the reports made since the last call (the ROS node publishes them)."""
+        out, self.reports = self.reports, []
+        return out
 
     def _update_course(self, landmarks, start, frame_heading=None):
         self.course = self.course_model.view(landmarks, start, frame_heading)

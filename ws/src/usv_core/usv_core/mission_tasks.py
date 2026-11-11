@@ -36,6 +36,12 @@ class Hold:
         self.move = None
         self.arrived_at = None
         self.result = {}
+        self.reports = []
+
+    def take_reports(self):
+        """Return the reports made since the last call (the mission manager takes them)."""
+        out, self.reports = self.reports, []
+        return out
 
     def start(self, ctx):
         if self.point is None and ctx.boat_xy is not None:
@@ -61,6 +67,8 @@ class Hold:
             if self.arrived_at is None:
                 self.arrived_at = ctx.now
                 self.result['arrived_at'] = ctx.now
+                self.reports.append({'type': 'arrived', 'lat': ctx.lat or None,
+                                     'lon': ctx.lon or None})
         if self.hold_s > 0 and ctx.now - self.arrived_at >= self.hold_s:
             return DONE, None
         return RUNNING, None                  # in the band: neutral, drift

@@ -108,6 +108,7 @@ class MissionManager:
         self.run_started = None
         self.memory = {}
         self.events = []
+        self.reports = []                 # (task, report dict) since the navigator last took
         self._start_pending = False
 
     # ------------------------------------------------------------------ outside
@@ -202,6 +203,8 @@ class MissionManager:
             self._go_home(now, 'run_timeout', ctx)
         req, task = self.current
         state, command = task.step(ctx)
+        for report in getattr(task, 'take_reports', lambda: [])():
+            self.reports.append((self.phase, report))
         if state == RUNNING and self.phase != HOME:
             limit = self.cfg.timeouts.get(self.phase, self.cfg.task_timeout_s)
             if now - self.phase_started > limit:
