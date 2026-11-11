@@ -19,6 +19,8 @@ every packet goes over both (RoboBoat 2027, step 5a):
   set_target_color  set_target_color (usv_interfaces/SetTargetColor)
   set_relay         set_relay (std_srvs/SetBool; fc_bridge, sim: sim_bridge)
   emergency_stop    emergency_stop (fc_bridge / sim_bridge) and navigator/emergency_stop
+  task              no service: published on task_request (usv_interfaces/TaskRequest)
+                    for the mission manager (2027: judges' and operator's tasks)
   others            acked and ignored (report_status: telemetry runs on its own clock;
                     manual_control: the 2026 boat ignored it too)
 
@@ -37,7 +39,7 @@ from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import Float32, Int8
 from std_srvs.srv import SetBool, Trigger
 from usv_core import gcs_link
-from usv_interfaces.msg import NavStatus, ThrusterPwm, WaypointArray
+from usv_interfaces.msg import NavStatus, TaskRequest, ThrusterPwm, WaypointArray
 from usv_interfaces.srv import SetTargetColor, SetTask, SetWaypoint
 
 
@@ -81,6 +83,7 @@ class TelemetryBridge(Node):
         latched = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL)
         self.create_subscription(WaypointArray, 'mission/waypoints', self.on_waypoints,
                                  latched)
+        self.task_pub = self.create_publisher(TaskRequest, 'task_request', 10)
         self.srv_clients = {
             'set_manual': self.create_client(SetBool, 'set_manual'),
             'set_task': self.create_client(SetTask, 'set_task'),
@@ -154,6 +157,21 @@ class TelemetryBridge(Node):
         elif cmd == 'emergency_stop':
             calls += [('emergency_stop', Trigger.Request()),
                       ('nav_emergency_stop', Trigger.Request())]
+        elif cmd == 'task':
+            try:
+                fields = gcs_link.task_request(obj)
+            except ValueError as e:
+                self.get_logger().warn(f'GCS ({link}): task refused: {e}')
+                self.finish(cq)       # acked: resending the same bad command helps nobody
+                return
+            msg = TaskRequest(**fields)
+            msg.header.stamp = self.get_clock().now().to_msg()
+            self.task_pub.publish(msg)
+            self.get_logger().info(
+                f'GCS ({link}): task {msg.task}{" URGENT" if msg.urgent else ""} from '
+                f'{msg.source} {dict(zip(msg.keys, msg.values))} cq {cq}')
+            self.finish(cq)
+            return
         self.get_logger().info(f'GCS ({link}): {cmd} {obj.get("value", "")} cq {cq}')
         if not calls:
             self.finish(cq)           # nothing to call: done

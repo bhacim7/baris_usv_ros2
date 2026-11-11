@@ -30,7 +30,10 @@ Docker içinde (Gazebo Harmonic + VRX), gerçek tekneler Jetson. Hedef: RoboBoat
   (Barış GCS haritasında yarımadanın GB köşesinden ölçtü). Parkur dosyalarındaki `origin`
   27.366566, -82.450768 oldu. Tek noktadan ölçüldü; Barış'ın doğrulaması ve commit'i
   bekleniyor. Eski kayıtlar eski origin'le (27.367256, -82.451120).
-- Sıradaki: 5c (`TaskRequest` mesajı), 5d (RoboCommand istemcisi + sahte sunucu).
+- Adım 5c yazıldı: `usv_interfaces/TaskRequest`, GCS komutu `task` → `task_request` konusu.
+  Barış'ın testi ve commit'i bekleniyor.
+- Sıra (Barış'la, 11 Kasım): 5d (RoboCommand) → Adım 6 (görev yöneticisi) → Task 1 davranışı
+  → marina Core → Task 5; Adım 7-8 donanım hazır oldukça (docs/roboboat-2027.md §8 "Sıra").
 - Bilinen: raporda "yeşil 330°" uyarısı GPS/harita kaymasından (R3.5 ertelendi).
 
 ## Çalışma şekli (değişmez kurallar)

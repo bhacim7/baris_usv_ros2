@@ -13,7 +13,8 @@ Protocol (unchanged from 2026, usv_legacy utils/telem.py and core/nav_process.py
                r relay (-1 unknown), tc ts Task 3 colour and its source, aq the last
                command done; waypoint mini packets {i, q, w, wa, wo}
   GCS -> boat  {target_id, cmd, ..., cq}: set_manual, set_task, set_gps, set_target_color,
-               set_relay, emergency_stop, (2027) task; cq = the command's number, the boat
+               set_relay, emergency_stop, (2027) task (see task_request); cq = the
+               command's number, the boat
                answers with aq in its telemetry; the GCS resends until it sees it
 
 Two links change two things:
@@ -209,6 +210,34 @@ class ReliableSender:
             self.send(self.pending[0])
             self.last_tx = now
             self.tries += 1
+
+
+def task_request(obj):
+    """
+    Return the fields of a `task` command for usv_interfaces/TaskRequest.
+
+    Wire: {target_id, cmd: "task", task, urgent (0/1), src ("robocommand", default "gcs"),
+    lat, lon (optional), p: {key: value, ...} (optional), cq}. Raises ValueError for a
+    command without a task name. Parameters become text, sorted by key.
+    """
+    task = str(obj.get('task', '')).strip()
+    if not task:
+        raise ValueError('a task command needs a task name')
+    params = obj.get('p') or {}
+    if not isinstance(params, dict):
+        raise ValueError('task parameters (p) must be key: value pairs')
+
+    def number(key):
+        try:
+            value = float(obj[key])
+        except (KeyError, TypeError, ValueError):
+            return float('nan')
+        return value if math.isfinite(value) else float('nan')
+    keys = sorted(str(k) for k in params)
+    return {'request_id': int(obj.get('cq') or 0), 'source': str(obj.get('src', 'gcs')),
+            'task': task, 'urgent': bool(obj.get('urgent')),
+            'latitude': number('lat'), 'longitude': number('lon'),
+            'keys': keys, 'values': [str(params[k]) for k in keys]}
 
 
 def _r(value, digits):

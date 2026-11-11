@@ -508,6 +508,11 @@ RoboCommand (10.10.10.1:50000) ──Ethernet── GCS ──Ubiquiti (ana)─�
 - İHA kutusu gizlendi; harita listesinde yalnız görseli olan haritalar.
 - ROS'suz; ana makinede sanal ortamda PySide6 ile çalışır.
 
+**5c yazıldı (11 Kasım): iç görev mesajı.** `usv_interfaces/TaskRequest` (kaynak, görev adı,
+acil mi, konum, anahtar/değer parametreleri). GCS hattında yeni komut `task`; `telemetry_bridge`
+onu `task_request` konusuna yayınlar ve onaylar. Dışarıdaki protokol (RoboCommand 2027)
+ne olursa olsun ROS içinde bu mesaj sabit kalır; görev yöneticisi (Adım 6) bunu dinleyecek.
+
 ### Adım 6. Görev yöneticisi
 - Sıradaki görevlerin yanında, acil görevle araya girip sonra kaldığı yerden devam etme
   (Task 4, Task 5).
@@ -539,6 +544,15 @@ RoboCommand (10.10.10.1:50000) ──Ethernet── GCS ──Ubiquiti (ana)─�
   düşürülür. Kaldırmazsa taret kamerasında derinlik hiç alınmaz ya da yerine daha basit bir
   USB kamera (Logitech Brio gibi) takılır (Barış).
 - Adım 7'den önce ya da onunla birlikte yapılır.
+
+### Sıra (Barış'la, 11 Kasım)
+Görev davranışları atış sistemini beklemez. Sıra: Adım 5 (haberleşme) → Adım 6 (görev
+yöneticisi) → **Task 1 davranışı** (yan kısıtlı yol, ENTRY/EXIT turları) → **marina, Core**
+(yeşil bölmeye yanaşma) → **Task 5** (RoboCommand'dan gelen noktada toplanma). Üç rozet de bu
+üçünü istiyor ve hiçbiri su ya da top gerektirmiyor. Adım 7 (atış sistemi) ve Adım 8 (iki
+ZED) donanım hazır oldukça araya girer; su/top isteyen seviyeler (Task 3 Advanced, Task 4)
+onlardan sonra. Gerçek tekne (Faz 7, Ocak'taki Proof of Readiness videosu) ayrıca
+takvimlenecek.
 
 ### Bekleyenler
 - Gazebo'da iki tekne ve taret.

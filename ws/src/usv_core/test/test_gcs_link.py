@@ -5,6 +5,7 @@ Run: cd /ws/src/usv_core && python3 -m pytest test/test_gcs_link.py -v
 """
 
 import json
+import math
 import os
 import pty
 import tty
@@ -112,6 +113,23 @@ def test_telemetry_packet_has_the_2026_keys():
     assert (nan['th'], nan['h'], nan['ds']) == (0, 0, 0)
     assert b'NaN' not in gcs_link.encode(nan)
     assert len(gcs_link.encode(pkt)) < 250           # one radio frame (2026)
+
+
+def test_task_command_becomes_task_request_fields():
+    f = gcs_link.task_request({'target_id': 2, 'cmd': 'task', 'task': 'delivery', 'urgent': 1,
+                               'src': 'robocommand', 'p': {'shape': 'triangle', 'count': 2},
+                               'cq': 9})
+    assert f['task'] == 'delivery' and f['urgent'] and f['source'] == 'robocommand'
+    assert f['request_id'] == 9
+    assert (f['keys'], f['values']) == (['count', 'shape'], ['2', 'triangle'])
+    assert math.isnan(f['latitude']) and math.isnan(f['longitude'])
+    g = gcs_link.task_request({'cmd': 'task', 'task': 'rally', 'lat': 27.37, 'lon': -82.45})
+    assert (g['latitude'], g['longitude'], g['source'], g['urgent']) == (
+        27.37, -82.45, 'gcs', False)
+    with pytest.raises(ValueError):
+        gcs_link.task_request({'cmd': 'task'})
+    with pytest.raises(ValueError):
+        gcs_link.task_request({'cmd': 'task', 'task': 'x', 'p': [1, 2]})
 
 
 def test_udp_link_both_ways():

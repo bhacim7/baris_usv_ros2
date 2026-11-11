@@ -11,6 +11,8 @@ brought the newest packet. No ROS needed.
     python3 gcs_cli.py --udp --rfd /tmp/usv_rfd_gcs send azure set_manual false
     # one link only, to see that it works alone:
     python3 gcs_cli.py --rfd /tmp/usv_rfd_gcs send azure set_manual true
+    # a task for the mission manager (usv_interfaces/TaskRequest on /<boat>/task_request):
+    python3 gcs_cli.py --udp send azure task task=delivery urgent=1 p.shape=triangle
 
 Boats by name or number (azure 1, marine 2); their addresses and ports from
 ws/src/usv_nodes/config/boats/*.yaml, with --host for all of them (default 127.0.0.1, the
@@ -119,7 +121,10 @@ def main():
     number = by_name.get(args.boat) or int(args.boat)
     fields = {}
     for a in args.args:
-        if '=' in a:
+        if a.startswith('p.') and '=' in a:      # task parameters: p.shape=triangle
+            k, v = a[2:].split('=', 1)
+            fields.setdefault('p', {})[k] = value(v)
+        elif '=' in a:
             k, v = a.split('=', 1)
             fields[k] = value(v)
         else:
