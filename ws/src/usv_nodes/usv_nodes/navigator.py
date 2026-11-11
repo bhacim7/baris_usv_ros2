@@ -55,6 +55,7 @@ from std_msgs.msg import Float32, Int8
 from std_srvs.srv import SetBool, Trigger
 from usv_core.mixer import NEUTRAL
 from usv_core.mission import competition_factories, MissionManager, Request
+from usv_core.mission_tasks import factories as mission_task_factories
 from usv_core.nav_config import WAYPOINT_NAMES
 from usv_core.roboboat_navigator import Perception, RoboBoatNavigator
 from usv_core.safety import preflight_ready
@@ -105,7 +106,9 @@ class NavigatorNode(Node):
             capabilities = [c for c in str(lookup('boat_capabilities', '')).split(',') if c]
             mission = None
             if self.mission_name == 'roboboat_2027':
-                mission = MissionManager(mission_cfg, competition_factories(), capabilities)
+                written, home = mission_task_factories(self.cfg, self.drive_cfg)
+                mission = MissionManager(mission_cfg, competition_factories(written),
+                                         capabilities, home=home)
             self.nav = RoboBoatNavigator(self.cfg, run_cfg, start_time=self.now_s(),
                                          mission_started=False, manual=start_manual,
                                          log=self.get_logger().info,

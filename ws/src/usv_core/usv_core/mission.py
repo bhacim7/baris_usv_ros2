@@ -273,7 +273,8 @@ def competition_factories(written=None):
 
     task1 Safe Passage, marina (Task 3), task5 Dynamic Response, task2 Emergency Response
     Sprint, task4 Delivery Run (needs the water cannon); rally (Task 5 Core: go to a point
-    and hold) and hold come with step 6c. written: {name: factory} replacing a Pending.
+    and hold) and hold (usv_core.mission_tasks.factories gives them). written: {name:
+    factory} replacing a Pending.
     """
     out = {'task1': Pending, 'marina': Pending, 'task5': Pending, 'task2': Pending,
            'task4': needs('water', Pending), 'rally': Pending, 'hold': Pending}

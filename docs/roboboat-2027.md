@@ -562,6 +562,12 @@ su görevi reddedilir). Sıradaki görevler `NavStatus.task_queue` → telemetri
 panelinde "SIRADAKİ". Henüz yazılmamış görevler (task1, marina, task5, task2, task4,
 rally, hold) "not written yet" deyip atlanır.
 
+**6c yazıldı (11 Kasım): `usv_core/mission_tasks.py`.** `rally` (lat, lon; isteğe bağlı
+`hold_s`): noktaya git, orada dur (Task 5 Core). `hold`: olduğun yerde dur. HOME: koşunun
+başladığı yere dön, orada dur. Yerinde durma bir bant: 2 m içinde motorlar boşta, sürüklenip
+4 m'yi aşınca DriveTo ile geri (tahmin, Gazebo'da ölçülecek). Parametresi yanlış `rally`
+sebebiyle atlanır.
+
 ### Adım 7. Atış sistemi (Marine)
 - `usv_core/turret.py`: saf mantık.
 - `turret` düğümü: Jetson sürücüsü ve sahte sürücü. Pinler, I2C ve kanallar ayar dosyasında.

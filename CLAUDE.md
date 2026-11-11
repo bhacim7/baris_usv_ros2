@@ -37,9 +37,10 @@ Docker içinde (Gazebo Harmonic + VRX), gerçek tekneler Jetson. Hedef: RoboBoat
   RoboCommand.
 - Adım 6a bitti: `usv_core/mission.py` (görev yöneticisi). Readiness eski `RoboBoatRun`'da
   donduruldu (yalnız video).
-- Adım 6b yazıldı: navigatör `mission:=roboboat_2027` ile görev yöneticisini kullanır,
-  `task_request`'i dinler, sıradakiler GCS'de. Barış'ın testi ve commit'i bekleniyor.
-  Sıradaki 6c (`rally`, `hold`, eve dönüş).
+- Adım 6b bitti (`a385769`): navigatör `mission:=roboboat_2027` ile görev yöneticisini
+  kullanır, `task_request`'i dinler, sıradakiler GCS'de.
+- Adım 6c yazıldı: `rally`, `hold`, HOME (`usv_core/mission_tasks.py`, yerinde durma bandı
+  2/4 m). Barış'ın Gazebo denemesi ve commit'i bekleniyor. Sıradaki 6d (rapor yolu).
 - Ana makinede (Claude) çekirdek testleri: `~/gcs-venv/bin/python` (numpy, pytest var; cv2
   yok, gerekirse sahte modülle).
 - GCS'yi Claude ana makinede `QT_QPA_PLATFORM=offscreen ~/gcs-venv/bin/python` ile pencere
