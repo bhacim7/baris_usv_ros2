@@ -113,6 +113,21 @@ def test_roboboat_yaml_is_the_run_defaults_with_no_hints():
         == set(HINTED)
 
 
+def test_mission_from_parameters():
+    from usv_nodes.navigator_io import mission_config_from
+    name, cfg = mission_config_from(lambda k, d: {'roboboat.mission': 'roboboat_2027',
+                                                  'roboboat.plan': ['task1', '', 'marina'],
+                                                  }.get(k, d))
+    assert name == 'roboboat_2027' and cfg.plan == ('task1', 'marina')
+    name, cfg = mission_config_from(lambda k, d: d)
+    assert name == 'readiness' and cfg.plan == ()
+    try:
+        mission_config_from(lambda k, d: 'teknofest' if k == 'roboboat.mission' else d)
+        assert False, 'an unknown mission must be refused'
+    except ValueError:
+        pass
+
+
 def test_hints_and_task_order_from_parameters():
     params = {'roboboat.task_order': ['task3', 'task2'], 'roboboat.hint.task2': '21, -1.5',
               'roboboat.hint.task5': ''}

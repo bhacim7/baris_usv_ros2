@@ -190,6 +190,8 @@ def setup(context):
                                         f'{left + float(hint_error) * math.sin(a):.2f}')
     navigator_overrides['start_manual'] = \
         LaunchConfiguration('auto').perform(context).lower() != 'true'
+    # What this boat can do (its profile): the mission manager refuses other tasks
+    navigator_overrides['boat_capabilities'] = ','.join(profile.capabilities())
 
     # The declination perception adds is a per-venue setting on the boat (+6 Istanbul,
     # -6 Sarasota); here it follows the course, i.e. a correctly set compass.

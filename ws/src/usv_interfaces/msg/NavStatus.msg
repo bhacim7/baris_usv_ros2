@@ -1,5 +1,6 @@
 std_msgs/Header header
 string task_state                   # legacy state names, e.g. TASK1_STATE_ENTER
+string[] task_queue                 # 2027 mission manager: the tasks still to come, in order
 bool manual
 bool mission_active
 bool emergency

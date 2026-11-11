@@ -552,7 +552,15 @@ dosyasından, durum GCS'de), 6c `rally` ve `hold`/eve dönüş (yerinde durma), 
 **6a yazıldı (11 Kasım): `usv_core/mission.py`.** Plan, kuyruk, acil istekte askıya alma ve
 geri dönme (görev `start` ile yeniden başlar, hafıza ortak), yetenek denetimi (profil),
 görev ve koşu zaman aşımı, HOME (şimdilik boşta durma; sürüş 6c'de), olay listesi. Görevler
-fabrikalarla yaratılır, isteğin parametreleri göreve ulaşır. Henüz navigatöre bağlı değil.
+fabrikalarla yaratılır, isteğin parametreleri göreve ulaşır.
+
+**6b yazıldı (11 Kasım): bağlantı.** Navigatör açılışta `roboboat.mission`'a bakar:
+`readiness` → dondurulmuş 2026 koşusu, `roboboat_2027` → görev yöneticisi (plan
+`roboboat.plan`: task1, marina, task5, task2). Parkur dosyasında `mission:=roboboat_2027`.
+Navigatör `task_request`'i dinler; tekne profilinin yetenekleri launch'tan gelir (Azure'a
+su görevi reddedilir). Sıradaki görevler `NavStatus.task_queue` → telemetri `kq` → GCS
+panelinde "SIRADAKİ". Henüz yazılmamış görevler (task1, marina, task5, task2, task4,
+rally, hold) "not written yet" deyip atlanır.
 
 ### Adım 7. Atış sistemi (Marine)
 - `usv_core/turret.py`: saf mantık.

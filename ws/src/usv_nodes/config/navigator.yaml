@@ -14,6 +14,12 @@
 
     # --- RoboBoat run (competition: roboboat; usv_core/roboboat_run.py) ---
     roboboat:
+      # readiness: the frozen 2026 run (Proof of Readiness video), task_order below;
+      # roboboat_2027: the mission manager (usv_core/mission.py), plan below; the course
+      # file's mission (sim.launch.py mission:=) sets it
+      mission: readiness
+      plan: [task1, marina, task5, task2]   # 2027 order agreed with Baris (2026-11-11)
+      mission_run_timeout_s: 1200.0         # 2027: then home; 0 = never
       task_order: [task2, task3, task5]   # after the entry gates; Task 6 interrupts (R3)
       task_timeout_s: 360.0               # a task taking longer is skipped (Task 2 with
                                           # its debris field takes up to ~300 s)

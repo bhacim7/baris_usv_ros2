@@ -11,11 +11,12 @@ Protocol (unchanged from 2026, usv_legacy utils/telem.py and core/nav_process.py
                PWM, v speed, h heading, th advised course, ea angle error, ce control
                error, k task, la lo position, xa xo target, ds distance, m manual, f FPS,
                r relay (-1 unknown), tc ts Task 3 colour and its source, aq the last
-               command done; waypoint mini packets {i, q, w, wa, wo}
+               command done, kq (2027) the tasks still to come, '>'-joined; waypoint
+               mini packets {i, q, w, wa, wo}
   GCS -> boat  {target_id, cmd, ..., cq}: set_manual, set_task, set_gps, set_target_color,
                set_relay, emergency_stop, (2027) task (see task_request); cq = the
-               command's number, the boat
-               answers with aq in its telemetry; the GCS resends until it sees it
+               command's number, the boat answers with aq in its telemetry; the GCS
+               resends until it sees it
 
 Two links change two things:
   * a command arrives twice, in either order and late: the boat does each cq once
@@ -279,6 +280,8 @@ def telemetry(state, boat, q, aq):
         'tc': state.get('target_color', ''),
         'ts': 1 if state.get('target_color_source') == 'drone' else 0,
         'aq': int(aq),
+        # 2027: the tasks still to come, short (one radio frame); '' for the readiness run
+        'kq': '>'.join(str(t) for t in state.get('task_queue', ()))[:48],
     }
 
 

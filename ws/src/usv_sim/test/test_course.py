@@ -97,19 +97,22 @@ def test_roboboat_2027_has_the_readiness_tasks_and_the_2027_course():
     assert counts['beacon_blue'] == 2 and counts['window_off'] == 6
     assert counts['buoy_blue'] == 1 and counts['buoy_white'] == 1
     assert counts['digit_1'] == counts['digit_2'] == counts['digit_3'] == 4
-    assert c.mission == {'roboboat.task_order': ['task2'], 'roboboat.hint.task2': '21.1,-1.5'}
+    assert c.mission == {'roboboat.mission': 'readiness', 'roboboat.task_order': ['task2'],
+                         'roboboat.hint.task2': '21.1,-1.5'}
+    comp = course_mod.load(course_mod.select(read('roboboat_2027'), mission='roboboat_2027'))
+    assert comp.mission == {'roboboat.mission': 'roboboat_2027',
+                            'roboboat.plan': ['task1', 'marina', 'task5', 'task2']}
 
 
 def test_select_start_and_mission():
     data = read('roboboat_2027')
-    data['missions']['roboboat_2027'] = {'roboboat.task_order': []}
     base = course_mod.load(data)
     chosen = course_mod.select(data, 'competition', 'roboboat_2027')
     assert 'starts' not in chosen and 'missions' not in chosen and 'default' not in chosen
     c = course_mod.load(chosen)
     # The layout stays where the placement puts it; only the boat starts elsewhere
     assert c.targets == base.targets and c.survey == base.survey
-    assert c.mission == {'roboboat.task_order': []}
+    assert c.mission['roboboat.mission'] == 'roboboat_2027'
     # Where Baris picked it in Gazebo, heading west like the readiness start
     assert c.boat['east'] == pytest.approx(-197.80)
     assert c.boat['north'] == pytest.approx(809.98)
@@ -149,8 +152,9 @@ def test_select_refuses_what_the_course_does_not_have():
     data = read('roboboat_2027')
     with pytest.raises(ValueError, match='start finish: the course has competition, readiness'):
         course_mod.select(data, start='finish')
-    with pytest.raises(ValueError, match='mission roboboat_2027'):
-        course_mod.select(data, mission='roboboat_2027')
+    with pytest.raises(ValueError, match='mission final: the course has readiness, '
+                       'roboboat_2027'):
+        course_mod.select(data, mission='final')
     golcuk = read('golcuk_2026_10_14')
     assert course_mod.select(golcuk) == golcuk
     with pytest.raises(ValueError, match='one start only'):

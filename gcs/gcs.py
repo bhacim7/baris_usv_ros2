@@ -389,7 +389,7 @@ _WIRE_KEYS = {
     "i": "id", "t": "t_ms", "a": "pwm_L", "b": "pwm_R", "c": "pwm_FL", "d": "pwm_FR",
     "s": "pwm_STEER", "v": "spd", "h": "hdg", "th": "trg_hdg", "ea": "err_ang",
     "ce": "ctrl_err", "k": "task", "ds": "dist", "m": "mod", "f": "FPS", "r": "relay",
-    "tc": "tcol",
+    "tc": "tcol", "kq": "task_queue",
 }
 
 
@@ -2779,6 +2779,18 @@ class MainWindow(QtWidgets.QMainWindow):
 
             ui[k] = lbl_val
 
+        # 2027: the tasks still to come (mission manager), across the whole row
+        row = len(keys) // 2 + 1
+        lbl_title = QtWidgets.QLabel("SIRADAKİ")
+        lbl_title.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        lbl_title.setStyleSheet("color:#cfd8dc; font-size:14px; font-weight:bold; border:none;")
+        g.addWidget(lbl_title, row, 0)
+        lbl_val = QtWidgets.QLabel("-")
+        lbl_val.setStyleSheet("color:#ffd740; font-weight:bold; font-size:13px; border:none;"
+                              " background-color: rgba(0, 0, 0, 40); border-radius: 3px;")
+        g.addWidget(lbl_val, row, 1, 1, 3)
+        ui["SIRADAKI"] = lbl_val
+
         return ui
 
     def _create_mission_box(self, layout, bid):
@@ -3406,6 +3418,9 @@ class MainWindow(QtWidgets.QMainWindow):
         s("KONTROL_HATA", "ctrl_err")
         s("HEDEFE_MESAFE", "dist")
         s("MEVCUT_GOREV", "task")
+        if "task_queue" in d:
+            ui["SIRADAKI"].setText(" → ".join(t for t in str(d["task_queue"]).split(">") if t)
+                                   or "-")
         s("MANUEL", "mod")
         s("ZAMAN", "t_ms")
         s("FPS", "FPS")

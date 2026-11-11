@@ -9,9 +9,10 @@ manual / auto, emergency latch, relay request, mixer); what differs is the missi
            frame (/usv/detections), handed in as a Perception
   course   usv_core.roboboat_course.CourseModel on the map every 0.5 s: Task 1 gates and
            the gate frame, channel, Task 3, marina, zones; new finds are logged
-  mission  usv_core.roboboat_run.RoboBoatRun: entry gates, the chosen tasks, return, exit;
-           the phases written so far from usv_core.roboboat_tasks (Task 1: entry, return,
-           exit; Task 2: the channel so far), the rest skipped
+  mission  readiness (2026 Task 1 + 2, the Proof of Readiness video; frozen):
+           usv_core.roboboat_run.RoboBoatRun, entry gates, the chosen tasks, return, exit;
+           competition (2027): usv_core.mission.MissionManager, given as `mission`; tasks
+           asked during the run come in through request()
   set_task the name of a run phase (T1_ENTRY, task2 ..., RETURN, T1_EXIT, FINISHED, or
            WAIT_START to start over) jumps there; as in TEKNOFEST it also releases the
            emergency latch while the relay is on
@@ -65,13 +66,20 @@ def course_summary(view):
 class RoboBoatNavigator(NavigatorBase):
 
     def __init__(self, cfg=None, run_cfg=None, start_time=0.0, mission_started=True,
-                 manual=False, log=None, phases=None, drive_cfg=None, debris_cfg=None):
+                 manual=False, log=None, phases=None, drive_cfg=None, debris_cfg=None,
+                 mission=None):
         cfg = cfg or NavConfig()
         super().__init__(cfg, start_time, mission_started, manual, log)
         run_cfg = run_cfg or RunConfig()
-        self.run = RoboBoatRun(run_cfg, {**default_phases(cfg, drive_cfg, run_cfg.hints,
-                                                          debris_cfg),
-                                         **(phases or {})}, self.log)
+        if mission is not None:
+            # The 2027 competition: the mission manager (usv_core.mission), same interface
+            self.run = mission
+            self.run.log = self.log
+        else:
+            # The readiness run (2026 Task 1 + 2, Proof of Readiness video): frozen
+            self.run = RoboBoatRun(run_cfg, {**default_phases(cfg, drive_cfg, run_cfg.hints,
+                                                              debris_cfg),
+                                             **(phases or {})}, self.log)
         self.course_model = CourseModel()
         self.course = None                  # latest CourseView
         self.course_found = set()
@@ -93,6 +101,17 @@ class RoboBoatNavigator(NavigatorBase):
             self.log(f'Run phase set to {task}')
         else:
             self.log(f'set_task {task!r}: no such phase in this run ({self.run.plan})')
+
+    def request(self, req):
+        """Hand a task asked during the run (mission.Request) to the mission manager."""
+        if not hasattr(self.run, 'request'):
+            self.log(f'Task request {req.task} ignored: the readiness run takes no requests')
+            return False
+        return self.run.request(req, self.now)
+
+    def upcoming(self):
+        """Return the tasks still to come (the mission manager's), [] for the readiness run."""
+        return self.run.upcoming() if hasattr(self.run, 'upcoming') else []
 
     def set_waypoint(self, index, lat, lon):
         self.log(f'GPS point {index} ignored: RoboBoat tasks are found on the map')

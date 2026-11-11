@@ -35,9 +35,13 @@ Docker içinde (Gazebo Harmonic + VRX), gerçek tekneler Jetson. Hedef: RoboBoat
   köprüsü, kural denetleyen sahte sunucu, GCS kutusu). Barış'ın denemesi ve commit'i
   bekleniyor. MQTT taşıması 2027 el kitabı isterse. Veri yolu: tekne → GCS → Ethernet →
   RoboCommand.
-- Adım 6a yazıldı: `usv_core/mission.py` (görev yöneticisi çekirdeği, testleri). Readiness
-  eski `RoboBoatRun`'da donduruldu (yalnız video). Barış'ın testi ve commit'i bekleniyor.
-  Sıradaki 6b.
+- Adım 6a bitti: `usv_core/mission.py` (görev yöneticisi). Readiness eski `RoboBoatRun`'da
+  donduruldu (yalnız video).
+- Adım 6b yazıldı: navigatör `mission:=roboboat_2027` ile görev yöneticisini kullanır,
+  `task_request`'i dinler, sıradakiler GCS'de. Barış'ın testi ve commit'i bekleniyor.
+  Sıradaki 6c (`rally`, `hold`, eve dönüş).
+- Ana makinede (Claude) çekirdek testleri: `~/gcs-venv/bin/python` (numpy, pytest var; cv2
+  yok, gerekirse sahte modülle).
 - GCS'yi Claude ana makinede `QT_QPA_PLATFORM=offscreen ~/gcs-venv/bin/python` ile pencere
   açmadan deneyebilir; GCS testleri `~/gcs-venv/bin/python -m pytest gcs/test`.
 - Sıra (Barış'la, 11 Kasım): 5d (RoboCommand) → Adım 6 (görev yöneticisi) → Task 1 davranışı

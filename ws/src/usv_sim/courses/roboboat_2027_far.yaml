@@ -74,8 +74,14 @@ starts:
 # a guess, and the boat must find the task itself either way.
 missions:
   readiness:
+    roboboat.mission: readiness
     roboboat.task_order: [task2]
     roboboat.hint.task2: '21.1,-1.5'          # first channel gate
+  # The 2027 competition: the mission manager (usv_core/mission.py). Tasks not written yet
+  # are skipped ("not written yet"); requests come from RoboCommand through the GCS
+  roboboat_2027:
+    roboboat.mission: roboboat_2027
+    roboboat.plan: [task1, marina, task5, task2]
 
 default: {start: readiness, mission: readiness}
 

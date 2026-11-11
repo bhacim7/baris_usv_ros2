@@ -40,6 +40,7 @@ Topic and service names are relative to the boat's namespace (sim.launch.py
 boat:=azure|marine): the /usv/... names above are /azure/... on Azure, /marine/... on Marine.
 """
 
+import math
 import signal
 
 from geometry_msgs.msg import PoseStamped
@@ -53,17 +54,19 @@ from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import Float32, Int8
 from std_srvs.srv import SetBool, Trigger
 from usv_core.mixer import NEUTRAL
+from usv_core.mission import competition_factories, MissionManager, Request
 from usv_core.nav_config import WAYPOINT_NAMES
 from usv_core.roboboat_navigator import Perception, RoboBoatNavigator
 from usv_core.safety import preflight_ready
 from usv_core.teknofest_navigator import TeknofestNavigator
 from usv_interfaces.msg import (BuoyArray, DetectionArray, LandmarkArray, NavStatus,
-                                ThrusterPwm, Waypoint, WaypointArray)
+                                TaskRequest, ThrusterPwm, Waypoint, WaypointArray)
 from usv_interfaces.srv import SetTargetColor, SetTask, SetWaypoint
 
 from usv_nodes.navigator_io import (buoy_to_object, debris_config_from, detections_to_dicts,
-                                    drive_config_from, landmark_to_dict, nav_config_from,
-                                    path_points, run_config_from, target_color)
+                                    drive_config_from, landmark_to_dict,
+                                    mission_config_from, nav_config_from, path_points,
+                                    run_config_from, target_color)
 
 NAN = float('nan')
 
@@ -79,6 +82,10 @@ class NavigatorNode(Node):
         any_type = ParameterDescriptor(dynamic_typing=True)
 
         def lookup(name, default):
+            # Several readers may ask for the same parameter (roboboat.task_timeout_s: the
+            # readiness run and the 2027 mission): declare it once, then read it
+            if self.has_parameter(name):
+                return self.get_parameter(name).value
             return self.declare_parameter(name, default, any_type).value
 
         self.cfg = nav_config_from(lookup)
@@ -93,10 +100,17 @@ class NavigatorNode(Node):
             run_cfg = run_config_from(lookup)
             self.drive_cfg = drive_config_from(lookup)
             self.debris_cfg = debris_config_from(lookup)
+            # readiness (frozen 2026 run, video) or roboboat_2027 (the mission manager)
+            self.mission_name, mission_cfg = mission_config_from(lookup)
+            capabilities = [c for c in str(lookup('boat_capabilities', '')).split(',') if c]
+            mission = None
+            if self.mission_name == 'roboboat_2027':
+                mission = MissionManager(mission_cfg, competition_factories(), capabilities)
             self.nav = RoboBoatNavigator(self.cfg, run_cfg, start_time=self.now_s(),
                                          mission_started=False, manual=start_manual,
                                          log=self.get_logger().info,
-                                         drive_cfg=self.drive_cfg, debris_cfg=self.debris_cfg)
+                                         drive_cfg=self.drive_cfg, debris_cfg=self.debris_cfg,
+                                         mission=mission)
         else:
             self.nav = TeknofestNavigator(self.cfg, start_time=self.now_s(),
                                           mission_started=False, manual=start_manual,
@@ -118,6 +132,9 @@ class NavigatorNode(Node):
         else:
             self.create_subscription(BuoyArray, 'buoys', self.on_buoys, 10)
         self.create_subscription(Int8, 'relay_state', self.on_relay, 10)
+        if self.roboboat:
+            # Tasks asked during the run (RoboCommand via the GCS; telemetry_bridge)
+            self.create_subscription(TaskRequest, 'task_request', self.on_task_request, 10)
 
         self.pwm_pub = self.create_publisher(ThrusterPwm, 'thrusters/pwm', 10)
         self.status_pub = self.create_publisher(NavStatus, 'nav_status', 10)
@@ -134,10 +151,16 @@ class NavigatorNode(Node):
 
         self.create_timer(1.0 / max(1.0, self.cfg.loop_hz), self.tick)
         self.create_timer(1.0 / status_hz, self.publish_status)
-        if self.roboboat:
+        if self.roboboat and self.mission_name == 'roboboat_2027':
+            m = self.nav.run
+            self.get_logger().info(
+                f'navigator: RoboBoat 2027 mission, plan {list(m.cfg.plan)}, task timeout '
+                f'{m.cfg.task_timeout_s:.0f} s, run timeout {m.cfg.run_timeout_s:.0f} s, '
+                f'boat can: {", ".join(sorted(m.capabilities)) or "nothing extra"}')
+        elif self.roboboat:
             run = self.nav.run
             self.get_logger().info(
-                f'navigator: RoboBoat run {run.plan}, task timeout '
+                f'navigator: RoboBoat readiness run {run.plan}, task timeout '
                 f'{run.cfg.task_timeout_s:.0f} s, run timeout {run.cfg.run_timeout_s:.0f} s, '
                 f'hints {run.cfg.hints or "none"}, look-ahead '
                 f'{self.drive_cfg.lookahead_m:.1f} m, debris field '
@@ -168,6 +191,13 @@ class NavigatorNode(Node):
     def on_map(self, msg):
         self.perception.landmarks = [landmark_to_dict(lm) for lm in msg.landmarks]
         self.perception.origin = (msg.origin_latitude, msg.origin_longitude)
+
+    def on_task_request(self, msg):
+        params = dict(zip(msg.keys, msg.values))
+        if math.isfinite(msg.latitude) and math.isfinite(msg.longitude):
+            params.update(lat=msg.latitude, lon=msg.longitude)
+        self.nav.request(Request(msg.task, urgent=msg.urgent, params=params,
+                                 source=msg.source, request_id=msg.request_id))
 
     def on_detections(self, msg):
         self.perception.detections, self.perception.detections_time = \
@@ -242,6 +272,8 @@ class NavigatorNode(Node):
         msg = NavStatus()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.task_state = str(s['current_task'])
+        if self.roboboat:
+            msg.task_queue = [str(t) for t in self.nav.upcoming()]
         msg.manual = bool(self.nav.manual)
         msg.mission_active = bool(self.nav.mission_active)
         msg.emergency = bool(self.nav.emergency.active)

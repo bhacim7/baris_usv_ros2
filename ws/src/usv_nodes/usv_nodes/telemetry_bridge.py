@@ -105,7 +105,8 @@ class TelemetryBridge(Node):
                           target_lon=m.target_longitude, target_dist=m.target_distance_m,
                           advised_course=m.advised_course_deg, angle_error=m.angle_error_deg,
                           control_error=m.control_error_deg, target_color=m.target_color,
-                          target_color_source=m.target_color_source)
+                          target_color_source=m.target_color_source,
+                          task_queue=list(m.task_queue))
 
     def on_pwm(self, m):
         self.state['pwm'] = {'rear_left': m.rear_left, 'rear_right': m.rear_right,

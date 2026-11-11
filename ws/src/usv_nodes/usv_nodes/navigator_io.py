@@ -31,6 +31,7 @@ RoboBoat profile (phase 6 R2):
 import dataclasses
 import math
 
+from usv_core.mission import MissionConfig
 from usv_core.nav_config import NavConfig, WAYPOINT_NAMES
 from usv_core.roboboat_drive import DriveConfig
 from usv_core.roboboat_run import HINTED, RunConfig
@@ -109,6 +110,23 @@ def parse_hint(text):
     if len(parts) != 2:
         raise ValueError(f'hint {text!r}: want "ahead_m,left_m"')
     return tuple(parts)
+
+
+def mission_config_from(lookup):
+    """
+    Return (mission name, MissionConfig) from the roboboat.* parameters.
+
+    roboboat.mission: 'readiness' (the frozen 2026 run) or 'roboboat_2027' (the mission
+    manager, plan roboboat.plan); roboboat.mission_run_timeout_s.
+    """
+    name = str(lookup('roboboat.mission', 'readiness'))
+    if name not in ('readiness', 'roboboat_2027'):
+        raise ValueError(f'roboboat.mission {name!r}: readiness or roboboat_2027')
+    plan = tuple(str(t) for t in lookup('roboboat.plan', ['']) if str(t).strip())
+    return name, MissionConfig(
+        plan=plan,
+        task_timeout_s=float(lookup('roboboat.task_timeout_s', 360.0)),
+        run_timeout_s=float(lookup('roboboat.mission_run_timeout_s', 1200.0)))
 
 
 def run_config_from(lookup):

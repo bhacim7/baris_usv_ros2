@@ -107,6 +107,8 @@ def test_telemetry_packet_has_the_2026_keys():
     assert pkt['h'] == 272 and pkt['la'] == 27.371235 and pkt['k'] == 1 and pkt['m'] == 1
     assert gcs_link.telemetry({'task': 'T1_ENTRY'}, 1, 0, -1)['k'] == 'T1_ENTRY'
     assert gcs_link.telemetry({}, 1, 0, -1)['r'] == -1
+    q = gcs_link.telemetry({'task_queue': ['marina', 'task5', 'task2']}, 1, 0, -1)
+    assert q['kq'] == 'marina>task5>task2' and gcs_link.telemetry({}, 1, 0, -1)['kq'] == ''
     # Before the run the navigator reports NaN (no advised course yet): sent as 0, not a crash
     nan = gcs_link.telemetry({'advised_course': float('nan'), 'heading': float('inf'),
                               'target_dist': float('nan')}, 1, 0, -1)

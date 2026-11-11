@@ -165,6 +165,13 @@ class MissionManager:
         if self.current is not None:
             self._start_pending = True
 
+    restart_phase = restart_task      # the name RoboBoatNavigator calls (RoboBoatRun's)
+
+    def upcoming(self):
+        """Return the tasks still to come, in the order they will run."""
+        return ([r.task for r, _ in reversed(self.stack)] + [r.task for r in self.queue]
+                + [r.task for r in self.plan])
+
     def status(self):
         """Return what the GCS shows: the task now, put aside, waiting, left in the plan."""
         return {'task': self.phase, 'suspended': [r.task for r, _ in self.stack],
@@ -241,7 +248,8 @@ class MissionManager:
             self.run_started = now
         self._event(now, 'task_started', task=req.task, source=req.source,
                     request_id=req.request_id)
-        self.log(f'Task {req.task}' + (f' ({req.source})' if req.source != 'plan' else ''))
+        self.log(f'Task {req.task}' + (f' ({req.source})' if req.source not in ('', 'plan')
+                                       else ''))
         if ctx is not None:
             task.start(ctx)
         else:
@@ -249,3 +257,25 @@ class MissionManager:
 
     def _event(self, now, kind, **details):
         self.events.append((now, kind, details))
+
+
+def needs(capability, factory):
+    """Return the factory marked as needing a capability (usv_core.boat.CAPABILITIES)."""
+    def make(params):
+        return factory(params)
+    make.needs = capability
+    return make
+
+
+def competition_factories(written=None):
+    """
+    Return the RoboBoat 2027 task factories: the behaviours written so far, else Pending.
+
+    task1 Safe Passage, marina (Task 3), task5 Dynamic Response, task2 Emergency Response
+    Sprint, task4 Delivery Run (needs the water cannon); rally (Task 5 Core: go to a point
+    and hold) and hold come with step 6c. written: {name: factory} replacing a Pending.
+    """
+    out = {'task1': Pending, 'marina': Pending, 'task5': Pending, 'task2': Pending,
+           'task4': needs('water', Pending), 'rally': Pending, 'hold': Pending}
+    out.update(written or {})
+    return out
