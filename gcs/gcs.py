@@ -2536,6 +2536,38 @@ class MainWindow(QtWidgets.QMainWindow):
         # RoboBoat 2027 has no UAV: the box is hidden, not deleted (other competitions)
         iha_box.setVisible(False)
 
+        # RoboCommand (the judges' system): the GCS alone talks to it, over the Ethernet
+        # cable in the tent (robocommand/, RoboBoat 2026 protocol until 2027's is out)
+        rc_box = QtWidgets.QGroupBox("RoboCommand")
+        rl = QtWidgets.QGridLayout(rc_box)
+        self.ed_rc_host = QtWidgets.QLineEdit("10.10.10.1")
+        self.ed_rc_host.setToolTip("Sahada 10.10.10.1; sahte sunucuyla 127.0.0.1")
+        self.sp_rc_port = QtWidgets.QSpinBox()
+        self.sp_rc_port.setRange(1, 65535)
+        self.sp_rc_port.setValue(50000)
+        self.ed_rc_team = QtWidgets.QLineEdit("TEAM")
+        self.ed_rc_team.setToolTip("Takım kodu (el kitabında verilir)")
+        self.chk_rc = QtWidgets.QCheckBox("Bağlan")
+        self.chk_rc.toggled.connect(self._toggle_robocommand)
+        btn_rc_test = QtWidgets.QPushButton("Test raporu")
+        btn_rc_test.setToolTip("IDA 1'in konumuyla bir 'giriş kapısı' raporu gönderir")
+        btn_rc_test.clicked.connect(self._robocommand_test_report)
+        self.lbl_rc = QtWidgets.QLabel("kapalı")
+        self.lbl_rc.setStyleSheet("color:#90a4ae; font-weight:bold;")
+        self.lbl_rc.setWordWrap(True)
+        rl.addWidget(QtWidgets.QLabel("Adres:"), 0, 0)
+        rl.addWidget(self.ed_rc_host, 0, 1)
+        rl.addWidget(self.sp_rc_port, 0, 2)
+        rl.addWidget(QtWidgets.QLabel("Takım:"), 1, 0)
+        rl.addWidget(self.ed_rc_team, 1, 1)
+        rl.addWidget(self.chk_rc, 1, 2)
+        rl.addWidget(btn_rc_test, 2, 0)
+        rl.addWidget(self.lbl_rc, 2, 1, 1, 2)
+        bot_lay.addWidget(rc_box)
+        self._rc = None
+        self._rc_timer = QtCore.QTimer(self)
+        self._rc_timer.timeout.connect(self._robocommand_tick)
+
         splitter.addWidget(center_widget)
         splitter.addWidget(self._build_boat_panel(2, bg_path))
 
@@ -3389,6 +3421,9 @@ class MainWindow(QtWidgets.QMainWindow):
             except (TypeError, ValueError):
                 pass
 
+        if self._rc is not None and bid in BOATS:
+            self._rc.on_telemetry(bid, d)     # heartbeats for RoboCommand
+
         relay_lbl = self.relay_lbls.get(bid)
         if relay_lbl is not None and "relay" in d:
             try:
@@ -3893,6 +3928,50 @@ class MainWindow(QtWidgets.QMainWindow):
         self._update_link_stats()
         self._service_cmds()
 
+    def _toggle_robocommand(self, on):
+        """Connect to RoboCommand (it keeps retrying while the cable or server is away)."""
+        if self._rc is not None:
+            self._rc_timer.stop()
+            self._rc.close()
+            self._rc = None
+        if not on:
+            self.lbl_rc.setText("kapalı")
+            self.lbl_rc.setStyleSheet("color:#90a4ae; font-weight:bold;")
+            return
+        try:
+            from robocommand.client import Client
+        except ImportError as e:
+            self.on_status(f"RoboCommand: {e} (~/gcs-venv/bin/pip install protobuf)")
+            self.chk_rc.setChecked(False)
+            return
+        self._rc = Client(self.ed_rc_host.text().strip(), self.sp_rc_port.value(),
+                          self.ed_rc_team.text().strip() or "TEAM")
+        self._rc_timer.start(100)
+        self.on_status(f"RoboCommand: {self.ed_rc_host.text().strip()}:"
+                       f"{self.sp_rc_port.value()}")
+
+    def _robocommand_tick(self):
+        if self._rc is None:
+            return
+        self._rc.tick()
+        text = self._rc.status()
+        if text != self.lbl_rc.text():
+            self.lbl_rc.setText(text)
+            ok = self._rc.transport.connected
+            self.lbl_rc.setStyleSheet(f"color:{'#00e676' if ok else '#ffa726'}; "
+                                      "font-weight:bold;")
+
+    def _robocommand_test_report(self):
+        """Send one gate report for IDA 1 at its last position (to check the path)."""
+        if self._rc is None:
+            self.on_status("RoboCommand bağlı değil")
+            return
+        tel = self._rc.bridge.telemetry.get(1, (0.0, {}))[1]
+        pos = tel.get("MEVCUT_KONUM") or {}
+        self._rc.add_report(1, {"type": "gate", "gate": "entry", "lat": pos.get("lat", 0.0),
+                                "lon": pos.get("lon", 0.0)})
+        self.on_status("RoboCommand: test raporu kuyrukta (giriş kapısı, IDA 1)")
+
     def _on_links_state(self, ages):
         """Show when each link last brought anything (both should be fresh)."""
         parts, worst = [], 0.0
@@ -4085,6 +4164,8 @@ class MainWindow(QtWidgets.QMainWindow):
         return super().eventFilter(o, e)
 
     def closeEvent(self, e):
+        if self._rc is not None:
+            self._rc.close()
         if self.worker_1:
             self.worker_1.stop()
             self.worker_1.wait(1000)

@@ -43,6 +43,11 @@ Son güncelleme: 10 Kasım 2026.
 - [ ] RFD doluluğu: iki tekne + drone aynı kanalda 0,3 s telemetriyle ölçülecek (gerçek
       telsizlerle).
 
+## RoboCommand
+- [ ] Takım kodu (`team_id`, el kitabında verilir; GCS'de şimdilik "TEAM") ve tekne kodları
+      (şimdilik Azure S1, Marine S2).
+- [ ] RoboBoat 2027 protokolü yayımlanınca: `git -C ~/Downloads/robocommand pull` ve haber ver.
+
 ## Takvim ve takım işleri
 - [ ] **Proof of Readiness videosu** (Ocak 2027): gerçek teknenin suda iki kapı setinden otonom
       geçişi. Gerçek tekne işi (Faz 7) buna göre öne alınmalı.

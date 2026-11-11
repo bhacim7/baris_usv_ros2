@@ -30,10 +30,16 @@ Docker içinde (Gazebo Harmonic + VRX), gerçek tekneler Jetson. Hedef: RoboBoat
   (Barış GCS haritasında yarımadanın GB köşesinden ölçtü). Parkur dosyalarındaki `origin`
   27.366566, -82.450768 oldu. Tek noktadan ölçüldü; Barış'ın doğrulaması ve commit'i
   bekleniyor. Eski kayıtlar eski origin'le (27.367256, -82.451120).
-- Adım 5c yazıldı: `usv_interfaces/TaskRequest`, GCS komutu `task` → `task_request` konusu.
-  Barış'ın testi ve commit'i bekleniyor.
+- Adım 5c bitti: commit `f3de9fe` (`usv_interfaces/TaskRequest`, GCS komutu `task`).
+- Adım 5d yazıldı: `gcs/robocommand/` (RoboBoat 2026 resmi protobuf, TCP, heartbeat/hız
+  köprüsü, kural denetleyen sahte sunucu, GCS kutusu). Barış'ın denemesi ve commit'i
+  bekleniyor. MQTT taşıması 2027 el kitabı isterse. Veri yolu: tekne → GCS → Ethernet →
+  RoboCommand.
+- GCS'yi Claude ana makinede `QT_QPA_PLATFORM=offscreen ~/gcs-venv/bin/python` ile pencere
+  açmadan deneyebilir; GCS testleri `~/gcs-venv/bin/python -m pytest gcs/test`.
 - Sıra (Barış'la, 11 Kasım): 5d (RoboCommand) → Adım 6 (görev yöneticisi) → Task 1 davranışı
-  → marina Core → Task 5; Adım 7-8 donanım hazır oldukça (docs/roboboat-2027.md §8 "Sıra").
+  → marina Core → Task 5 → Task 2 Core; Adım 7-8 donanım hazır oldukça; Task 4 atıştan,
+  Task 2 pinger seviyeleri hidrofondan sonra (docs/roboboat-2027.md §8 "Sıra").
 - Bilinen: raporda "yeşil 330°" uyarısı GPS/harita kaymasından (R3.5 ertelendi).
 
 ## Çalışma şekli (değişmez kurallar)

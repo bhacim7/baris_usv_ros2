@@ -53,3 +53,23 @@ batıda duruyordu (11 Kasım'da yarımadanın güneybatı köşesinden ölçüld
 dosyalarındaki `origin` düzeltildi; simülasyonun GPS'i artık GCS haritasıyla örtüşmeli.
 Bilinen farklar: Gazebo'nun kamerasında yukarı kuzey olmayabilir (GCS'de hep kuzey), park
 modeli sadeleştirilmiş (küçük ada yok), simülasyonun şamandıraları uydu görüntüsünde yok.
+
+## RoboCommand (hakem sistemi)
+
+Hakeme yalnız GCS bağlanır (çadırdaki Ethernet kablosu, sahada 10.10.10.1:50000). Teknelerin
+verisi GCS'ye iki hattan gelir, GCS onu RoboCommand'a aktarır. Şimdilik RoboBoat 2026
+protokolü (RoboNation'ın resmi `report.proto`'su, `robocommand/msgs/`); 2027'ninki yayımlanınca
+yalnız kodlayıcı eklenir (`robocommand/__init__.py`).
+
+- GCS'nin alt çubuğunda "RoboCommand" kutusu: adres, port, takım kodu, Bağlan. Her tekne için
+  saniyede bir heartbeat (konum, hız, yön, mod, görev), en fazla 5 mesaj/s. "Test raporu"
+  IDA 1'in konumuyla bir giriş kapısı raporu yollar.
+- Sahte sunucu kuralları denetler (geç heartbeat, 5 mesaj/s'yi aşmak, sıra numarası, saat):
+
+```bash
+~/gcs-venv/bin/python ~/usv_ros2/gcs/robocommand/fake_server.py
+```
+
+GCS'de adres 127.0.0.1, Bağlan. Gereken: `~/gcs-venv/bin/pip install protobuf`.
+
+Testler (GCS bilgisayarında): `~/gcs-venv/bin/python -m pytest ~/usv_ros2/gcs/test -v`

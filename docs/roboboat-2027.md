@@ -224,7 +224,9 @@ tekne ──(kendi telsiz/Wi-Fi bağlantın)──> kıyıdaki bilgisayar (OCS, 
   eşitleniyor. En fazla 5 mesaj/saniye.
 - **2026 görev mesajları:** GatePass (kapı geçişi), ObjectDetected (nesne bulundu: tür, renk,
   konum), ObjectDelivery (teslimat), Docking (yanaşma), SoundSignal (ses).
-- 2026'da yön **yalnız tekneden hakeme**ydi. 2026 kuralına göre tekne otonomken kıyıdan kontrol
+- 2026'da veri **yalnız tekneden hakeme** akıyordu, ama tekne hakeme doğrudan bağlanmıyordu:
+  tekne verisi GCS'ye geliyor, GCS'ye takılı Ethernet kablosuyla RoboCommand'a aktarılıyordu
+  (Barış, 11 Kasım). 2026 kuralına göre tekne otonomken kıyıdan kontrol
   bilgisi alamaz, yalnız rapor gönderir.
 
 **2027'de değişen:** Task 4 ve Task 5'te **hakem tekneye görev gönderiyor**. Yani bağlantı iki
@@ -513,6 +515,19 @@ acil mi, konum, anahtar/değer parametreleri). GCS hattında yeni komut `task`; 
 onu `task_request` konusuna yayınlar ve onaylar. Dışarıdaki protokol (RoboCommand 2027)
 ne olursa olsun ROS içinde bu mesaj sabit kalır; görev yöneticisi (Adım 6) bunu dinleyecek.
 
+**5d yazıldı (11 Kasım): RoboCommand, GCS tarafı (`gcs/robocommand/`).**
+- RoboNation'ın resmi deposundan (`robonation/robocommand`, Apache 2.0) RoboBoat 2026
+  `report.proto` ve üretilmiş kod. RobotX 2026 (kardeş yarışma) MQTT ile iki yönlü:
+  hakemden OCS'ye `command` (koşu başlat, Task 4) ve `course`; RoboBoat 2027 büyük olasılıkla
+  buna benzeyecek. MQTT taşıması 2027 el kitabı isterse eklenir (test için ayrıca bir MQTT
+  sunucusu gerekiyor).
+- Katmanlar: çerçeve (`$R` + uzunluk + içerik + `!!`), TCP (kendiliğinden yeniden bağlanır),
+  kodlayıcı (heartbeat ve raporlar), köprü (her tekneye 1 Hz heartbeat, yalnız duyulan
+  teknelere; en fazla 5 mesaj/s, önce heartbeat; tekne başına sıra numarası).
+- GCS'de RoboCommand kutusu; kuralları denetleyen sahte sunucu.
+- Teknenin rapor üretmesi (kapı, nesne, yanaşma) görev yöneticisiyle (Adım 6) gelir. Hakemden
+  gelen görevler için yol hazır (`TaskRequest`, 5c); 2026 protokolünde böyle mesaj yok.
+
 ### Adım 6. Görev yöneticisi
 - Sıradaki görevlerin yanında, acil görevle araya girip sonra kaldığı yerden devam etme
   (Task 4, Task 5).
@@ -548,10 +563,12 @@ ne olursa olsun ROS içinde bu mesaj sabit kalır; görev yöneticisi (Adım 6) 
 ### Sıra (Barış'la, 11 Kasım)
 Görev davranışları atış sistemini beklemez. Sıra: Adım 5 (haberleşme) → Adım 6 (görev
 yöneticisi) → **Task 1 davranışı** (yan kısıtlı yol, ENTRY/EXIT turları) → **marina, Core**
-(yeşil bölmeye yanaşma) → **Task 5** (RoboCommand'dan gelen noktada toplanma). Üç rozet de bu
-üçünü istiyor ve hiçbiri su ya da top gerektirmiyor. Adım 7 (atış sistemi) ve Adım 8 (iki
-ZED) donanım hazır oldukça araya girer; su/top isteyen seviyeler (Task 3 Advanced, Task 4)
-onlardan sonra. Gerçek tekne (Faz 7, Ocak'taki Proof of Readiness videosu) ayrıca
+(yeşil bölmeye yanaşma) → **Task 5** (RoboCommand'dan gelen noktada toplanma) → **Task 2,
+Core** (yeşil numaralı şamandıradan başla, doğru renkteki şamandıranın etrafında tur, çık;
+pinger yok). Üç rozet de ilk üçünü istiyor ve hiçbiri su ya da top gerektirmiyor. Adım 7
+(atış sistemi) ve Adım 8 (iki ZED) donanım hazır oldukça araya girer; su/top isteyen
+seviyeler (Task 3 Advanced, Task 4) onlardan sonra; Task 2'nin pinger seviyeleri hidrofon
+kararından sonra. Gerçek tekne (Faz 7, Ocak'taki Proof of Readiness videosu) ayrıca
 takvimlenecek.
 
 ### Bekleyenler
