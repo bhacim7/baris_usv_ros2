@@ -23,6 +23,7 @@ import serial.tools.list_ports
 REPO = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 sys.path.insert(0, os.path.join(REPO, 'ws', 'src', 'usv_core'))
 from usv_core import gcs_link  # noqa: E402
+from usv_core.allocation import allocate, BoatState  # noqa: E402
 from PySide6.QtGui import QImageReader
 from collections import OrderedDict
 from datetime import datetime
@@ -52,16 +53,23 @@ def boat_profiles():
     except OSError:
         return out
     for f in files:
-        d = {}
+        d, turret = {}, False
         with open(os.path.join(folder, f), encoding="utf-8") as fh:
             for line in fh:
                 line = line.split("#", 1)[0].rstrip()
+                turret = turret or "mount: turret" in line
                 if line and not line.startswith(" ") and ":" in line:
                     k, v = line.split(":", 1)
                     d[k.strip()] = v.strip()
         if "number" in d:
+            # What the boat can do, as usv_core.boat.BoatProfile.capabilities()
+            caps = [c for c, yes in (("water", d.get("water_cannon") == "true"),
+                                     ("balls", int(d.get("balls", 0) or 0) > 0),
+                                     ("lidar", d.get("lidar") == "true"),
+                                     ("turret_camera", turret)) if yes]
             out[int(d["number"])] = {"name": d.get("name", f[:-5]), "ip": d.get("ip", ""),
-                                     "udp_port": int(d.get("udp_port", 0) or 0)}
+                                     "udp_port": int(d.get("udp_port", 0) or 0),
+                                     "capabilities": tuple(caps)}
     return out
 
 # ---- Harita resmi ve köşe koordinatları (WGS84) ----
@@ -2563,9 +2571,21 @@ class MainWindow(QtWidgets.QMainWindow):
         rl.addWidget(self.chk_rc, 1, 2)
         rl.addWidget(btn_rc_test, 2, 0)
         rl.addWidget(self.lbl_rc, 2, 1, 1, 2)
+        # As if RoboCommand had sent a task (simulation only: 2026 has no such message);
+        # the GCS picks the boat by usv_core.allocation, the operator does not
+        self.cmb_rc_task = QtWidgets.QComboBox()
+        self.cmb_rc_task.addItems(["task4 (su teslimatı)", "rally (toplanma, 20 m kuzey)",
+                                   "task1"])
+        btn_rc_task = QtWidgets.QPushButton("Hakem görevi (test)")
+        btn_rc_task.setToolTip("Hakemden gelmiş gibi bir görev: GCS tekneyi kendisi seçer")
+        btn_rc_task.clicked.connect(self._robocommand_test_task)
+        rl.addWidget(self.cmb_rc_task, 3, 0, 1, 2)
+        rl.addWidget(btn_rc_task, 3, 2)
         bot_lay.addWidget(rc_box)
         self._rc = None
         self._reports_seen = {}
+        self._boat_state = {}             # number -> what the last telemetry said
+        self._profiles = boat_profiles()
         self._rc_timer = QtCore.QTimer(self)
         self._rc_timer.timeout.connect(self._robocommand_tick)
 
@@ -3443,6 +3463,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if self._rc is not None and bid in BOATS:
             self._rc.on_telemetry(bid, d)     # heartbeats for RoboCommand
+        if bid in BOATS:                      # for the task allocation
+            st = self._boat_state.setdefault(bid, {})
+            st["t"] = time.monotonic()
+            for key in ("task", "mod", "task_queue", "MEVCUT_KONUM"):
+                if key in d:
+                    st[key] = d[key]
 
         relay_lbl = self.relay_lbls.get(bid)
         if relay_lbl is not None and "relay" in d:
@@ -3996,12 +4022,62 @@ class MainWindow(QtWidgets.QMainWindow):
         if self._rc is None:
             return
         self._rc.tick()
+        while self._rc.tasks:                 # tasks from the judges (2027)
+            self._assign_task(self._rc.tasks.pop(0))
         text = self._rc.status()
         if text != self.lbl_rc.text():
             self.lbl_rc.setText(text)
             ok = self._rc.transport.connected
             self.lbl_rc.setStyleSheet(f"color:{'#00e676' if ok else '#ffa726'}; "
                                       "font-weight:bold;")
+
+    def _boat_states(self):
+        """Return the boats as usv_core.allocation sees them, from their telemetry."""
+        now, out = time.monotonic(), []
+        for number, prof in sorted(self._profiles.items()):
+            st = self._boat_state.get(number, {})
+            queue = [t for t in str(st.get("task_queue", "")).split(">") if t]
+            out.append(BoatState(number, prof["name"], prof.get("capabilities", ()),
+                                 heard_s=(now - st["t"]) if "t" in st else None,
+                                 manual=bool(int(st.get("mod", 1) or 0)),
+                                 task=str(st.get("task", "")), upcoming=queue))
+        return out
+
+    def _assign_task(self, task):
+        """Give a judges' task to the boat usv_core.allocation picks, and say why."""
+        name = task["task"]
+        number, reason = allocate(name, self._boat_states(), named=task.get("boat"))
+        if number is None:
+            self.on_status(f"HAKEM GÖREVİ {name} ATANAMADI: {reason}")
+            return
+        payload = {"target_id": number, "cmd": "task", "task": name,
+                   "urgent": 1 if task.get("urgent") else 0, "src": "robocommand"}
+        if task.get("lat") is not None and task.get("lon") is not None:
+            payload.update(lat=task["lat"], lon=task["lon"])
+        if task.get("params"):
+            payload["p"] = dict(task["params"])
+        self._send_reliable(payload)
+        boat = self._profiles.get(number, {}).get("name", number)
+        self.on_status(f"HAKEM GÖREVİ {name} -> IDA {number} ({boat})")
+        log = getattr(self, f"usv{number}_log", None)
+        if log is not None:
+            log.appendPlainText(f"HAKEM GÖREVİ: {name}"
+                                + (" (ACİL)" if task.get("urgent") else ""))
+
+    def _robocommand_test_task(self):
+        """Hand the allocation a task as if RoboCommand had sent it (simulation tests)."""
+        name = self.cmb_rc_task.currentText().split()[0]
+        task = {"task": name, "urgent": True}
+        if name == "rally":
+            pts = [st["MEVCUT_KONUM"] for st in self._boat_state.values()
+                   if st.get("MEVCUT_KONUM")]
+            if not pts:
+                self.on_status("Toplanma noktası için önce bir teknenin konumu gerekli")
+                return
+            lat = sum(p["lat"] for p in pts) / len(pts) + 20.0 / 111000.0
+            lon = sum(p["lon"] for p in pts) / len(pts)
+            task.update(lat=lat, lon=lon)
+        self._assign_task(task)
 
     def _robocommand_test_report(self):
         """Send one gate report for IDA 1 at its last position (to check the path)."""

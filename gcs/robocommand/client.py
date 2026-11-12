@@ -7,6 +7,10 @@ The GCS's RoboCommand client: transport + codec + bridge, polled from the GUI's 
     rc.tick()                              # often (e.g. every 100 ms): sends, receives
     rc.status()                            # one line for the GCS's RoboCommand box
     rc.tasks                               # tasks from RoboCommand, for the boats (2027)
+
+A task (what a codec's command() returns): {task: a usv_core.mission task name, urgent:
+bool, boat: the boat number RoboCommand named or None, lat, lon (optional), params: {...}}.
+The GCS gives it to the boat usv_core.allocation picks (gcs.py _assign_task).
 """
 
 import time

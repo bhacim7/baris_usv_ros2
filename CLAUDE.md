@@ -41,9 +41,12 @@ Docker içinde (Gazebo Harmonic + VRX), gerçek tekneler Jetson. Hedef: RoboBoat
   kullanır, `task_request`'i dinler, sıradakiler GCS'de.
 - Adım 6c bitti (`d63c1d4`): `rally`, `hold`, HOME (yerinde durma bandı 2/4 m, Gazebo'da iyi).
 - Adım 6d bitti (`9d6531f`): rapor yolu tekne → GCS → RoboCommand.
-- Adım 6e (1/2) yazıldı: Gazebo'da iki tekne (`boats:=azure,marine`; modeller `usv_azure`,
-  `usv_marine`). Barış'ın denemesi (bilgisayar yükü ölçülecek) ve commit'i bekleniyor.
-  Sonra 6e (2/2): görevlerin tekneler arasında paylaştırılması (GCS).
+- Adım 6e (1/2) bitti: Gazebo'da iki tekne (`boats:=azure,marine`; `usv_azure`, `usv_marine`
+  siyah). RTF tek tekne %68, iki tekne %34. Eski launch'lar açık kalırsa Gazebo titrer
+  (daily-startup §14).
+- Adım 6e (2/2) yazıldı: paylaştırma (`usv_core/allocation.py`, GCS `_assign_task`, "Hakem
+  görevi (test)" düğmesi). Barış'ın denemesi ve commit'i bekleniyor. Bununla Adım 6 biter;
+  sıradaki Task 1 davranışı (ve simülasyonda varsayılanı yarışmaya çevirmek).
 - Ana makinede (Claude) çekirdek testleri: `~/gcs-venv/bin/python` (numpy, pytest var; cv2
   yok, gerekirse sahte modülle).
 - GCS'yi Claude ana makinede `QT_QPA_PLATFORM=offscreen ~/gcs-venv/bin/python` ile pencere

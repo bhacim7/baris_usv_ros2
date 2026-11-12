@@ -589,6 +589,15 @@ sunucusunun tek çekirdeği (her teknenin gövde kaldırma kuvveti gövde ağı 
 hesaplanıyor). Düğümlerimiz duvar saatiyle çalıştığı için yavaş simülasyonda zamanlar
 uzar; davranış denemeleri için yeterli, süre ölçümleri aynı oranda karşılaştırılmalı.
 
+**6e, ikinci yarı yazıldı (12 Kasım): paylaştırma (`usv_core/allocation.py`, GCS kullanır).**
+RoboCommand'dan gelen görevi GCS kendisi bir tekneye verir, her seferinde aynı kurallarla:
+hakem bir tekne adlandırdıysa o (yapamıyorsa red); yoksa duyulan, otomatikteki ve görevi
+yapabilen tekneler arasından önce boşta olan (HOME, WAIT_START), sonra sırada daha az görevi
+olan, sonra küçük numara (Azure). Su gerektiren görev (task4) Marine'e. Atanamayan görev
+sebebiyle GCS günlüğüne yazılır. Rozet (çok görev) sırayla, her atama yük sayılarak
+paylaştırılır. 2026 protokolünde hakemden görev gelmediği için GCS'de "Hakem görevi (test)"
+düğmesi: task4, toplanma (iki teknenin ortası + 20 m kuzey), task1. Bununla Adım 6 tamam.
+
 ### Adım 7. Atış sistemi (Marine)
 - `usv_core/turret.py`: saf mantık.
 - `turret` düğümü: Jetson sürücüsü ve sahte sürücü. Pinler, I2C ve kanallar ayar dosyasında.
