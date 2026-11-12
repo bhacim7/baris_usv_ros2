@@ -67,8 +67,11 @@ What starts, in this order:
 
 The boats (RoboBoat 2027): Azure (AGX Thor) and Marine (AGX Orin). Our nodes and the bridge
 run in the boat's namespace, boat:=azure (default) or boat:=marine, so every topic and
-service is /azure/... or /marine/... (/azure/fix, /azure/set_manual). One boat in Gazebo
-for now: the name only changes the namespace.
+service is /azure/... or /marine/... (/azure/fix, /azure/set_manual).
+    boats:=azure,marine        both boats in Gazebo (models usv_azure, usv_marine, the
+                               second 6 m to the right of the first), each with all its
+                               nodes; with link:=true both on the pretend RFD and on UDP
+In Gazebo a boat's model is usv_<boat> (topics /usv_<boat>/...).
 
 Ctrl+C stops everything.
 """
@@ -105,14 +108,22 @@ def setup(context):
     course = LaunchConfiguration('course').perform(context)
     gui = LaunchConfiguration('gui').perform(context).lower() == 'true'
     paused = LaunchConfiguration('paused').perform(context).lower() == 'true'
-    # The boat's profile (usv_nodes/config/boats/<boat>.yaml): its name is the namespace
-    boat = LaunchConfiguration('boat').perform(context)
-    boats = os.path.join(get_package_share_directory('usv_nodes'), 'config', 'boats')
-    if not os.path.isfile(os.path.join(boats, boat + '.yaml')):
-        known = sorted(f[:-len('.yaml')] for f in os.listdir(boats) if f.endswith('.yaml'))
-        raise RuntimeError(f'boat:={boat}: no such profile; there are {", ".join(known)}')
-    with open(os.path.join(boats, boat + '.yaml')) as f:
-        profile = usv_boat.load(yaml.safe_load(f))
+    # The boats' profiles (usv_nodes/config/boats/<boat>.yaml): a name is a namespace.
+    # boats:=azure,marine puts both in Gazebo; else boat:= alone
+    names = [b.strip() for b in LaunchConfiguration('boats').perform(context).split(',')
+             if b.strip()] or [LaunchConfiguration('boat').perform(context)]
+    if len(set(names)) != len(names):
+        raise RuntimeError(f'boats:={",".join(names)}: a boat twice')
+    boats_dir = os.path.join(get_package_share_directory('usv_nodes'), 'config', 'boats')
+    profiles = {}
+    for name in names:
+        if not os.path.isfile(os.path.join(boats_dir, name + '.yaml')):
+            known = sorted(f[:-len('.yaml')] for f in os.listdir(boats_dir)
+                           if f.endswith('.yaml'))
+            raise RuntimeError(f'boat {name}: no such profile; there are {", ".join(known)}')
+        with open(os.path.join(boats_dir, name + '.yaml')) as f:
+            profiles[name] = usv_boat.load(yaml.safe_load(f))
+    boat = names[0]                       # RViz, survey: the first boat
 
     course_file = os.path.join(share, 'courses', course + '.yaml')
     world_file = os.path.join('/tmp', f'usv_sim_{course}.sdf')
@@ -190,8 +201,6 @@ def setup(context):
                                         f'{left + float(hint_error) * math.sin(a):.2f}')
     navigator_overrides['start_manual'] = \
         LaunchConfiguration('auto').perform(context).lower() != 'true'
-    # What this boat can do (its profile): the mission manager refuses other tasks
-    navigator_overrides['boat_capabilities'] = ','.join(profile.capabilities())
 
     # The declination perception adds is a per-venue setting on the boat (+6 Istanbul,
     # -6 Sarasota); here it follows the course, i.e. a correctly set compass.
@@ -222,7 +231,7 @@ def setup(context):
 
     make_world = ExecuteProcess(
         cmd=['python3', os.path.join(share, 'scripts', 'make_course_world.py'),
-             course_file, world_file],
+             course_file, world_file, ','.join(names)],
         output='screen')
 
     # -r: run at once; -s: server only (no window); -v 3: show gzmsg lines (HullBuoyancy)
@@ -233,28 +242,61 @@ def setup(context):
             get_package_share_directory('ros_gz_sim'), 'launch', 'gz_sim.launch.py')),
         launch_arguments={'gz_args': gz_args, 'on_exit_shutdown': 'true'}.items())
 
-    bridge = Node(
-        package='ros_gz_bridge', executable='parameter_bridge', name='ros_gz_bridge',
-        namespace=boat,
-        parameters=[{'config_file': os.path.join(config, 'ros_gz_bridge.yaml')}],
-        output='screen')
-
-    ours = [
-        Node(package='usv_sim', executable='sim_bridge', namespace=boat, output='screen',
-             parameters=[os.path.join(config, 'sim_bridge.yaml'), bridge_overrides],
-             respawn=True, respawn_delay=2.0),
-        Node(package='usv_sim', executable='fake_perception', namespace=boat, output='screen',
-             parameters=[os.path.join(config, 'fake_perception.yaml'), perception_overrides],
-             respawn=True, respawn_delay=2.0),
-        Node(package='usv_nodes', executable='heading_source', namespace=boat, output='screen',
-             parameters=[heading_config],
-             respawn=True, respawn_delay=2.0),
-        # The world map, from power-on (written to /ws/bags/map_<course>.json on Ctrl+C)
-        Node(package='usv_nodes', executable='mapper', namespace=boat, output='screen',
-             parameters=[os.path.join(nodes_config, 'mapper.yaml'),
-                         {'map_file': os.path.join('/ws/bags', f'map_{course}.json')}],
-             respawn=True, respawn_delay=2.0),
-    ]
+    link = LaunchConfiguration('link').perform(context).lower() == 'true'
+    with open(os.path.join(config, 'ros_gz_bridge.yaml')) as f:
+        bridge_text = f.read()
+    ours = []
+    for k, name in enumerate(names):
+        profile = profiles[name]
+        # Its Gazebo topics live under /usv_<boat>/ (make_course_world.py)
+        bridge_file = os.path.join('/tmp', f'usv_gz_bridge_{name}.yaml')
+        with open(bridge_file, 'w') as f:
+            f.write(bridge_text.replace('/usv_boat/', f'/usv_{name}/'))
+        noise = {}
+        if seed and int(seed):
+            # Each boat its own noise: the same seed must not make both see alike
+            noise = {'random_seed': int(seed) + 100 * k}
+        ours += [
+            Node(package='ros_gz_bridge', executable='parameter_bridge', name='ros_gz_bridge',
+                 namespace=name, parameters=[{'config_file': bridge_file}], output='screen'),
+            Node(package='usv_sim', executable='sim_bridge', namespace=name, output='screen',
+                 parameters=[os.path.join(config, 'sim_bridge.yaml'), bridge_overrides,
+                             {'random_seed': noise['random_seed'] + 1000} if noise else {}],
+                 respawn=True, respawn_delay=2.0),
+            Node(package='usv_sim', executable='fake_perception', namespace=name,
+                 output='screen',
+                 parameters=[os.path.join(config, 'fake_perception.yaml'),
+                             perception_overrides, noise],
+                 respawn=True, respawn_delay=2.0),
+            Node(package='usv_nodes', executable='heading_source', namespace=name,
+                 output='screen', parameters=[heading_config],
+                 respawn=True, respawn_delay=2.0),
+            # The world map, from power-on (written to /ws/bags/map_<course>[_<boat>].json
+            # on Ctrl+C)
+            Node(package='usv_nodes', executable='mapper', namespace=name, output='screen',
+                 parameters=[os.path.join(nodes_config, 'mapper.yaml'),
+                             {'map_file': os.path.join(
+                                 '/ws/bags', f'map_{course}' + (f'_{name}' if k else '')
+                                 + '.json')}],
+                 respawn=True, respawn_delay=2.0),
+        ]
+        if with_navigator:
+            # What this boat can do (its profile): the mission manager refuses other tasks
+            ours.append(Node(package='usv_nodes', executable='navigator', namespace=name,
+                             output='screen',
+                             parameters=[navigator_config, navigator_overrides,
+                                         {'boat_capabilities':
+                                          ','.join(profile.capabilities())}],
+                             respawn=True, respawn_delay=2.0))
+        if link:
+            ours.append(Node(package='usv_nodes', executable='telemetry_bridge',
+                             namespace=name, output='screen',
+                             parameters=[os.path.join(nodes_config, 'telemetry_bridge.yaml'),
+                                         {'boat_number': profile.number,
+                                          'udp_listen_port': profile.udp_port,
+                                          'gcs_host': '127.0.0.1',
+                                          'serial_port': f'/tmp/usv_rfd_{name}'}],
+                             respawn=True, respawn_delay=2.0))
     if LaunchConfiguration('rviz').perform(context).lower() == 'true':
         # RViz on the map: the markers live in usv_map, tied to RViz's fixed frame 'map'
         ours.append(Node(package='tf2_ros', executable='static_transform_publisher',
@@ -270,11 +312,6 @@ def setup(context):
                 f.write(text)
         ours.append(Node(package='rviz2', executable='rviz2', output='log',
                          arguments=['-d', rviz_config]))
-    if with_navigator:
-        ours.append(Node(package='usv_nodes', executable='navigator', namespace=boat,
-                         output='screen',
-                         parameters=[navigator_config, navigator_overrides],
-                         respawn=True, respawn_delay=2.0))
     if survey:
         with open(os.path.join(config, 'fake_perception.yaml')) as f:
             antenna = yaml.safe_load(f)['/**']['ros__parameters'][
@@ -283,34 +320,25 @@ def setup(context):
                          output='screen',
                          parameters=[{'course': course, 'course_file': course_file,
                                       'gnss_antenna_mount_m': antenna}]))
-    link = LaunchConfiguration('link').perform(context).lower() == 'true'
-    if link:
-        ours.append(Node(package='usv_nodes', executable='telemetry_bridge', namespace=boat,
-                         output='screen',
-                         parameters=[os.path.join(nodes_config, 'telemetry_bridge.yaml'),
-                                     {'boat_number': profile.number,
-                                      'udp_listen_port': profile.udp_port,
-                                      'gcs_host': '127.0.0.1',
-                                      'serial_port': f'/tmp/usv_rfd_{boat}'}],
-                         respawn=True, respawn_delay=2.0))
     if record:
         ours.append(ExecuteProcess(
             cmd=['ros2', 'bag', 'record', '-o', os.path.join('/ws/bags', record)]
-            + [f'/{boat}/{topic}' for topic in RECORD_TOPICS],
+            + [f'/{name}/{topic}' for name in names for topic in RECORD_TOPICS],
             output='screen'))
 
     start_rest = RegisterEventHandler(OnProcessExit(
-        target_action=make_world, on_exit=[gazebo, bridge] + ours))
+        target_action=make_world, on_exit=[gazebo] + ours))
 
     radio = []
     if link:
         # The pretend RFD network, before the boat's bridge opens its end
         radio.append(ExecuteProcess(
-            cmd=['python3', os.path.join(share, 'scripts', 'fake_radio.py'), 'gcs', boat],
+            cmd=['python3', os.path.join(share, 'scripts', 'fake_radio.py'), 'gcs', *names],
             output='screen'))
     return radio + [
-        LogInfo(msg=f'Boat {profile.name} (number {profile.number}, {profile.computer}); can: '
-                + (', '.join(profile.capabilities()) or 'nothing extra')),
+        LogInfo(msg=f'Boat {p.name} (number {p.number}, {p.computer}); can: '
+                + (', '.join(p.capabilities()) or 'nothing extra'))
+        for p in profiles.values()] + [
         # Our boat model (usv_boat) for Gazebo; VRX and HullBuoyancy paths come from the
         # sourced setup files
         AppendEnvironmentVariable('GZ_SIM_RESOURCE_PATH', os.path.join(share, 'models')),
@@ -325,6 +353,9 @@ def generate_launch_description():
                               description='usv_sim/courses/<course>.yaml'),
         DeclareLaunchArgument('boat', default_value='azure',
                               description='azure or marine: the namespace of our nodes'),
+        DeclareLaunchArgument('boats', default_value='',
+                              description='azure,marine: both boats in Gazebo, side by side; '
+                              'empty = boat:= alone'),
         DeclareLaunchArgument('start', default_value='',
                               description="one of the course's starts (roboboat_2027: "
                               "readiness, competition); empty = the course's default"),

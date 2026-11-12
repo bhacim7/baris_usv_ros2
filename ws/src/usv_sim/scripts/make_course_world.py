@@ -22,12 +22,19 @@ physics, sensors, water, waves and our boat), with these changes:
 
 Gazebo's world frame is ENU here: x east, y north, z up.
 
+One model per boat (RoboBoat 2027: Azure and Marine), named usv_<boat> (usv_azure, ...),
+copied from models/usv_boat/model.sdf with its Gazebo topics under /usv_<boat>/ instead of
+/usv_boat/ (sim.launch.py's bridge follows); the first boat on the course's start, the
+others SPACING_M to its right, one after the other.
+
 Usage (inside the container):
-    python3 /ws/src/usv_sim/scripts/make_course_world.py COURSE.yaml OUTPUT.sdf
+    python3 /ws/src/usv_sim/scripts/make_course_world.py COURSE.yaml OUTPUT.sdf [BOATS]
+BOATS: comma separated names, default azure.
 """
 
 import math
 import os
+import re
 import sys
 import xml.etree.ElementTree as ET
 
@@ -48,6 +55,9 @@ COLOURS = {   # ambient/diffuse RGB
     'black_target': (0.04, 0.04, 0.04),
 }
 FLAG_RGB = (0.85, 0.1, 0.05)
+BOAT_MODEL = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'models',
+                          'usv_boat', 'model.sdf')
+SPACING_M = 6.0             # boats side by side at the start (beam 0.78 m)
 LIGHT_RGB = {'red': (1.0, 0.08, 0.05), 'green': (0.1, 1.0, 0.2), 'blue': (0.15, 0.35, 1.0),
              'off': (0.12, 0.12, 0.12)}
 NOODLE_RGB = (0.25, 0.45, 0.8)      # ASSUMED: pool noodles come in any colour
@@ -259,9 +269,33 @@ def course_model(m):
     return model
 
 
+def gz_name(boat):
+    """Return a boat's Gazebo model name (its topics live under /<name>/)."""
+    return f'usv_{boat}'
+
+
+def boat_model(boat, x, y, yaw):
+    """Return a boat's model: usv_boat with its own name and topics, at (x, y, yaw)."""
+    with open(BOAT_MODEL) as f:
+        text = f.read()
+    name = gz_name(boat)
+    # Topics only (the hull mesh uri file://usv_boat/... stays: one mesh for all)
+    text = re.sub(r'(<(?:topic|odom_topic)>)/usv_boat/', rf'\1/{name}/', text)
+    text = text.replace('<namespace>usv_boat</namespace>', f'<namespace>{name}</namespace>')
+    model = ET.fromstring(text).find('model')
+    model.set('name', name)
+    pose = model.find('pose')
+    if pose is None:
+        pose = ET.Element('pose')
+        model.insert(0, pose)
+    pose.text = f'{x:.3f} {y:.3f} 0 0 0 {yaw:.4f}'
+    return model
+
+
 def main():
-    if len(sys.argv) != 3:
+    if len(sys.argv) not in (3, 4):
         sys.exit(__doc__)
+    boats = sys.argv[3].split(',') if len(sys.argv) == 4 else ['azure']
     with open(sys.argv[1]) as f:
         course = course_mod.load(yaml.safe_load(f))
     origin = course.origin
@@ -277,7 +311,12 @@ def main():
             if course.venue != 'nbpark':
                 world.remove(inc)
         elif inc.findtext('name') == 'usv_boat':
-            inc.find('pose').text = f'{bx:.3f} {by:.3f} 0 0 0 {yaw:.4f}'
+            world.remove(inc)             # one model per boat below
+    # Side by side: the k-th boat k * SPACING_M to the right of the start
+    right = (math.sin(yaw), -math.cos(yaw))
+    for k, boat in enumerate(boats):
+        world.append(boat_model(boat, bx + k * SPACING_M * right[0],
+                                by + k * SPACING_M * right[1], yaw))
 
     # GUI camera 12 m behind the boat, 6 m up, looking down the course
     cam = world.find('gui').find('.//camera_pose')
@@ -304,7 +343,8 @@ def main():
         f.write(header + ET.tostring(tree.getroot(), encoding='unicode') + '\n')
     print(f'{sys.argv[2]}: {len(course.buoys)} buoys, {len(course.models)} vessels/docks, '
           f"{len(course.targets)} camera targets, origin {origin['lat']}, {origin['lon']}; "
-          f"boat start x {bx:.2f} y {by:.2f} heading {course.boat['heading_deg']:.1f} deg")
+          f"boat start x {bx:.2f} y {by:.2f} heading {course.boat['heading_deg']:.1f} deg; "
+          f"boats {', '.join(gz_name(b) for b in boats)}")
 
 
 if __name__ == '__main__':

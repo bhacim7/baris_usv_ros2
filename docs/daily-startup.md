@@ -176,6 +176,7 @@ Bir node çökerse 2 saniye sonra kendiliğinden yeniden başlar (teknedeki gibi
 | `course:=` | `golcuk_2026_10_14` | Parkur: `golcuk_2026_10_14` ya da `roboboat_2027` |
 | `start:=` | parkurun varsayılanı | `roboboat_2027`: teknenin başladığı yer. `readiness` (eski Görev 1'in önü, varsayılan) ya da `competition` (2027 parkurunun başı, Gazebo (-197,80; 809,98), batıya bakar; unsurlar Adım 4'te gelecek) |
 | `mission:=` | parkurun varsayılanı | `roboboat_2027`: navigatörün koştuğu görev. Şimdilik yalnız `readiness` (2026 Görev 1 + Görev 2) |
+| `boats:=azure,marine` | boş (yalnız `boat:=`) | İki tekne birden Gazebo'da (modeller `usv_azure`, `usv_marine`; ikincisi 6 m sağda), her birinin bütün düğümleriyle |
 | `layout:=` | `primer` | `roboboat_2027` Task 1: `primer` (Primer görselindeki gibi) ya da bir sayı (rastgele alan, her sayı başka düzen) |
 | `level:=` | `core` | `roboboat_2027` Task 1, rastgele alanda: `core`, `advanced` (EXIT yer değiştirir), `disruptive` (renkler de değişir) |
 
@@ -201,7 +202,7 @@ kadar) elle verilir: `ros2 topic pub --once /azure/sim/event std_msgs/msg/String
 | `max_range_m:=10.0` | YAML | 10 m'den uzağı görmez (deney) |
 | `course_east:= course_north:= course_heading:=` | parkur dosyasındaki | Parkuru Gazebo dünyasında başka yere koy (üçü birlikte) |
 
-Gazebo'da tekneyi bulmak: sol üstteki **Entity Tree**'de `usv_boat`'a sağ tık → **Follow**.
+Gazebo'da tekneyi bulmak: sol üstteki **Entity Tree**'de `usv_azure`a sağ tık (Marine: `usv_marine`) → **Follow**.
 Uzaktaki bir nesneye gitmek: Entity Tree'de sağ tık → **Move to**.
 
 ---

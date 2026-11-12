@@ -576,6 +576,14 @@ yazar ve bu yılın protokolünde mesajı olanları RoboCommand'a verir (2026: k
 teslimat, yanaşma). Onay gelmeyen rapor tekneden her 1,2 s'de yeniden gönderilir. `rally`
 varınca "arrived" raporu üretir (2026'da karşılığı yok: yalnız GCS günlüğünde).
 
+**6e, birinci yarı yazıldı (12 Kasım): Gazebo'da iki tekne.** `sim.launch.py boats:=azure,marine`.
+Dünya üreteci her tekneye `usv_boat` modelinin bir kopyasını koyar (`usv_azure`, `usv_marine`;
+Gazebo konuları `/usv_<tekne>/...`), ikincisi başlangıcın 6 m sağında. Her teknenin kendi köprüsü,
+sim_bridge'i, algılaması, yön kaynağı, haritası, navigatörü ve telemetri köprüsü; gürültü
+tohumu her teknede farklı. İki tekne aynı sahte RFD kanalında. Tek tekneli koşu da artık
+`usv_azure` adlı modelle (eskiden `usv_boat`). Bilinen eksik: teknenin kamerası öbür tekneyi
+görmüyor (sınıfı yok), yalnız Gazebo'da çarpışırlar.
+
 ### Adım 7. Atış sistemi (Marine)
 - `usv_core/turret.py`: saf mantık.
 - `turret` düğümü: Jetson sürücüsü ve sahte sürücü. Pinler, I2C ve kanallar ayar dosyasında.
