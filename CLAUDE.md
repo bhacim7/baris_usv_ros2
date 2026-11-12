@@ -45,8 +45,9 @@ Docker içinde (Gazebo Harmonic + VRX), gerçek tekneler Jetson. Hedef: RoboBoat
   siyah). RTF tek tekne %68, iki tekne %34. Eski launch'lar açık kalırsa Gazebo titrer
   (daily-startup §14).
 - Adım 6e (2/2) bitti (`95fe6b5`): paylaştırma (`usv_core/allocation.py`). Adım 6 tamam.
-- GCS günlük düzeni yazıldı (sistem günlüğü ayrı, tekne günlükleri yalnız kendi satırları,
-  saat, tekrarlayan uyarı bir kez). Barış'ın denemesi ve commit'i bekleniyor.
+- GCS günlük düzeni bitti (`6370cf6`). GCS ekranı İngilizceye çevrildi (hakemler görüyor;
+  kod içi anahtarlar `ARKA_SOL_PWM` gibi Türkçe kaldı, ekranda `TELEMETRY_LABELS`). Barış'ın
+  denemesi ve commit'i bekleniyor.
 - Sıradaki: yol haritasını Barış'la gözden geçirmek, sonra görevler (Task 1).
 - Ana makinede (Claude) çekirdek testleri: `~/gcs-venv/bin/python` (numpy, pytest var; cv2
   yok, gerekirse sahte modülle).

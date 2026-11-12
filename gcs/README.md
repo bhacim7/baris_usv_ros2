@@ -2,7 +2,9 @@
 
 2026'nın `GCSv1000.py`'si, RoboBoat 2027 için iki tekneye göre düzenlendi (Adım 5b):
 
-- Solda **IDA 1 · AZURE**, sağda **IDA 2 · MARINE** paneli; harita ortada. Her panelin kendi
+- Ekrandaki her şey İngilizce (hakemler bu ekranı görüyor; 12 Kasım). Kodun içindeki bazı
+  yorumlar 2026'dan kalma Türkçe.
+- Solda **USV 1 · AZURE**, sağda **USV 2 · MARINE** paneli; harita ortada. Her panelin kendi
   telemetrisi, görev tablosu, kontrolleri, röle ve hat durumu var; komutlar o teknenin
   numarasıyla gider.
 - **Ubiquiti (UDP) ve RFD aynı anda**: her komut iki hattan gider (tekne bir kez uygular),
@@ -11,7 +13,7 @@
   `ws/src/usv_core/usv_core/gcs_link.py`.
 - Teknelerin Ubiquiti adresleri ve portları tekne profillerinden okunur
   (`ws/src/usv_nodes/config/boats/*.yaml`); "Simülasyon" seçilirse 127.0.0.1.
-- Günlükler: alt çubukta **SİSTEM GÜNLÜĞÜ** (bağlantılar, RoboCommand, hakem görevlerinin
+- Günlükler: alt çubukta **SYSTEM LOG** (bağlantılar, RoboCommand, hakem görevlerinin
   hangi tekneye gittiği); her teknenin panelinde yalnız o teknenin satırları (ona giden
   komutlar, aldığı görevler, gönderdiği raporlar). Her satırın başında saat. Açılamayan bir
   hat bir kez yazılır, her saniye değil.
@@ -65,15 +67,15 @@ verisi GCS'ye iki hattan gelir, GCS onu RoboCommand'a aktarır. Şimdilik RoboBo
 protokolü (RoboNation'ın resmi `report.proto`'su, `robocommand/msgs/`); 2027'ninki yayımlanınca
 yalnız kodlayıcı eklenir (`robocommand/__init__.py`).
 
-- GCS'nin alt çubuğunda "RoboCommand" kutusu: adres, port, takım kodu, Bağlan. Her tekne için
+- GCS'nin alt çubuğunda "RoboCommand" kutusu: adres, port, takım kodu, Connect. Her tekne için
   saniyede bir heartbeat (konum, hız, yön, mod, görev), en fazla 5 mesaj/s. "Test raporu"
-  IDA 1'in konumuyla bir giriş kapısı raporu yollar.
+  ("Test report") USV 1'in konumuyla bir giriş kapısı raporu yollar.
 - Sahte sunucu kuralları denetler (geç heartbeat, 5 mesaj/s'yi aşmak, sıra numarası, saat):
 
 ```bash
 ~/gcs-venv/bin/python ~/usv_ros2/gcs/robocommand/fake_server.py
 ```
 
-GCS'de adres 127.0.0.1, Bağlan. Gereken: `~/gcs-venv/bin/pip install protobuf`.
+GCS'de adres 127.0.0.1, Connect. Gereken: `~/gcs-venv/bin/pip install protobuf`.
 
 Testler (GCS bilgisayarında): `~/gcs-venv/bin/python -m pytest ~/usv_ros2/gcs/test -v`

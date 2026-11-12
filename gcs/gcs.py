@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Gereklilikler:
-  pip install PySide6 pyserial
-(Projeye internet gerekmez. pyproj yok; WebMercator dönüşümü için formüller içeride.)
+DHO GOKMAVI ground control station (GCS), RoboBoat 2027: two boats, Azure and Marine.
 
-PATCH: Arayüzde bütünlüğü sağlamak için bu çok yerinde bir karar. Tüm kutuların (Telemetri, Görev, Kontrol, Log) tıpatıp aynı "Modern HUD" stiline sahip olması için önce küçük bir Yardımcı Fonksiyon yazacağız.
-
+Plain Python, no ROS. Needs PySide6, numpy, pyserial (and protobuf for RoboCommand); see
+gcs/README.md. Everything on the screen is English: the judges see it. Some code comments
+still date from the 2026 Turkish version.
 """
 from __future__ import annotations
 import sys, os, json, csv, time, math
@@ -406,6 +405,17 @@ COLOR_TR_TO_EN = {"KIRMIZI": "red", "YESIL": "green", "SIYAH": "black", "SARI": 
 COLOR_EN_TO_TR = {v: k for k, v in COLOR_TR_TO_EN.items()}
 
 
+# The telemetry grid's keys are the 2026 names (the code fills them by key); what the
+# screen shows is English (the judges see this screen)
+TELEMETRY_LABELS = {
+    "ARKA_SOL_PWM": "REAR_L_PWM", "ARKA_SAĞ_PWM": "REAR_R_PWM", "ÖN_SOL_PWM": "FRONT_L_PWM",
+    "ÖN_SAĞ_PWM": "FRONT_R_PWM", "DÜMEN_PWM": "STEER_PWM", "HIZ": "SPEED", "HDG": "HEADING",
+    "HEDEF_HDG": "TARGET_HDG", "ACI_FARKI": "ANGLE_ERR", "KONTROL_HATA": "CONTROL_ERR",
+    "HEDEFE_MESAFE": "DIST_TO_GO", "MEVCUT_GOREV": "TASK", "MANUEL": "MANUAL", "ZAMAN": "TIME",
+    "FPS": "FPS", "SENSOR_SAGLIK": "SENSORS", "IDA_KONUM": "POSITION", "HEDEF_KONUM": "TARGET",
+}
+
+
 class PySerialLink:
     """The RFD over pyserial: for Windows, where gcs_link.SerialLink (termios) does not run."""
 
@@ -536,7 +546,7 @@ class LinkWorker(QThread):
                 return gcs_link.SerialLink(self.rfd_port, self.baud)
             return PySerialLink(self.rfd_port, self.baud)
         except (OSError, serial.SerialException) as e:
-            text = f"{kind.upper()} açılamadı: {e} (her saniye yeniden deneniyor)"
+            text = f"{kind.upper()} could not be opened: {e} (retrying every second)"
             if self._last_error.get(kind) != text:     # once, not every second
                 self._last_error[kind] = text
                 self.status.emit(text)
@@ -561,7 +571,7 @@ class LinkWorker(QThread):
                             self._links.links.append(lk)
                             self._links.readers[lk.name] = gcs_link.LineReader()
                             self._links.heard[lk.name] = 0.0
-                            self.status.emit(f"{kind.upper()} açıldı")
+                            self.status.emit(f"{kind.upper()} opened")
             try:
                 while self._tx_queue:
                     self._links.send(self._tx_queue.pop(0))
@@ -575,7 +585,7 @@ class LinkWorker(QThread):
                         heard_any = True
                         self.link.emit(True)
             except Exception as e:  # noqa: B902 (the link thread must keep running)
-                self.status.emit(f"Link hatası: {e}")
+                self.status.emit(f"Link error: {e}")
             if now - state_t >= 0.5:
                 state_t = now
                 self.links_state.emit({k: (now - self._links.heard[k]
@@ -1091,7 +1101,7 @@ class MapPanel(QtWidgets.QWidget):
             pm.fill(QtGui.QColor("#333"))
             painter = QtGui.QPainter(pm)
             painter.setPen(QtGui.QPen(Qt.white))
-            painter.drawText(pm.rect(), Qt.AlignCenter, f"Harita Yüklenemedi:\n{os.path.basename(self.image_path)}")
+            painter.drawText(pm.rect(), Qt.AlignCenter, f"Map could not be loaded:\n{os.path.basename(self.image_path)}")
             painter.end()
             self._img_W, self._img_H = pm.width(), pm.height()
             self.image_item = self.scene.addPixmap(pm)
@@ -1363,17 +1373,17 @@ class MapPanel(QtWidgets.QWidget):
         menu.addSeparator()
 
         # --- IDA 1 MENÜSÜ ---
-        menu_ida1 = menu.addMenu("🔴 IDA 1 İçin...")
+        menu_ida1 = menu.addMenu("🔴 For USV 1...")
 
         # IDA 1 Yeni Ekle
-        action_add1 = menu_ida1.addAction("➕ Listenin Sonuna Ekle")
+        action_add1 = menu_ida1.addAction("➕ Add to the end of the list")
         action_add1.triggered.connect(lambda: self.gps_selected.emit(1, lat, lon, -1))
 
         menu_ida1.addSeparator()
 
         # IDA 1 Mevcut Noktaları Değiştir (Ekranda görünen noktalar kadar seçenek çıkar)
         for i in range(len(self.cached_pts_1)):
-            action_update = menu_ida1.addAction(f"✏️ {i + 1}. Noktayı Değiştir")
+            action_update = menu_ida1.addAction(f"✏️ Change point {i + 1}")
             # i değerini lambda içine hapsetmek için m=i kullanıyoruz (Python closure trick)
             action_update.triggered.connect(lambda checked=False, m=i: self.gps_selected.emit(1, lat, lon, m))
 
@@ -2156,7 +2166,7 @@ class MapPanel(QtWidgets.QWidget):
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("DHO GÖKMAVİ - YER KONTROL (Azure · Marine)")
+        self.setWindowTitle("DHO GOKMAVI - GROUND CONTROL (Azure · Marine)")
         self.showMaximized()
 
         self.MISSION_TAGS_1 = [
@@ -2346,14 +2356,14 @@ class MainWindow(QtWidgets.QMainWindow):
         vc = QtWidgets.QVBoxLayout(center_widget)
 
         # 1. Ortak Üst (Harita, Com, Connect)
-        top_grp = QtWidgets.QGroupBox("Sistem Ayarları")
+        top_grp = QtWidgets.QGroupBox("System Settings")
         vc.addWidget(top_grp);
         top_lay = QtWidgets.QHBoxLayout(top_grp)
 
         self.MAP_PRESETS = {
-            "Gölcük": {"file": "golcuk_harita18.jpeg", "n": 40.7329, "s": 40.7215, "w": 29.7936, "e": 29.8296},
+            "Golcuk": {"file": "golcuk_harita18.jpeg", "n": 40.7329, "s": 40.7215, "w": 29.7936, "e": 29.8296},
             "RoboBoat (Florida)": {"file": "roboboat.jpg", "n": 27.381, "s": 27.356, "w": -82.455, "e": -82.445},
-            "Okul (Tuzla)": {"file": "okul.jpg", "n": 40.810072, "s": 40.808099, "w": 29.261345, "e": 29.265630}
+            "School (Tuzla)": {"file": "okul.jpg", "n": 40.810072, "s": 40.808099, "w": 29.261345, "e": 29.265630}
         }
         # Only the maps whose image is here (gcs/resources); RoboBoat first
         self.MAP_PRESETS = {k: v for k, v in sorted(
@@ -2362,7 +2372,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cmb_maps = QtWidgets.QComboBox();
         self.cmb_maps.addItems(self.MAP_PRESETS.keys())
         self.cmb_maps.currentIndexChanged.connect(self._on_map_changed)
-        top_lay.addWidget(QtWidgets.QLabel("Harita:"));
+        top_lay.addWidget(QtWidgets.QLabel("Map:"));
         top_lay.addWidget(self.cmb_maps)
 
         # Ubiquiti (UDP) and RFD: both at once (RoboBoat 2027). "Ağ" picks where the boats
@@ -2371,7 +2381,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.chk_udp.setChecked(True)
         top_lay.addWidget(self.chk_udp)
         self.cmb_net = QtWidgets.QComboBox()
-        self.cmb_net.addItems(["Saha (profiller)", "Simülasyon (127.0.0.1)"])
+        self.cmb_net.addItems(["Field (profiles)", "Simulation (127.0.0.1)"])
         top_lay.addWidget(self.cmb_net)
         self.chk_rfd = QtWidgets.QCheckBox("RFD")
         self.chk_rfd.setChecked(True)
@@ -2392,7 +2402,7 @@ class MainWindow(QtWidgets.QMainWindow):
         btn_ref.setFixedWidth(30);
         btn_ref.clicked.connect(self._refresh_ports)
         top_lay.addWidget(btn_ref)
-        self.btn_connect = QtWidgets.QPushButton("BAĞLAN");
+        self.btn_connect = QtWidgets.QPushButton("CONNECT");
         self.btn_connect.clicked.connect(self._toggle)
         top_lay.addWidget(self.btn_connect)
         # Each link: when it last brought anything
@@ -2419,14 +2429,14 @@ class MainWindow(QtWidgets.QMainWindow):
         vc.addLayout(bot_lay)
 
         # Geofence
-        geo_box = QtWidgets.QGroupBox("Sanal Çit");
+        geo_box = QtWidgets.QGroupBox("Geofence");
         gl = QtWidgets.QGridLayout(geo_box)
-        self.btn_fence_draw = QtWidgets.QPushButton("Çiz");
+        self.btn_fence_draw = QtWidgets.QPushButton("Draw");
         self.btn_fence_draw.setCheckable(True);
         self.btn_fence_draw.clicked.connect(self._toggle_fence_draw)
-        self.btn_fence_clear = QtWidgets.QPushButton("Sil");
+        self.btn_fence_clear = QtWidgets.QPushButton("Clear");
         self.btn_fence_clear.clicked.connect(lambda: self.map.clear_fence())
-        self.chk_fence_active = QtWidgets.QCheckBox("AKTİF");
+        self.chk_fence_active = QtWidgets.QCheckBox("ACTIVE");
         self.chk_fence_active.setStyleSheet("color:red; font-weight:bold;")
         gl.addWidget(self.btn_fence_draw, 0, 0);
         gl.addWidget(self.btn_fence_clear, 0, 1);
@@ -2435,7 +2445,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Parkur Izgaraları (A-B-C)
         self.course_ui = {}
-        course_grp = QtWidgets.QGroupBox("Parkur");
+        course_grp = QtWidgets.QGroupBox("Course");
         cl = QtWidgets.QVBoxLayout(course_grp)
         self.tabs_course = QtWidgets.QTabWidget();
         self.tabs_course.setFixedHeight(120)
@@ -2447,7 +2457,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
             # Üst Satır
             h_top = QtWidgets.QHBoxLayout()
-            b_sel = QtWidgets.QPushButton("Seç (4 Köşe)")
+            b_sel = QtWidgets.QPushButton("Select (4 corners)")
             b_sel.clicked.connect(lambda _, n=name: self._start_course_marking(n))
 
             sr = QtWidgets.QSpinBox();
@@ -2455,19 +2465,19 @@ class MainWindow(QtWidgets.QMainWindow):
             sc = QtWidgets.QSpinBox();
             sc.setValue(4)
 
-            b_upd = QtWidgets.QPushButton("Güncelle")
+            b_upd = QtWidgets.QPushButton("Update")
             b_upd.clicked.connect(lambda _, n=name: self._update_grid_params(n))
 
             h_top.addWidget(b_sel)
 
             # --- YENİ ETİKETLER (Siyah ve Okunaklı) ---
-            l_r = QtWidgets.QLabel("Satır:")
+            l_r = QtWidgets.QLabel("Rows:")
             l_r.setStyleSheet(
                 "color: black; font-weight: bold; background-color: #b0bec5; padding: 2px; border-radius: 3px;")
             h_top.addWidget(l_r)
             h_top.addWidget(sr)
 
-            l_c = QtWidgets.QLabel("Sütun:")
+            l_c = QtWidgets.QLabel("Cols:")
             l_c.setStyleSheet(
                 "color: black; font-weight: bold; background-color: #b0bec5; padding: 2px; border-radius: 3px;")
             h_top.addWidget(l_c)
@@ -2478,11 +2488,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
             # Alt Satır (Kaydet/Yükle/Sil - Aynı kalıyor)
             h_bot = QtWidgets.QHBoxLayout()
-            b_save = QtWidgets.QPushButton(f"💾 {name} Kaydet");
+            b_save = QtWidgets.QPushButton(f"💾 Save {name}");
             b_save.clicked.connect(lambda _, n=name: self._save_single_course(n))
-            b_load = QtWidgets.QPushButton(f"📂 {name} Yükle");
+            b_load = QtWidgets.QPushButton(f"📂 Load {name}");
             b_load.clicked.connect(lambda _, n=name: self._load_single_course(n))
-            b_del = QtWidgets.QPushButton(f"🗑️ {name} Sil");
+            b_del = QtWidgets.QPushButton(f"🗑️ Delete {name}");
             b_del.setStyleSheet("color: #ff5252; font-weight: bold;");
             b_del.clicked.connect(lambda _, n=name: self._clear_single_course(n))
             h_bot.addWidget(b_save);
@@ -2490,7 +2500,7 @@ class MainWindow(QtWidgets.QMainWindow):
             h_bot.addWidget(b_del)
             v_tab.addLayout(h_bot)
 
-            self.tabs_course.addTab(w, f"Parkur {name}")
+            self.tabs_course.addTab(w, f"Course {name}")
 
             # --- ÖNEMLİ: Butonu da sözlüğe ekliyoruz ki rengini değiştirebilelim ---
             self.course_ui[name] = {"sp_row": sr, "sp_col": sc, "btn": b_sel}
@@ -2498,12 +2508,12 @@ class MainWindow(QtWidgets.QMainWindow):
         bot_lay.addWidget(course_grp)
 
         # IHA (Drone) Menüsü
-        iha_box = QtWidgets.QGroupBox("İHA")
+        iha_box = QtWidgets.QGroupBox("UAV")
         il = QtWidgets.QVBoxLayout(iha_box)
 
         # İHA Başlık ve LED
         h_iha = QtWidgets.QHBoxLayout()
-        lbl_iha = QtWidgets.QLabel("İHA DURUM")
+        lbl_iha = QtWidgets.QLabel("UAV STATUS")
         lbl_iha.setStyleSheet("""
             color: #ff1744;
             font-weight: bold;
@@ -2522,8 +2532,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # İHA Hedef Renk
         h_renk = QtWidgets.QHBoxLayout()
-        h_renk.addWidget(QtWidgets.QLabel("Hedef Renk:"))
-        self.drone_color_lbl = QtWidgets.QLabel("Bekleniyor")
+        h_renk.addWidget(QtWidgets.QLabel("Target colour:"))
+        self.drone_color_lbl = QtWidgets.QLabel("Waiting")
         self.drone_color_lbl.setStyleSheet("font-weight: bold; color: yellow;")
         h_renk.addWidget(self.drone_color_lbl)
         il.addLayout(h_renk)
@@ -2535,7 +2545,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # detected perfectly, relayed by this GCS, and still never reach the boat if the
         # radio drops that one packet. Until now nothing on this screen would have shown it.
         h_t3 = QtWidgets.QHBoxLayout()
-        h_t3.addWidget(QtWidgets.QLabel("TASK3 Renk:"))
+        h_t3.addWidget(QtWidgets.QLabel("TASK3 colour:"))
         self.task3_color_lbl = QtWidgets.QLabel("—")
         self.task3_color_lbl.setStyleSheet("font-weight: bold; color: #9e9e9e;")
         h_t3.addWidget(self.task3_color_lbl)
@@ -2553,24 +2563,24 @@ class MainWindow(QtWidgets.QMainWindow):
         rc_box = QtWidgets.QGroupBox("RoboCommand")
         rl = QtWidgets.QGridLayout(rc_box)
         self.ed_rc_host = QtWidgets.QLineEdit("10.10.10.1")
-        self.ed_rc_host.setToolTip("Sahada 10.10.10.1; sahte sunucuyla 127.0.0.1")
+        self.ed_rc_host.setToolTip("On the course 10.10.10.1; with the fake server 127.0.0.1")
         self.sp_rc_port = QtWidgets.QSpinBox()
         self.sp_rc_port.setRange(1, 65535)
         self.sp_rc_port.setValue(50000)
         self.ed_rc_team = QtWidgets.QLineEdit("TEAM")
-        self.ed_rc_team.setToolTip("Takım kodu (el kitabında verilir)")
-        self.chk_rc = QtWidgets.QCheckBox("Bağlan")
+        self.ed_rc_team.setToolTip("Team code (given in the handbook)")
+        self.chk_rc = QtWidgets.QCheckBox("Connect")
         self.chk_rc.toggled.connect(self._toggle_robocommand)
-        btn_rc_test = QtWidgets.QPushButton("Test raporu")
-        btn_rc_test.setToolTip("IDA 1'in konumuyla bir 'giriş kapısı' raporu gönderir")
+        btn_rc_test = QtWidgets.QPushButton("Test report")
+        btn_rc_test.setToolTip("Sends an entry gate report at USV 1's position")
         btn_rc_test.clicked.connect(self._robocommand_test_report)
-        self.lbl_rc = QtWidgets.QLabel("kapalı")
+        self.lbl_rc = QtWidgets.QLabel("off")
         self.lbl_rc.setStyleSheet("color:#90a4ae; font-weight:bold;")
         self.lbl_rc.setWordWrap(True)
-        rl.addWidget(QtWidgets.QLabel("Adres:"), 0, 0)
+        rl.addWidget(QtWidgets.QLabel("Address:"), 0, 0)
         rl.addWidget(self.ed_rc_host, 0, 1)
         rl.addWidget(self.sp_rc_port, 0, 2)
-        rl.addWidget(QtWidgets.QLabel("Takım:"), 1, 0)
+        rl.addWidget(QtWidgets.QLabel("Team:"), 1, 0)
         rl.addWidget(self.ed_rc_team, 1, 1)
         rl.addWidget(self.chk_rc, 1, 2)
         rl.addWidget(btn_rc_test, 2, 0)
@@ -2578,10 +2588,10 @@ class MainWindow(QtWidgets.QMainWindow):
         # As if RoboCommand had sent a task (simulation only: 2026 has no such message);
         # the GCS picks the boat by usv_core.allocation, the operator does not
         self.cmb_rc_task = QtWidgets.QComboBox()
-        self.cmb_rc_task.addItems(["task4 (su teslimatı)", "rally (toplanma, 20 m kuzey)",
+        self.cmb_rc_task.addItems(["task4 (water delivery)", "rally (20 m north)",
                                    "task1"])
-        btn_rc_task = QtWidgets.QPushButton("Hakem görevi (test)")
-        btn_rc_task.setToolTip("Hakemden gelmiş gibi bir görev: GCS tekneyi kendisi seçer")
+        btn_rc_task = QtWidgets.QPushButton("Judges' task (test)")
+        btn_rc_task.setToolTip("A task as if from the judges: the GCS picks the boat itself")
         btn_rc_task.clicked.connect(self._robocommand_test_task)
         rl.addWidget(self.cmb_rc_task, 3, 0, 1, 2)
         rl.addWidget(btn_rc_task, 3, 2)
@@ -2589,7 +2599,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # System log: what is about neither boat alone (links, RoboCommand, the judges'
         # tasks and who got them). Each boat's own lines go to its panel's log.
-        sys_box = QtWidgets.QGroupBox("SİSTEM GÜNLÜĞÜ")
+        sys_box = QtWidgets.QGroupBox("SYSTEM LOG")
         sl = QtWidgets.QVBoxLayout(sys_box)
         self.sys_log = QtWidgets.QPlainTextEdit()
         self.sys_log.setReadOnly(True)
@@ -2668,7 +2678,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         h1 = QtWidgets.QHBoxLayout()
         h1.setContentsMargins(0, 0, 0, 0)
-        lbl = QtWidgets.QLabel(f"IDA {bid} · {name}")
+        lbl = QtWidgets.QLabel(f"USV {bid} · {name}")
         lbl.setStyleSheet(f"""
                     color: {colour};
                     font-weight: bold;
@@ -2692,9 +2702,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if bid == 1:
             # Range rings are drawn round the map: one setting, on the first panel
-            l_rng = self._add_modern_frame(v1, "RADAR HALKALARI")
+            l_rng = self._add_modern_frame(v1, "RANGE RINGS")
             r1 = QtWidgets.QHBoxLayout()
-            self.chk_rings = QtWidgets.QCheckBox("Aç")
+            self.chk_rings = QtWidgets.QCheckBox("On")
             self.chk_rings.setStyleSheet("border:none;")
             self.chk_rings.toggled.connect(self._toggle_rings)
             self.sp_ring_step = QtWidgets.QSpinBox()
@@ -2704,15 +2714,15 @@ class MainWindow(QtWidgets.QMainWindow):
             self.sp_ring_step.valueChanged.connect(self._update_ring_settings)
             self.sp_ring_count.valueChanged.connect(self._update_ring_settings)
             r1.addWidget(self.chk_rings)
-            r1.addWidget(QtWidgets.QLabel("Adım(m):"))
+            r1.addWidget(QtWidgets.QLabel("Step (m):"))
             r1.addWidget(self.sp_ring_step)
-            r1.addWidget(QtWidgets.QLabel("Adet:"))
+            r1.addWidget(QtWidgets.QLabel("Count:"))
             r1.addWidget(self.sp_ring_count)
             l_rng.addLayout(r1)
 
         self._create_controls(v1, bid)
 
-        l_log = self._add_modern_frame(v1, "SİSTEM GÜNLÜĞÜ")
+        l_log = self._add_modern_frame(v1, "SYSTEM LOG")
         log = QtWidgets.QPlainTextEdit()
         log.setReadOnly(True)
         log.setStyleSheet("""
@@ -2752,7 +2762,7 @@ class MainWindow(QtWidgets.QMainWindow):
         l_main.setSpacing(0)
 
         # 2. Modern Başlık
-        lbl_header = QtWidgets.QLabel("TELEMETRİ VERİLERİ")
+        lbl_header = QtWidgets.QLabel("TELEMETRY")
         lbl_header.setAlignment(QtCore.Qt.AlignCenter)
         lbl_header.setStyleSheet("""
             background-color: #37474f;
@@ -2790,7 +2800,7 @@ class MainWindow(QtWidgets.QMainWindow):
             col_base = (i % 2) * 2
 
             # --- DEĞİŞİKLİK BURADA: BAŞLIKLAR ARTIK KALIN ---
-            lbl_title = QtWidgets.QLabel(k)
+            lbl_title = QtWidgets.QLabel(TELEMETRY_LABELS.get(k, k))
             lbl_title.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
             # font-weight: bold ekledik ve rengi açtık (#cfd8dc)
             lbl_title.setStyleSheet("""
@@ -2820,7 +2830,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # 2027: the tasks still to come (mission manager), across the whole row
         row = len(keys) // 2 + 1
-        lbl_title = QtWidgets.QLabel("SIRADAKİ")
+        lbl_title = QtWidgets.QLabel("NEXT")
         lbl_title.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         lbl_title.setStyleSheet("color:#cfd8dc; font-size:14px; font-weight:bold; border:none;")
         g.addWidget(lbl_title, row, 0)
@@ -2833,7 +2843,7 @@ class MainWindow(QtWidgets.QMainWindow):
         return ui
 
     def _create_mission_box(self, layout, bid):
-        l = self._add_modern_frame(layout, f"GÖREV PLANI (IDA {bid})")
+        l = self._add_modern_frame(layout, f"MISSION PLAN (USV {bid})")
 
         # Tablo
         table = QtWidgets.QTableWidget(0, 3)
@@ -2894,14 +2904,14 @@ class MainWindow(QtWidgets.QMainWindow):
         btn_h = 22
 
         b_add = QtWidgets.QPushButton("➕")
-        b_add.setToolTip("Yeni Konum Ekle");
+        b_add.setToolTip("Add a point");
         b_add.setFixedWidth(40);
         b_add.setFixedHeight(btn_h)
         b_add.setStyleSheet(self._get_btn_style("#2e7d32", "#69f0ae", "#00e676"))
         b_add.clicked.connect(lambda: self._add_wp_row(bid))
 
         b_del_sel = QtWidgets.QPushButton("➖")
-        b_del_sel.setToolTip("Seçili Satırı Sil");
+        b_del_sel.setToolTip("Delete the selected row");
         b_del_sel.setFixedWidth(40);
         b_del_sel.setFixedHeight(btn_h)
         b_del_sel.setStyleSheet(self._get_btn_style("#ef6c00", "#ff9800", "#ffb74d"))
@@ -2909,7 +2919,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # --- YENİ EKLENEN ÇOĞALTMA BUTONU ---
         b_dup = QtWidgets.QPushButton("📋")
-        b_dup.setToolTip("Seçili Noktayı Çoğalt (Aşağıya Kopyala)")
+        b_dup.setToolTip("Duplicate the selected point (copy below)")
         b_dup.setFixedWidth(40)
         b_dup.setFixedHeight(btn_h)
         b_dup.setStyleSheet(self._get_btn_style("#fbc02d", "#fff59d", "#ffee58"))  # Sarı Stil
@@ -2917,14 +2927,14 @@ class MainWindow(QtWidgets.QMainWindow):
         # ------------------------------------
 
         b_clr = QtWidgets.QPushButton("🗑️")
-        b_clr.setToolTip("TÜM LİSTEYİ Temizle");
+        b_clr.setToolTip("Clear the WHOLE list");
         b_clr.setFixedWidth(40);
         b_clr.setFixedHeight(btn_h)
         b_clr.setStyleSheet(self._get_btn_style("#c62828", "#ff5252", "#ff1744"))
         b_clr.clicked.connect(lambda: table.setRowCount(0))
 
-        b_snd = QtWidgets.QPushButton("🚀 GÖNDER")
-        b_snd.setToolTip("Görevi Araca Yükle");
+        b_snd = QtWidgets.QPushButton("🚀 SEND")
+        b_snd.setToolTip("Upload the mission to the boat");
         b_snd.setFixedHeight(btn_h)
         b_snd.setStyleSheet(self._get_btn_style("#00c853", "#00e676", "#69f0ae"))
         b_snd.clicked.connect(lambda: self._send_mission(bid))
@@ -2956,8 +2966,8 @@ class MainWindow(QtWidgets.QMainWindow):
         btn_down.clicked.connect(lambda: self._move_row(bid, 1))
 
         # --- YENİ EKLENEN BUTON: GÖREV DEĞİŞTİR ---
-        btn_task = QtWidgets.QPushButton("📝 GÖREV")
-        btn_task.setToolTip("Mevcut Görevi Manuel Değiştir")
+        btn_task = QtWidgets.QPushButton("📝 TASK")
+        btn_task.setToolTip("Change the current task by hand")
         btn_task.setFixedHeight(btn_h)
         btn_task.setStyleSheet(style_purple)  # Farklı renk olsun dikkat çeksin
         btn_task.clicked.connect(lambda: self._set_manual_task(bid))
@@ -2991,8 +3001,8 @@ class MainWindow(QtWidgets.QMainWindow):
         # Input Dialog aç
         text, ok = QtWidgets.QInputDialog.getText(
             self,
-            f"IDA {bid} Görev Atama",
-            "Yeni Görev Adı (Örn: TASK2_START, FINISHED):",
+            f"USV {bid} task",
+            "New task name (e.g. TASK2_START, FINISHED):",
             QtWidgets.QLineEdit.Normal,
             ""
         )
@@ -3072,15 +3082,15 @@ class MainWindow(QtWidgets.QMainWindow):
         """Acil kapatma için onay kutusu çıkarır."""
         msg = QtWidgets.QMessageBox()
         msg.setIcon(QtWidgets.QMessageBox.Critical)
-        msg.setWindowTitle("ACİL DURUM")
-        msg.setText(f"DİKKAT: IDA {bid} motorları acil olarak durdurulacak!")
-        msg.setInformativeText("Devam etmek istiyor musunuz?")
+        msg.setWindowTitle("EMERGENCY")
+        msg.setText(f"WARNING: USV {bid}'s motors will be stopped at once!")
+        msg.setInformativeText("Do you want to go on?")
         msg.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
         msg.setDefaultButton(QtWidgets.QMessageBox.No)
 
         if msg.exec() == QtWidgets.QMessageBox.Yes:
             self._send_cmd(bid, "emergency_stop", True)
-            self._boat_log(bid, "⚠️ ACİL DURDURMA GÖNDERİLDİ!")
+            self._boat_log(bid, "⚠️ EMERGENCY STOP SENT!")
 
     def _add_modern_frame(self, parent_layout, title):
         """
@@ -3167,15 +3177,15 @@ class MainWindow(QtWidgets.QMainWindow):
         return content_layout
 
     def _create_controls(self, layout, bid):
-        container_layout = self._add_modern_frame(layout, f"KONTROL (IDA {bid})")
+        container_layout = self._add_modern_frame(layout, f"CONTROL (USV {bid})")
 
         g = QtWidgets.QGridLayout()
         g.setSpacing(6)
         container_layout.addLayout(g)
 
         # 1. Klavye Odağı
-        rb_focus = QtWidgets.QRadioButton("⌨️ Klavye Odağı")
-        rb_focus.setToolTip("Klavye (Ok Tuşları) ile bu aracı kontrol et")  # <--- EKLENDİ
+        rb_focus = QtWidgets.QRadioButton("⌨️ Keyboard focus")
+        rb_focus.setToolTip("Drive this boat with the keyboard (arrow keys)")  # <--- EKLENDİ
         rb_focus.setStyleSheet(
             "QRadioButton { color: #00e676; font-weight: bold; background: transparent; border: none; }")
         self.focus_group.addButton(rb_focus, bid)
@@ -3188,14 +3198,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # 2. Mod Butonları
         # OTONOM (Turkuaz)
-        b_auto = QtWidgets.QPushButton("🤖 OTO")
-        b_auto.setToolTip("Otonom Moda Geç (Görev Takibi Başlar)")  # <--- EKLENDİ
+        b_auto = QtWidgets.QPushButton("🤖 AUTO")
+        b_auto.setToolTip("Switch to autonomous mode (the mission starts)")  # <--- EKLENDİ
         b_auto.setStyleSheet(self._get_btn_style("#006064", "#00bcd4", "#18ffff"))
         b_auto.clicked.connect(lambda: self._send_cmd(bid, "set_manual", False))
 
         # MANUEL (Mor)
-        b_man = QtWidgets.QPushButton("🎮 MAN")
-        b_man.setToolTip("Manuel Moda Geç (Uzaktan Kumanda)")  # <--- EKLENDİ
+        b_man = QtWidgets.QPushButton("🎮 MANUAL")
+        b_man.setToolTip("Switch to manual mode (remote control)")  # <--- EKLENDİ
         b_man.setStyleSheet(self._get_btn_style("#4a148c", "#ab47bc", "#e040fb"))
         b_man.clicked.connect(lambda: self._send_cmd(bid, "set_manual", True))
 
@@ -3206,12 +3216,12 @@ class MainWindow(QtWidgets.QMainWindow):
         style_ice = self._get_btn_style("#37474f", "#4fc3f7", "#81d4fa")
 
         b_fz = QtWidgets.QPushButton("❄️");
-        b_fz.setToolTip("Hayalet İzi Dondur (Analiz için çizgiyi sabitler)")  # <--- EKLENDİ
+        b_fz.setToolTip("Freeze the ghost track (keeps the line for analysis)")  # <--- EKLENDİ
         b_fz.setStyleSheet(style_ice)
         b_fz.clicked.connect(lambda: self.map.snapshot_ghost_trail() if bid == 1 else None)
 
         b_cl = QtWidgets.QPushButton("🧼");
-        b_cl.setToolTip("Ekrandaki İzi Temizle")  # <--- EKLENDİ
+        b_cl.setToolTip("Clear the track on the screen")  # <--- EKLENDİ
         b_cl.setStyleSheet(style_ice)
         b_cl.clicked.connect(lambda: self.map.clear_ghost_trail_by_id(bid))
 
@@ -3222,13 +3232,13 @@ class MainWindow(QtWidgets.QMainWindow):
         # ArduPilot'ta RC yardımcı fonksiyonu kenar tetiklemeli, MAVLink DO_SET_RELAY de
         # aynı duruma yazar; son yazan kazanır. Kumanda yolu bundan etkilenmez ve
         # Jetson'dan bağımsız olduğu için asıl acil durdurma olarak kalır.
-        b_relay_on = QtWidgets.QPushButton("⚡ RÖLE AÇ")
-        b_relay_on.setToolTip("Motorlara gücü verir (kumandadaki anahtarla aynı röle)")
+        b_relay_on = QtWidgets.QPushButton("⚡ RELAY ON")
+        b_relay_on.setToolTip("Powers the motors (the same relay as the switch on the transmitter)")
         b_relay_on.setStyleSheet(self._get_btn_style("#1b5e20", "#00e676", "#00c853"))
         b_relay_on.clicked.connect(lambda: self._send_relay(bid, 1))
 
-        b_relay_off = QtWidgets.QPushButton("⛔ RÖLE KAPAT")
-        b_relay_off.setToolTip("Motorlara giden gücü keser (kumandadaki anahtarla aynı röle)")
+        b_relay_off = QtWidgets.QPushButton("⛔ RELAY OFF")
+        b_relay_off.setToolTip("Cuts the motors' power (the same relay as the switch on the transmitter)")
         b_relay_off.setStyleSheet(self._get_btn_style("#e65100", "#ffa726", "#fb8c00"))
         b_relay_off.clicked.connect(lambda: self._send_relay(bid, 0))
 
@@ -3237,29 +3247,29 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Rölenin GERÇEK durumu (aracın RELAY_STATUS mesajından). Kumandadan
         # değiştirildiğinde de doğru kalsın diye "son gönderdiğimiz komut" gösterilmiyor.
-        relay_lbl = QtWidgets.QLabel("RÖLE: bilinmiyor")
+        relay_lbl = QtWidgets.QLabel("RELAY: unknown")
         relay_lbl.setAlignment(QtCore.Qt.AlignCenter)
         relay_lbl.setStyleSheet("color:#90a4ae; font-weight:bold;")
         g.addWidget(relay_lbl, 4, 0, 1, 2)
         self.relay_lbls[bid] = relay_lbl
 
         # 5. Acil Kapatma (KOYU KIRMIZI)
-        b_estop = QtWidgets.QPushButton("🛑 ACİL DURDUR")
-        b_estop.setToolTip("DİKKAT: Motorlara giden gücü anında keser!")  # <--- EKLENDİ
+        b_estop = QtWidgets.QPushButton("🛑 EMERGENCY STOP")
+        b_estop.setToolTip("WARNING: cuts the motors' power at once!")  # <--- EKLENDİ
         b_estop.setStyleSheet(self._get_btn_style("#b71c1c", "#ff1744", "#d50000"))
         b_estop.clicked.connect(lambda: self._confirm_estop(bid))
         g.addWidget(b_estop, 5, 0, 1, 2)
 
         # Bağlantı kalitesi - teknenin sıra numaralarından canlı ölçüm. Yeşil: sağlıklı,
         # turuncu: aksıyor, kırmızı: kötü. "Akıcı değil" hissinin yerini rakam alsın diye.
-        link_lbl = QtWidgets.QLabel("LINK: veri yok")
+        link_lbl = QtWidgets.QLabel("LINK: no data")
         link_lbl.setAlignment(QtCore.Qt.AlignCenter)
         link_lbl.setStyleSheet("color:#90a4ae; font-weight:bold;")
         g.addWidget(link_lbl, 6, 0, 1, 2)
         self.link_lbls[bid] = link_lbl
 
         # 5. Bilgi
-        info_text = "[↑]İleri  [↓]Geri  [←][→]Yön  [SPACE]Dur"
+        info_text = "[↑]Ahead  [↓]Astern  [←][→]Turn  [SPACE]Stop"
         lbl_info = QtWidgets.QLabel(info_text)
         lbl_info.setAlignment(QtCore.Qt.AlignCenter)
         lbl_info.setStyleSheet(
@@ -3307,7 +3317,7 @@ class MainWindow(QtWidgets.QMainWindow):
             # 4000 ms, not 2500. The drone heartbeats at 3 Hz and the boat is polled at
             # 3.3 Hz; against one shared timeout both now need ~12 consecutive losses to
             # be declared dead. At the old 1 Hz / 2500 ms the drone needed only THREE,
-            # which is why its panel flashed "Bağlantı Koptu" so much more than the boat's
+            # which is why its panel flashed "Link lost" so much more than the boat's
             # on exactly the same radio link.
             self.drone_hb_timer.start(4000)
 
@@ -3407,7 +3417,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self._refresh_map_mission(bid)
 
             except Exception as e:
-                print(f"Görev listesi ayrıştırma hatası: {e}")
+                print(f"Mission list parse error: {e}")
 
         # --- YARDIMCI GÜNCELLEME FONKSİYONU ---
         def s(k, v="-"):
@@ -3495,13 +3505,13 @@ class MainWindow(QtWidgets.QMainWindow):
             except (TypeError, ValueError):
                 rv = -1
             if rv == 1:
-                relay_lbl.setText("RÖLE: AÇIK (motorlarda güç var)")
+                relay_lbl.setText("RELAY: ON (motors powered)")
                 relay_lbl.setStyleSheet("color:#00e676; font-weight:bold;")
             elif rv == 0:
-                relay_lbl.setText("RÖLE: KAPALI")
+                relay_lbl.setText("RELAY: OFF")
                 relay_lbl.setStyleSheet("color:#ffa726; font-weight:bold;")
             else:
-                relay_lbl.setText("RÖLE: bilinmiyor")
+                relay_lbl.setText("RELAY: unknown")
                 relay_lbl.setStyleSheet("color:#90a4ae; font-weight:bold;")
 
         # --- TASK3 hedef rengi: teknenin GERÇEKTEN elinde tuttuğu renk ---
@@ -3522,7 +3532,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.task3_color_lbl.setText(f"{tr} (drone)")
                 self.task3_color_lbl.setStyleSheet("font-weight:bold; color:#00e676;")
             else:
-                self.task3_color_lbl.setText("RENK YOK")
+                self.task3_color_lbl.setText("NO COLOUR")
                 self.task3_color_lbl.setStyleSheet("font-weight:bold; color:#ffa726;")
 
             # Closed loop. If the boat is holding something other than what the drone last
@@ -3532,7 +3542,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if tsrc == "drone" and want and tcol != want:
                 if time.time() - getattr(self, "_last_color_tx", 0.0) >= 2.0:
                     self._send_target_color()
-                    self.on_status(f"Tekne rengi uyuşmuyor ({tcol or 'yok'}) -> {want} tekrar gönderildi")
+                    self.on_status(f"Boat colour differs ({tcol or 'none'}) -> {want} sent again")
 
         pos = d.get("MEVCUT_KONUM", {})
         lat = pos.get("lat", 0.0)
@@ -3569,7 +3579,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 if cur_lat and cur_lon and len(fence_pts) >= 3:
                     # Nokta poligonun içinde DEĞİLSE (Dışındaysa)
                     if not is_point_in_polygon(cur_lat, cur_lon, fence_pts):
-                        msg = f"⚠️ SINIR İHLALİ! USV{bid} DURDURULUYOR!"
+                        msg = f"⚠️ GEOFENCE BREACH! STOPPING USV {bid}!"
                         self._boat_log(bid, msg)
                         self.on_status(msg)
 
@@ -3608,8 +3618,8 @@ class MainWindow(QtWidgets.QMainWindow):
             sender.service(now)
             while sender.failed:
                 dead = sender.failed.pop(0)
-                self._boat_log(bid, f"⚠ KOMUT ULAŞMADI: {dead.get('cmd')} "
-                                    f"({gcs_link.MAX_TRIES} deneme)")
+                self._boat_log(bid, f"⚠ COMMAND NOT DELIVERED: {dead.get('cmd')} "
+                                    f"({gcs_link.MAX_TRIES} tries)")
 
     def _send_cmd(self, bid, cmd, val):
         self._send_reliable({"target_id": bid, "cmd": cmd, "value": val})
@@ -3618,7 +3628,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def _send_relay(self, bid, state):
         """Motor gucu rolesini ac/kapat. Kumandadaki anahtarla ayni roleye gider."""
         self._send_reliable({"target_id": bid, "cmd": "set_relay", "value": int(state)})
-        self._boat_log(bid, f"TX: RÖLE -> {'AÇ' if state else 'KAPAT'}")
+        self._boat_log(bid, f"TX: RELAY -> {'ON' if state else 'OFF'}")
 
     def _send_target_color(self):
         """
@@ -3650,7 +3660,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Eğer seçim yoksa uyar ve çık
         if current < 0:
-            self._boat_log(bid, "UYARI: Çoğaltılacak satır seçili değil.")
+            self._boat_log(bid, "WARNING: no row selected to duplicate.")
             return
 
         # Seçili satırın lat ve lon değerlerini al
@@ -3689,7 +3699,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if current >= 0:
                 rows = [current]
             else:
-                self._boat_log(bid, "UYARI: Silinecek satır seçili değil.")
+                self._boat_log(bid, "WARNING: no row selected to delete.")
                 return
 
         # Silme İşlemi
@@ -3789,10 +3799,10 @@ class MainWindow(QtWidgets.QMainWindow):
         cnt = t.rowCount()
 
         if cnt == 0:
-            self._boat_log(bid, "UYARI: liste boş, gönderilemedi.")
+            self._boat_log(bid, "WARNING: the list is empty, nothing sent.")
             return
 
-        self._boat_log(bid, f"{cnt} nokta hazırlanıyor...")
+        self._boat_log(bid, f"preparing {cnt} points...")
 
         sent_count = 0
         for i in range(cnt):
@@ -3814,25 +3824,25 @@ class MainWindow(QtWidgets.QMainWindow):
                     })
                     sent_count += 1
                 else:
-                    self._boat_log(bid, f"HATA: Satır {i + 1} boş veya geçersiz!")
+                    self._boat_log(bid, f"ERROR: row {i + 1} is empty or invalid!")
             except ValueError:
-                self._boat_log(bid, f"HATA: Satır {i + 1} sayısal değil!")
+                self._boat_log(bid, f"ERROR: row {i + 1} is not a number!")
             except Exception as e:
-                self._boat_log(bid, f"HATA: {e}")
+                self._boat_log(bid, f"ERROR: {e}")
 
         if sent_count > 0:
-            self._boat_log(bid, f"TX: {sent_count} komut kuyruğa eklendi.")
+            self._boat_log(bid, f"TX: {sent_count} commands queued.")
 
     def _save_mission(self, bid):
         t = self.usv1_table if bid == 1 else self.usv2_table
         d = [{"lat": t.item(i, 1).text(), "lon": t.item(i, 2).text()} for i in range(t.rowCount())]
-        path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Kaydet", f"usv{bid}.json")
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save", f"usv{bid}.json")
         if path:
             with open(path, "w") as f: json.dump(d, f)
 
     def _load_mission(self, bid):
         t = self.usv1_table if bid == 1 else self.usv2_table
-        path, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Yükle")
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Load")
         if path:
             with open(path, "r") as f:
                 data = json.load(f)
@@ -3873,7 +3883,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 t.setItem(r, 0, QtWidgets.QTableWidgetItem(str(r + 1)))
                 t.setItem(r, 1, QtWidgets.QTableWidgetItem(f"{lat:.7f}"))
                 t.setItem(r, 2, QtWidgets.QTableWidgetItem(f"{lon:.7f}"))
-                self._boat_log(target, "Haritadan listeye yeni nokta eklendi.")
+                self._boat_log(target, "New point added to the list from the map.")
 
             else:
                 # --- MEVCUT SATIRI GÜNCELLEME MODU ---
@@ -3883,7 +3893,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     t.item(target_row, 1).setText(f"{lat:.7f}")
                     t.item(target_row, 2).setText(f"{lon:.7f}")
                     t.blockSignals(False)
-                    self._boat_log(target, f"{target_row + 1}. nokta haritadan güncellendi.")
+                    self._boat_log(target, f"Point {target_row + 1} updated from the map.")
 
             # Güncellemeler (Haritayı ve Tablo numaralarını yenile)
             self._refresh_map_mission(target)
@@ -3892,9 +3902,9 @@ class MainWindow(QtWidgets.QMainWindow):
     # --- Diğer Yardımcı Fonksiyonlar (Eskilerden kalanlar) ---
     def _toggle_fence_draw(self, c):
         if c:
-            self.btn_fence_draw.setText("Bitir"); self.map.start_fence_drawing()
+            self.btn_fence_draw.setText("Finish"); self.map.start_fence_drawing()
         else:
-            self.btn_fence_draw.setText("Çiz"); self.map.finish_fence_drawing()
+            self.btn_fence_draw.setText("Draw"); self.map.finish_fence_drawing()
 
     def _on_hb_timeout(self, bid=1):
         led = getattr(self, f"usv{bid}_led", None)
@@ -3903,7 +3913,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _on_drone_hb_timeout(self):
         self.drone_led.setStyleSheet("background-color:#b71c1c; border-radius:8px;")
-        self.drone_color_lbl.setText("Bağlantı Koptu")
+        self.drone_color_lbl.setText("Link lost")
 
     def _refresh_ports(self):
         ports = [p.device for p in serial.tools.list_ports.comports()] or ["COM3"]
@@ -3924,9 +3934,9 @@ class MainWindow(QtWidgets.QMainWindow):
                     if host and prof["udp_port"]:
                         peers.append((host, prof["udp_port"]))
                 if not peers:
-                    self.on_status("Ubiquiti: tekne profillerinde ip/udp_port yok")
+                    self.on_status("Ubiquiti: no ip/udp_port in the boat profiles")
             if not peers and not port1:
-                self.on_status("Bağlanacak hat yok: Ubiquiti ya da RFD seç")
+                self.on_status("No link to connect: tick Ubiquiti or RFD")
                 return
 
             # One worker, both links
@@ -3956,9 +3966,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self._polling_timer.start(300)
 
             self._connected = True
-            self.btn_connect.setText("BAĞLI")
+            self.btn_connect.setText("CONNECTED")
             self.btn_connect.setStyleSheet("background-color: #00e676; color: black; font-weight: bold;")
-            self.on_status(f"BAĞLANDI: Ubiquiti {len(peers)} tekne"
+            self.on_status(f"CONNECTED: Ubiquiti {len(peers)} boats"
                            + (f", RFD {port1} @ {baud}" if port1 else ""))
 
         else:
@@ -3976,9 +3986,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 self._polling_timer.stop()
 
             self._connected = False
-            self.btn_connect.setText("BAĞLAN")
+            self.btn_connect.setText("CONNECT")
             self.btn_connect.setStyleSheet("background-color: #455a64; color: white;")
-            self.on_status("Bağlantı kesildi.")
+            self.on_status("Disconnected.")
 
     def _perform_polling(self):
         """
@@ -4005,11 +4015,11 @@ class MainWindow(QtWidgets.QMainWindow):
         fields = " ".join(f"{k}={v}" for k, v in rep["fields"].items())
         where = (f" @ {rep['lat']:.6f},{rep['lon']:.6f}" if rep["lat"] is not None
                  and rep["lon"] is not None else "")
-        text = f"RAPOR #{rep['id']} {rep['type']} {fields} ({rep['task']}){where}"
+        text = f"REPORT #{rep['id']} {rep['type']} {fields} ({rep['task']}){where}"
         if self._rc is not None:
             flat = {"type": rep["type"], "lat": rep["lat"], "lon": rep["lon"], **rep["fields"]}
             text += (" -> RoboCommand" if self._rc.add_report(bid, flat)
-                     else " (RoboCommand'ın bu yıl bunun için mesajı yok)")
+                     else " (no RoboCommand message for this, this year)")
         self._boat_log(bid, text)
 
     def _toggle_robocommand(self, on):
@@ -4019,7 +4029,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self._rc.close()
             self._rc = None
         if not on:
-            self.lbl_rc.setText("kapalı")
+            self.lbl_rc.setText("off")
             self.lbl_rc.setStyleSheet("color:#90a4ae; font-weight:bold;")
             return
         try:
@@ -4064,7 +4074,7 @@ class MainWindow(QtWidgets.QMainWindow):
         name = task["task"]
         number, reason = allocate(name, self._boat_states(), named=task.get("boat"))
         if number is None:
-            self.on_status(f"HAKEM GÖREVİ {name} ATANAMADI: {reason}")
+            self.on_status(f"JUDGES' TASK {name} NOT ASSIGNED: {reason}")
             return
         payload = {"target_id": number, "cmd": "task", "task": name,
                    "urgent": 1 if task.get("urgent") else 0, "src": "robocommand"}
@@ -4074,8 +4084,8 @@ class MainWindow(QtWidgets.QMainWindow):
             payload["p"] = dict(task["params"])
         self._send_reliable(payload)
         boat = self._profiles.get(number, {}).get("name", number)
-        self.on_status(f"HAKEM GÖREVİ {name} -> IDA {number} ({boat})")
-        self._boat_log(number, f"HAKEM GÖREVİ: {name}" + (" (ACİL)" if task.get("urgent") else ""))
+        self.on_status(f"JUDGES' TASK {name} -> USV {number} ({boat})")
+        self._boat_log(number, f"JUDGES' TASK: {name}" + (" (URGENT)" if task.get("urgent") else ""))
 
     def _robocommand_test_task(self):
         """Hand the allocation a task as if RoboCommand had sent it (simulation tests)."""
@@ -4085,7 +4095,7 @@ class MainWindow(QtWidgets.QMainWindow):
             pts = [st["MEVCUT_KONUM"] for st in self._boat_state.values()
                    if st.get("MEVCUT_KONUM")]
             if not pts:
-                self.on_status("Toplanma noktası için önce bir teknenin konumu gerekli")
+                self.on_status("A rally point needs a boat's position first")
                 return
             lat = sum(p["lat"] for p in pts) / len(pts) + 20.0 / 111000.0
             lon = sum(p["lon"] for p in pts) / len(pts)
@@ -4093,15 +4103,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self._assign_task(task)
 
     def _robocommand_test_report(self):
-        """Send one gate report for IDA 1 at its last position (to check the path)."""
+        """Send one gate report for USV 1 at its last position (to check the path)."""
         if self._rc is None:
-            self.on_status("RoboCommand bağlı değil")
+            self.on_status("RoboCommand is not connected")
             return
         tel = self._rc.bridge.telemetry.get(1, (0.0, {}))[1]
         pos = tel.get("MEVCUT_KONUM") or {}
         self._rc.add_report(1, {"type": "gate", "gate": "entry", "lat": pos.get("lat", 0.0),
                                 "lon": pos.get("lon", 0.0)})
-        self.on_status("RoboCommand: test raporu kuyrukta (giriş kapısı, IDA 1)")
+        self.on_status("RoboCommand: test report queued (entry gate, USV 1)")
 
     def _on_links_state(self, ages):
         """Show when each link last brought anything (both should be fresh)."""
@@ -4111,7 +4121,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 age = ages[name]
                 parts.append(f"{label} {'—' if age is None else f'{age:.1f}s'}")
                 worst = max(worst, 99.0 if age is None else age)
-        self.lbl_links.setText("  ".join(parts) or "hat yok")
+        self.lbl_links.setText("  ".join(parts) or "no link")
         colour = "#00e676" if worst < 2.0 else ("#ffa726" if worst < 5.0 else "#ff5252")
         self.lbl_links.setStyleSheet(f"color:{colour}; font-weight:bold;")
 
@@ -4121,7 +4131,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for bid, lbl in self.link_lbls.items():
             st = self._lk_by.get(bid)
             if not st or not st["times"]:
-                lbl.setText("LINK: veri yok")
+                lbl.setText("LINK: no data")
                 lbl.setStyleSheet("color:#90a4ae; font-weight:bold;")
                 continue
             # Rate and largest arrival gap over the last 10 s; loss over ~100 packets.
@@ -4132,7 +4142,7 @@ class MainWindow(QtWidgets.QMainWindow):
             max_gap = max(gaps + [tail_gap]) if gaps else tail_gap
             total = st["got"] + st["lost"]
             loss = (100.0 * st["lost"] / total) if total else 0.0
-            lbl.setText(f"LINK: {rate:.1f} Hz · kayıp %{loss:.0f} · boşluk {max_gap:.1f}s"
+            lbl.setText(f"LINK: {rate:.1f} Hz · loss {loss:.0f}% · gap {max_gap:.1f}s"
                         f" · {st.get('via', '')}")
             if rate >= 2.5 and loss < 10.0:
                 style = "color:#00e676; font-weight:bold;"       # sağlıklı
@@ -4156,7 +4166,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _start_course_marking(self, n):
         self.map.start_defining_course(n)
-        self.on_status(f"Parkur {n} Seçim Modu")
+        self.on_status(f"Course {n}: selecting corners")
 
         # Sekme indeksini bul (A=0, B=1, C=2)
         idx = ["A", "B", "C"].index(n)
@@ -4194,7 +4204,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.map.render_course_grid(n)
 
     def _save_courses(self):
-        p, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Kaydet", "courses.json")
+        p, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save", "courses.json")
         if p:
             with open(p, "w") as f:
                 d = {k: {"corners": v["corners"], "rows": v["rows"], "cols": v["cols"]} for k, v in
@@ -4205,11 +4215,11 @@ class MainWindow(QtWidgets.QMainWindow):
         """Sadece seçilen parkuru (A, B veya C) kaydeder."""
         data = self.map.courses.get(name)
         if not data or not data["corners"]:
-            self.on_status(f"UYARI: Parkur {name} için veri yok, kaydedilmedi.")
+            self.on_status(f"WARNING: no data for course {name}, not saved.")
             return
 
         # Dosya adı önerisi: parkur_A.json
-        path, _ = QtWidgets.QFileDialog.getSaveFileName(self, f"Parkur {name} Kaydet", f"parkur_{name}.json",
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(self, f"Save course {name}", f"parkur_{name}.json",
                                                         "JSON (*.json)")
         if path:
             to_save = {
@@ -4221,13 +4231,13 @@ class MainWindow(QtWidgets.QMainWindow):
             try:
                 with open(path, "w") as f:
                     json.dump(to_save, f, indent=4)
-                self.on_status(f"Parkur {name} kaydedildi: {os.path.basename(path)}")
+                self.on_status(f"Course {name} saved: {os.path.basename(path)}")
             except Exception as e:
-                self.on_status(f"Kaydetme Hatası: {e}")
+                self.on_status(f"Save error: {e}")
 
     def _load_single_course(self, name):
         """Seçilen parkur verisini dosyadan yükler."""
-        path, _ = QtWidgets.QFileDialog.getOpenFileName(self, f"Parkur {name} Yükle", "", "JSON (*.json)")
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(self, f"Load course {name}", "", "JSON (*.json)")
         if path:
             try:
                 with open(path, "r") as f:
@@ -4247,9 +4257,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.map.courses[name]["cols"] = c
                 self.map.render_course_grid(name)
 
-                self.on_status(f"Parkur {name} yüklendi.")
+                self.on_status(f"Course {name} loaded.")
             except Exception as e:
-                self.on_status(f"Yükleme Hatası: {e}")
+                self.on_status(f"Load error: {e}")
 
     def _clear_single_course(self, name):
         """Sadece seçilen parkuru haritadan ve hafızadan siler."""
@@ -4259,10 +4269,10 @@ class MainWindow(QtWidgets.QMainWindow):
         # 2. Görseli temizle
         self.map.clear_course_visuals(name)
 
-        self.on_status(f"Parkur {name} silindi.")
+        self.on_status(f"Course {name} deleted.")
 
     def _load_courses(self):
-        p, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Yükle")
+        p, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Load")
         if p:
             with open(p, "r") as f:
                 d = json.load(f)
@@ -4289,7 +4299,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """Write a line to one boat's log (its panel), with the time."""
         log = getattr(self, f"usv{bid}_log", None)
         if log is None:
-            self.on_status(f"IDA {bid}: {s}")
+            self.on_status(f"USV {bid}: {s}")
         else:
             log.appendPlainText(f"{self._stamp()} {s}")
 
