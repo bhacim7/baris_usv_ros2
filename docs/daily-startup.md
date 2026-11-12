@@ -720,6 +720,8 @@ yeniden başlatır.
 | `permission denied ... docker.sock` | Oturum `docker` grubunu tanımıyor | Bilgisayarı yeniden başlat; acilse o terminalde `newgrp docker` |
 | Gazebo, RViz ya da `rqt_graph` penceresi açılmıyor | Ekran izni verilmemiş | Ana makinede `xhost +local:docker` |
 | `Package 'usv_...' not found` | Terminal yeni derlemeyi tanımıyor | `source /ws/install/setup.bash` |
+| Gazebo'da su titriyor, sağ alttaki RTF %500 / -%200 gibi zıplıyor, komutlar tutarsız | Eski launch'lar kapanmamış: aynı anda birden çok Gazebo ve aynı isim alanında birden çok düğüm (terminal sekmesi launch Ctrl+C ile kapatılmadan kapatılınca olur; 12 Kasım'da dört Gazebo açık kalmıştı) | Kontrol: ana makinede `ps aux \| grep -E "gz sim\|navigator" \| grep -v grep` boş olmalı. Değilse ana makinede `docker compose restart`, sonra container'da `rm -f /dev/shm/fastrtps_* /dev/shm/sem.fastrtps_*`. Launch'ı hep Ctrl+C ile kapat |
+| `RTPS_TRANSPORT_SHM Error ... open_and_lock_file failed` | Paylaşılan bellekte eski kilit dosyaları (zararsız, iletişim ağdan sürer) | Hiçbir ROS süreci çalışmıyorken container'da `rm -f /dev/shm/fastrtps_* /dev/shm/sem.fastrtps_*` |
 | Yeni node ya da launch seçeneği bulunamıyor | Yeni dosya eklendi ama derlenmedi | `cd /ws && colcon build --symlink-install` |
 | Kayıt başlamıyor: `already exists` | Aynı `record:=` adı daha önce kullanıldı | Yeni ad ver |
 | Elle `topic pub` ile tekne kıpırdamıyor | Navigator da açık, manuel modda 1500 yayınlıyor | `navigator:=false` ile aç (`ros2 topic info /azure/thrusters/pwm` iki yayıncı gösterir) |

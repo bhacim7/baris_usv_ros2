@@ -584,7 +584,7 @@ tohumu her teknede farklı. İki tekne aynı sahte RFD kanalında. Tek tekneli k
 `usv_azure` adlı modelle (eskiden `usv_boat`). Bilinen eksik: teknenin kamerası öbür tekneyi
 görmüyor (sınıfı yok), yalnız Gazebo'da çarpışırlar.
 Marine Gazebo'da siyah (Barış). Ölçüm (12 Kasım, Barış'ın dizüstü): iki tekneyle Gazebo'nun
-gerçek zaman oranı %30-35 (tek tekneyle ~%60); işlemci toplamda %87 boşta, darboğaz Gazebo
+gerçek zaman oranı %34 (tek tekneyle %68; temiz bir container'da yeniden ölçüldü); işlemci toplamda %87 boşta, darboğaz Gazebo
 sunucusunun tek çekirdeği (her teknenin gövde kaldırma kuvveti gövde ağı üzerinden
 hesaplanıyor). Düğümlerimiz duvar saatiyle çalıştığı için yavaş simülasyonda zamanlar
 uzar; davranış denemeleri için yeterli, süre ölçümleri aynı oranda karşılaştırılmalı.
