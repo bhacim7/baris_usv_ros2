@@ -30,7 +30,11 @@ class Client:
         self.bridge.on_telemetry(boat, packet, time.monotonic() if now is None else now)
 
     def add_report(self, boat, report):
+        """Queue a report; False if this year's protocol has no message for it."""
+        if not self.codec.knows(report):
+            return False
         self.bridge.add_report(boat, report)
+        return True
 
     def tick(self, now=None):
         now = time.monotonic() if now is None else now

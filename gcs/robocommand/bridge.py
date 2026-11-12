@@ -74,5 +74,9 @@ class Bridge:
             self._out(data, now, f'heartbeat {boat}')
         while self.reports and self._budget(now) > 0:
             boat, report = self.reports.popleft()
-            data = self.codec.report(boat, self._next_seq(boat), self.clock(), report)
+            try:
+                data = self.codec.report(boat, self._next_seq(boat), self.clock(), report)
+            except ValueError:            # a report the protocol has no message for
+                self.dropped += 1
+                continue
             self._out(data, now, f"{report.get('type', 'report')} {boat}")

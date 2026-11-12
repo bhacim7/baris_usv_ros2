@@ -96,6 +96,12 @@ class Codec:
             raise ValueError(f'unknown report type {kind!r}')
         return r.SerializeToString()
 
+    KNOWN = ('gate', 'object', 'delivery', 'docking')
+
+    def knows(self, rep):
+        """Return whether this protocol has a message for a report (else it is only logged)."""
+        return rep.get('type') in self.KNOWN
+
     def command(self, payload):
         """Return a task for a boat from a RoboCommand message: none exist in 2026."""
         return None

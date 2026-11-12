@@ -72,6 +72,14 @@ def test_checker_finds_the_broken_rules():
     assert chk.silent(10.0) == ['S1']
 
 
+def test_reports_this_year_has_no_message_for_are_kept_out():
+    rc = Client('127.0.0.1', 1, 'DHO')
+    assert rc.add_report(1, {'type': 'gate', 'gate': 'entry'})
+    assert not rc.add_report(1, {'type': 'arrived'})
+    assert len(rc.bridge.reports) == 1
+    rc.close()
+
+
 def test_client_sends_heartbeats_to_a_server():
     srv = socket.socket()
     srv.bind(('127.0.0.1', 0))

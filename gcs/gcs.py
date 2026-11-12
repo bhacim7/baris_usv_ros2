@@ -2565,6 +2565,7 @@ class MainWindow(QtWidgets.QMainWindow):
         rl.addWidget(self.lbl_rc, 2, 1, 1, 2)
         bot_lay.addWidget(rc_box)
         self._rc = None
+        self._reports_seen = {}
         self._rc_timer = QtCore.QTimer(self)
         self._rc_timer.timeout.connect(self._robocommand_tick)
 
@@ -3286,6 +3287,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 self._send_target_color()
             return
 
+        if "rp" in d:                      # a task report (RoboBoat 2027 step 6d)
+            self._on_report(bid, d)
+            return
+
         task_str = d.get("task", "")
 
         # --- Link istatistiği: varış zamanı + sıra numarası ---
@@ -3942,6 +3947,28 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         self._update_link_stats()
         self._service_cmds()
+
+    def _on_report(self, bid, d):
+        """A boat's task report: ack it, show it, pass it to RoboCommand once."""
+        rep = gcs_link.report_from_packet(d)
+        if self.worker_1:                  # the boat resends until it hears this
+            self.worker_1.queue_send({"target_id": bid, "cmd": "report_ack", "n": rep["id"]})
+        seen = self._reports_seen.setdefault(bid, set())
+        if rep["id"] in seen:
+            return                         # a resend that crossed our ack
+        seen.add(rep["id"])
+        fields = " ".join(f"{k}={v}" for k, v in rep["fields"].items())
+        where = (f" @ {rep['lat']:.6f},{rep['lon']:.6f}" if rep["lat"] is not None
+                 and rep["lon"] is not None else "")
+        log = getattr(self, f"usv{bid}_log", self.usv1_log)
+        text = f"RAPOR #{rep['id']} {rep['type']} {fields} ({rep['task']}){where}"
+        log.appendPlainText(text)
+        if self._rc is not None:
+            flat = {"type": rep["type"], "lat": rep["lat"], "lon": rep["lon"], **rep["fields"]}
+            if self._rc.add_report(bid, flat):
+                log.appendPlainText("  -> RoboCommand")
+            else:
+                log.appendPlainText("  (RoboCommand'ın bu yıl bunun için mesajı yok)")
 
     def _toggle_robocommand(self, on):
         """Connect to RoboCommand (it keeps retrying while the cable or server is away)."""
