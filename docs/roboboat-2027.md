@@ -583,6 +583,11 @@ sim_bridge'i, algılaması, yön kaynağı, haritası, navigatörü ve telemetri
 tohumu her teknede farklı. İki tekne aynı sahte RFD kanalında. Tek tekneli koşu da artık
 `usv_azure` adlı modelle (eskiden `usv_boat`). Bilinen eksik: teknenin kamerası öbür tekneyi
 görmüyor (sınıfı yok), yalnız Gazebo'da çarpışırlar.
+Marine Gazebo'da siyah (Barış). Ölçüm (12 Kasım, Barış'ın dizüstü): iki tekneyle Gazebo'nun
+gerçek zaman oranı %30-35 (tek tekneyle ~%60); işlemci toplamda %87 boşta, darboğaz Gazebo
+sunucusunun tek çekirdeği (her teknenin gövde kaldırma kuvveti gövde ağı üzerinden
+hesaplanıyor). Düğümlerimiz duvar saatiyle çalıştığı için yavaş simülasyonda zamanlar
+uzar; davranış denemeleri için yeterli, süre ölçümleri aynı oranda karşılaştırılmalı.
 
 ### Adım 7. Atış sistemi (Marine)
 - `usv_core/turret.py`: saf mantık.

@@ -31,6 +31,11 @@ def test_each_boat_has_its_own_name_and_topics():
     # One hull mesh for all
     assert {e.text for e in m.iter('uri')} == {'file://usv_boat/meshes/hull.obj'}
     assert a.find('pose').text == '1.000 2.000 0 0 0 0.5000'
+    # Marine is black, Azure keeps the model's grey (to tell them apart in Gazebo)
+    hull = {v.get('name'): v.find('material/diffuse').text for v in m.iter('visual')}
+    assert hull['left_hull_visual'].startswith('0.05')
+    assert {v.find('material/diffuse').text for v in a.iter('visual')
+            if v.get('name') == 'left_hull_visual'} == {'0.62 0.64 0.67 1'}
 
 
 def test_world_for_two_boats(tmp_path):

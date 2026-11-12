@@ -58,6 +58,11 @@ FLAG_RGB = (0.85, 0.1, 0.05)
 BOAT_MODEL = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'models',
                           'usv_boat', 'model.sdf')
 SPACING_M = 6.0             # boats side by side at the start (beam 0.78 m)
+# Hull and hatch colour per boat, to tell them apart in Gazebo (Baris, 2026-11-12: Marine
+# black); a boat not listed keeps the model's grey. Looks only: the camera does not see boats.
+HULL_RGB = {'marine': (0.05, 0.05, 0.06)}
+HULL_VISUALS = ('left_hull_visual', 'right_hull_visual', 'left_front_lid', 'right_front_lid',
+                'left_rear_lid', 'right_rear_lid')
 LIGHT_RGB = {'red': (1.0, 0.08, 0.05), 'green': (0.1, 1.0, 0.2), 'blue': (0.15, 0.35, 1.0),
              'off': (0.12, 0.12, 0.12)}
 NOODLE_RGB = (0.25, 0.45, 0.8)      # ASSUMED: pool noodles come in any colour
@@ -289,6 +294,14 @@ def boat_model(boat, x, y, yaw):
         pose = ET.Element('pose')
         model.insert(0, pose)
     pose.text = f'{x:.3f} {y:.3f} 0 0 0 {yaw:.4f}'
+    rgb = HULL_RGB.get(boat)
+    if rgb:
+        for vis in model.iter('visual'):
+            if vis.get('name') in HULL_VISUALS:
+                mat = vis.find('material')
+                for tag in ('ambient', 'diffuse'):
+                    if mat.find(tag) is not None:
+                        mat.find(tag).text = f'{rgb[0]} {rgb[1]} {rgb[2]} 1'
     return model
 
 
