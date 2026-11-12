@@ -15,7 +15,7 @@ from robocommand.codec_roboboat2026 import Codec, pb  # noqa: E402
 from robocommand.fake_server import Checker, line  # noqa: E402
 from robocommand.framing import Deframer  # noqa: E402
 
-TEL = {'MEVCUT_KONUM': {'lat': 27.3712, 'lon': -82.4523}, 'spd': 1.2, 'hdg': 271,
+TEL = {'position': {'lat': 27.3712, 'lon': -82.4523}, 'spd': 1.2, 'hdg': 271,
        'mod': 0, 'relay': 1, 'task': 'task2'}
 
 

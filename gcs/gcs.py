@@ -71,27 +71,27 @@ def boat_profiles():
                                      "capabilities": tuple(caps)}
     return out
 
-# ---- Harita resmi ve köşe koordinatları (WGS84) ----
+# ---- Map image and its corner coordinates (WGS84) ----
 MAP_IMAGE_PATH = res_path("roboboat.jpg")
-# Sol-Üst (NW) ve Sağ-Alt (SE) köşeler (WGS84 derece)
+# Top-left (NW) and bottom-right (SE) corners (WGS84 degrees)
 NORTH = 27.381
 SOUTH = 27.356
 WEST  = -82.455
 EAST  = -82.445
-# ---- Marker boyutları ----
-WP_RADIUS_PX = 1.5        # Waypoint dairesi yarıçapı (px)
-WP_FONT_PT   = 1.4       # Waypoint etiket yazı boyutu (pt)
-CURR_RADIUS_PX = 1.0      # Mevcut konum noktası yarıçapı (px)
-PATH_WIDTH_PX  = 3      # İz çizgisi kalınlığı (px)
-KEEP_PIXEL_SIZE = False   # Zoom yapsan da ikonlar ekranda aynı piksel boyutunda kalsın mı?
+# ---- Marker sizes ----
+WP_RADIUS_PX = 1.5        # Waypoint circle radius (px)
+WP_FONT_PT   = 1.4       # Waypoint label font size (pt)
+CURR_RADIUS_PX = 1.0      # Current position dot radius (px)
+PATH_WIDTH_PX  = 3      # Track line width (px)
+KEEP_PIXEL_SIZE = False   # Keep icons the same pixel size on screen whatever the zoom?
 
 KIRMIZI_CIZGI_KALINLIK = 0.7
-GPS_UPDATE_INTERVAL_MS = 5000  # Yalnızca GPS1..GPS5 5 sn'de bir uygulanır
+GPS_UPDATE_INTERVAL_MS = 5000  # Only GPS1..GPS5 are applied, once every 5 s
 
 
 def haversine_distance(lat1, lon1, lat2, lon2):
-    """İki koordinat arasındaki mesafeyi (metre) döndürür."""
-    R = 6371000  # Dünya yarıçapı (metre)
+    """Return the distance between two coordinates (metres)."""
+    R = 6371000  # Earth radius (metres)
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
     dlambda = math.radians(lon2 - lon1)
@@ -103,7 +103,7 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     return R * c
 
 def calculate_bearing(lat1, lon1, lat2, lon2):
-    """İki koordinat arasındaki açıyı (derece, 0=Kuzey) döndürür."""
+    """Return the bearing between two coordinates (degrees, 0 = north)."""
     y = math.sin(math.radians(lon2 - lon1)) * math.cos(math.radians(lat2))
     x = math.cos(math.radians(lat1)) * math.sin(math.radians(lat2)) - \
         math.sin(math.radians(lat1)) * math.cos(math.radians(lat2)) * \
@@ -113,8 +113,8 @@ def calculate_bearing(lat1, lon1, lat2, lon2):
 
 def is_point_in_polygon(lat, lon, polygon_points):
     """
-    Ray-Casting algoritması ile nokta çokgenin içinde mi kontrol eder.
-    polygon_points: [(lat1, lon1), (lat2, lon2), ...] listesi
+    Check with ray casting whether a point is inside a polygon.
+    polygon_points: [(lat1, lon1), (lat2, lon2), ...] list
     """
     inside = False
     j = len(polygon_points) - 1
@@ -129,30 +129,30 @@ def is_point_in_polygon(lat, lon, polygon_points):
         j = i
     return inside
 
-# --- Halat kenar şeridi (döşeme çizer) ---
+# --- Rope border stripe (draws a tiling) ---
 class RopeStripe(QtWidgets.QWidget):
     def __init__(self, side: str, pix_path: str, thickness: int, parent=None):
         """
         side: "top" | "bottom" | "left" | "right"
-        pix_path: halat.png yolu (2560x51)
-        thickness: şerit kalınlığı (px)
+        pix_path: path of halat.png (2560x51)
+        thickness: strip thickness (px)
         """
         super().__init__(parent)
-        self.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents, True)  # tıklamaları engellemesin
+        self.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents, True)  # must not swallow clicks
         self._side = side
         self._thk = int(thickness)
 
         pm = QtGui.QPixmap(pix_path)
         if pm.isNull():
-            # fallback: gri
+            # fallback: grey
             pm = QtGui.QPixmap(512, 51)
             pm.fill(QtGui.QColor("#777"))
-        # Dikey kenarlar için 90° döndür
+        # Vertical edges: turn by 90 deg
         if side in ("left", "right"):
             pm = pm.transformed(QtGui.QTransform().rotate(90), QtCore.Qt.SmoothTransformation)
         self._pm = pm
 
-        # Boyutu sabitle (geometriyi yine de dışarıdan set edeceğiz)
+        # Fix the size (the geometry is still set from outside)
         if side in ("top", "bottom"):
             self.setFixedHeight(self._thk)
         else:
@@ -161,27 +161,27 @@ class RopeStripe(QtWidgets.QWidget):
     def paintEvent(self, e):
         p = QtGui.QPainter(self)
         p.setRenderHint(QtGui.QPainter.SmoothPixmapTransform, True)
-        # Tüm rect’i halat dokusuyla döşe
+        # Tile the whole rect with the rope texture
         p.drawTiledPixmap(self.rect(), self._pm)
 
 class HugeImageItem(QtWidgets.QGraphicsItem):
     """
-    Tam çözünürlükte dev JPEG/PNG'leri karo (tile) halinde tembel yükleyip çizer.
-    QImageReader.setClipRect ile sadece gereken bölgeyi diskten decode eder.
-    Basit LRU cache ile ekranda görünen karolar tutulur.
+    Draws huge full-resolution JPEG/PNGs, loading tiles lazily.
+    QImageReader.setClipRect decodes only the needed region from disk.
+    A simple LRU cache keeps the tiles on screen.
     """
     def __init__(self, image_path: str, tile_size: int = 2048, cache_limit: int = 128, parent=None):
         super().__init__(parent)
         self.image_path = image_path
         self.tile_size = int(tile_size)
-        self.cache_limit = int(cache_limit)  # aynı anda tutulacak en fazla karo sayısı
+        self.cache_limit = int(cache_limit)  # most tiles kept at once
         self._cache: OrderedDict[tuple[int,int], QtGui.QPixmap] = OrderedDict()
 
         r = QImageReader(self.image_path)
         r.setAutoTransform(True)
         sz = r.size()
         if not sz.isValid():
-            # Boyut metadata’sı yoksa bir kere okuyup boyut al
+            # No size metadata: read once to get the size
             img = r.read()
             if img.isNull():
                 raise RuntimeError(f"Image cannot be read: {self.image_path}")
@@ -191,7 +191,7 @@ class HugeImageItem(QtWidgets.QGraphicsItem):
 
         self.setFlag(QtWidgets.QGraphicsItem.ItemUsesExtendedStyleOption, True)
 
-    # genel boyut
+    # overall size
     @property
     def width(self):  return self._W
     @property
@@ -203,7 +203,7 @@ class HugeImageItem(QtWidgets.QGraphicsItem):
     def _load_tile(self, tx: int, ty: int) -> QtGui.QPixmap:
         key = (tx, ty)
         if key in self._cache:
-            # LRU güncelle
+            # update the LRU
             pm = self._cache.pop(key)
             self._cache[key] = pm
             return pm
@@ -218,20 +218,20 @@ class HugeImageItem(QtWidgets.QGraphicsItem):
         r.setClipRect(QtCore.QRect(x, y, w, h))
         img = r.read()
         if img.isNull():
-            # başarısızsa gri placeholder
+            # on failure a grey placeholder
             pm = QtGui.QPixmap(w, h)
             pm.fill(QtGui.QColor("#777"))
         else:
             pm = QtGui.QPixmap.fromImage(img)
 
-        # LRU: kapasiteyi koru
+        # LRU: keep within capacity
         self._cache[key] = pm
         if len(self._cache) > self.cache_limit:
-            self._cache.popitem(last=False)  # en eskiyi at
+            self._cache.popitem(last=False)  # drop the oldest
         return pm
 
     def paint(self, painter: QtGui.QPainter, option: QtWidgets.QStyleOptionGraphicsItem, widget=None):
-        # Görünen dikdörtgen (exposed rect) → hangi karolar gerekli?
+        # Visible (exposed) rect -> which tiles are needed?
         rect = option.exposedRect.intersected(self.boundingRect())
         if rect.isEmpty():
             return
@@ -242,7 +242,7 @@ class HugeImageItem(QtWidgets.QGraphicsItem):
         x1 = int((rect.right()) // ts)
         y1 = int((rect.bottom()) // ts)
 
-        # bir miktar tampon karoyu da getir (daha akıcı pan/zoom)
+        # fetch a margin of tiles too (smoother pan / zoom)
         pad = 1
         x0 = max(0, x0 - pad)
         y0 = max(0, y0 - pad)
@@ -256,18 +256,18 @@ class HugeImageItem(QtWidgets.QGraphicsItem):
 
 def normalize_gps_dict(gps_raw):
     """
-    Kabul edilen örnek biçimler:
+    Accepted formats, for example:
       {"GPS1":{"lat":..,"lon":..}, ...}
       {"GPS1_enlem":..,"GPS1_boylam":.., ...}
-      {"GPS1":[lat,lon], ...}  veya {"GPS1":"lat,lon"}
+      {"GPS1":[lat,lon], ...}  or {"GPS1":"lat,lon"}
       {"points":[{"name":"GPS1","lat":..,"lon":..}, ...]}
-    Dönüş: {"GPS1":{"lat":float,"lon":float}, ...}
+    Returns: {"GPS1":{"lat":float,"lon":float}, ...}
     """
     if not isinstance(gps_raw, dict):
         return None
 
     out = {}
-    # 1) Zaten nested dict ise
+    # 1) Already a nested dict
     ok_nested = True
     for i in range(1, 6):
         k = f"GPS{i}"
@@ -276,7 +276,7 @@ def normalize_gps_dict(gps_raw):
             ok_nested = False
             break
     if ok_nested:
-        # hepsini float’a çevir
+        # convert them all to float
         for i in range(1, 6):
             k = f"GPS{i}"
             v = gps_raw.get(k)
@@ -339,7 +339,7 @@ def normalize_gps_dict(gps_raw):
     return None
 
 
-# -------------------- Serial Worker (Düzeltilmiş & Hızlandırılmış) --------------------
+# -------------------- Serial Worker (fixed and faster) --------------------
 def _parse_or_recover(line: str):
     """
     Parse a received line. Returns (obj_or_None, leftover_prefix).
@@ -384,7 +384,7 @@ def _parse_or_recover(line: str):
 
 # Wire keys are short to keep a packet inside one radio frame; they are expanded back to
 # the long names here, the moment the line is parsed, so on_packet() and everything below
-# it still reads 'pwm_L', 'MEVCUT_KONUM' and friends exactly as before.
+# it still reads 'pwm_L', 'position' and friends exactly as before.
 _TASK_NAMES = {
     0: "TASK1_APPROACH", 1: "TASK1_STATE_ENTER", 2: "TASK1_STATE_MID",
     3: "TASK1_STATE_EXIT", 4: "TASK2_START", 5: "TASK2_GO_TO_MID",
@@ -403,17 +403,6 @@ _WIRE_KEYS = {
 # Drone reports colours in Turkish; the boat's config and detector speak English.
 COLOR_TR_TO_EN = {"KIRMIZI": "red", "YESIL": "green", "SIYAH": "black", "SARI": "yellow"}
 COLOR_EN_TO_TR = {v: k for k, v in COLOR_TR_TO_EN.items()}
-
-
-# The telemetry grid's keys are the 2026 names (the code fills them by key); what the
-# screen shows is English (the judges see this screen)
-TELEMETRY_LABELS = {
-    "ARKA_SOL_PWM": "REAR_L_PWM", "ARKA_SAĞ_PWM": "REAR_R_PWM", "ÖN_SOL_PWM": "FRONT_L_PWM",
-    "ÖN_SAĞ_PWM": "FRONT_R_PWM", "DÜMEN_PWM": "STEER_PWM", "HIZ": "SPEED", "HDG": "HEADING",
-    "HEDEF_HDG": "TARGET_HDG", "ACI_FARKI": "ANGLE_ERR", "KONTROL_HATA": "CONTROL_ERR",
-    "HEDEFE_MESAFE": "DIST_TO_GO", "MEVCUT_GOREV": "TASK", "MANUEL": "MANUAL", "ZAMAN": "TIME",
-    "FPS": "FPS", "SENSOR_SAGLIK": "SENSORS", "IDA_KONUM": "POSITION", "HEDEF_KONUM": "TARGET",
-}
 
 
 class PySerialLink:
@@ -493,10 +482,10 @@ class LinkWorker(QThread):
         # Position travels flat - two keys instead of a nested object with its own
         # punctuation - and is re-nested here.
         if "la" in d and "lo" in d:
-            out["MEVCUT_KONUM"] = {"lat": d["la"], "lon": d["lo"]}
+            out["position"] = {"lat": d["la"], "lon": d["lo"]}
             out.pop("la", None); out.pop("lo", None)
         if "xa" in d and "xo" in d:
-            out["HEDEF_KONUM"] = {"lat": d["xa"], "lon": d["xo"]}
+            out["target"] = {"lat": d["xa"], "lon": d["xo"]}
             out.pop("xa", None); out.pop("xo", None)
 
         # 'ts' is 0/1 on the wire; the readout compares against these strings.
@@ -505,7 +494,7 @@ class LinkWorker(QThread):
             out.pop("ts", None)
 
         # Never transmitted: it has always been the constant "GOOD" on the boat, so paying
-        # for it three times a second bought nothing. Filled in so SENSOR_SAGLIK reads
+        # for it three times a second bought nothing. Filled in so SENSORS reads
         # exactly as it did before.
         out.setdefault("hlth", "GOOD")
 
@@ -513,7 +502,7 @@ class LinkWorker(QThread):
         if isinstance(out.get("task"), int):
             out["task"] = _TASK_NAMES.get(out["task"], str(out["task"]))
 
-        # ZAMAN is stamped at ARRIVAL rather than transmitted. The boat's clock cost 15 B
+        # TIME is stamped at ARRIVAL rather than transmitted. The boat's clock cost 15 B
         # per packet to deliver 1-second resolution; the arrival time is what the operator
         # actually wants to know (is this data fresh?) and it is free.
         out.setdefault("t_ms", time.strftime("%H:%M:%S"))
@@ -524,7 +513,7 @@ class LinkWorker(QThread):
                 bid = int(d.get("i", 1))
                 store = self._wp_accum.setdefault(bid, {})
                 store[int(d["w"])] = (float(d["wa"]), float(d["wo"]))
-                out["GÖREV_NOKTALARI"] = {
+                out["waypoints"] = {
                     "id": bid,
                     **{f"GPS{n}": {"lat": la, "lon": lo} for n, (la, lo) in store.items()},
                 }
@@ -598,7 +587,7 @@ class LinkWorker(QThread):
         self._stop = True
 
 
-# ------------- Fare ile Zoom ve Manuel Sürükleme ---------------
+# ------------- Zoom with the mouse and drag by hand ---------------
 class GraphicsView(QtWidgets.QGraphicsView):
     zoomChanged = QtCore.Signal(float)
     clicked = Signal(QtCore.QPointF, QtCore.QPoint)
@@ -609,24 +598,24 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self._min_zoom = float(min_zoom)
         self._max_zoom = float(max_zoom)
 
-        # --- GÖRÜNÜM AYARLARI ---
+        # --- VIEW SETTINGS ---
         self.setTransformationAnchor(QtWidgets.QGraphicsView.AnchorUnderMouse)
         self.setResizeAnchor(QtWidgets.QGraphicsView.AnchorViewCenter)
         self.setRenderHint(QtGui.QPainter.Antialiasing, True)
         self.setRenderHint(QtGui.QPainter.SmoothPixmapTransform, True)
         self.setViewportUpdateMode(QtWidgets.QGraphicsView.FullViewportUpdate)
 
-        # Kaydırma çubuklarını gizle (Daha temiz görüntü)
+        # Hide the scroll bars (cleaner view)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
-        # --- İMLEÇ AYARI ---
-        # Fareyi GİZLE (Sadece senin kırmızı artın görünsün)
+        # --- CURSOR ---
+        # HIDE the mouse (only the red cross shows)
         self.setCursor(Qt.BlankCursor)
-        # Eğer gizlemek yerine ince artı istersen üsttekini sil, alttakini aç:
+        # For a thin cross instead of hiding it, delete the line above and use the one below:
         # self.setCursor(Qt.CrossCursor)
 
-        # Sürükleme değişkenleri
+        # Drag state
         self._is_panning = False
         self._pan_start = QtCore.QPoint()
 
@@ -647,16 +636,16 @@ class GraphicsView(QtWidgets.QGraphicsView):
         event.accept()
 
     def mousePressEvent(self, event: QtGui.QMouseEvent):
-        # Sol tık basılınca sürüklemeyi başlat
+        # Left button pressed: start dragging
         if event.button() == Qt.LeftButton:
             self._is_panning = True
             self._pan_start = event.position().toPoint()
 
-            # Tıklama sinyali (Shift vs. kontrolü dışarıda yapılıyor)
+            # Click signal (Shift etc. is checked outside)
             view_pt = event.position().toPoint()
             self.clicked.emit(self.mapToScene(view_pt), event.globalPosition().toPoint())
 
-            # İmleci değiştirmek istersen (Örn: yumruk yap)
+            # To change the cursor (e.g. a fist)
             # self.setCursor(Qt.ClosedHandCursor)
             event.accept()
         else:
@@ -665,36 +654,36 @@ class GraphicsView(QtWidgets.QGraphicsView):
     def mouseReleaseEvent(self, event: QtGui.QMouseEvent):
         if event.button() == Qt.LeftButton:
             self._is_panning = False
-            # Bırakınca tekrar gizle (veya ince artı yap)
+            # Released: hide again (or a thin cross)
             self.setCursor(Qt.BlankCursor)
         super().mouseReleaseEvent(event)
 
     def mouseMoveEvent(self, event: QtGui.QMouseEvent):
-        # 1. Sürükleme Mantığı
+        # 1. Dragging
         if self._is_panning:
             delta = event.position().toPoint() - self._pan_start
             self._pan_start = event.position().toPoint()
 
-            # Scrollbarları manuel kaydır
+            # Scroll the scroll bars by hand
             hs = self.horizontalScrollBar()
             vs = self.verticalScrollBar()
             hs.setValue(hs.value() - delta.x())
             vs.setValue(vs.value() - delta.y())
             event.accept()
 
-        # 2. Koordinat Sinyali (Crosshair için)
+        # 2. Coordinate signal (for the crosshair)
         self.moved.emit(self.mapToScene(event.position().toPoint()))
         super().mouseMoveEvent(event)
 
 
 # -------------------- Map Panel --------------------
 class MapPanel(QtWidgets.QWidget):
-    """QGraphicsView tabanlı basit görüntü haritası.
-    - Drag: sol tuş ile sürükle
-    - Zoom: butonlar +/-, ayrıca tekerlek destekli
-    - Lat/Lon -> piksel dönüşümü WebMercator formülleri ile
+    """Simple image map based on QGraphicsView.
+    - Drag: drag with the left button
+    - Zoom: +/- buttons, the wheel works too
+    - Lat/Lon -> pixel conversion with the WebMercator formulas
     """
-    # İndeks (1-5), Lat, Lon gönderir
+    # Sends index (1-5), lat, lon
     gps_selected = Signal(int, float, float, int)
 
     def __init__(self, image_path: str, north: float, south: float, west: float, east: float, parent=None):
@@ -703,7 +692,7 @@ class MapPanel(QtWidgets.QWidget):
         self.setMinimumHeight(400)
         self.image_path = image_path
         self.north, self.south, self.west, self.east = north, south, west, east
-        self._R = 6378137.0  # WebMercator yarıçap
+        self._R = 6378137.0  # WebMercator radius
         self._max_zoom = 16.0
         self._min_zoom = 0.25
 
@@ -715,15 +704,15 @@ class MapPanel(QtWidgets.QWidget):
         self.view.customContextMenuRequested.connect(self._on_context_menu)
         self.view.setRenderHint(QtGui.QPainter.Antialiasing, True)
         self.view.setRenderHint(QtGui.QPainter.SmoothPixmapTransform, True)
-        # Scrollbarları gizle (HUD şıklığı için)
+        # Hide the scroll bars (for a clean HUD)
         self.view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.view.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.view.setViewportUpdateMode(QtWidgets.QGraphicsView.FullViewportUpdate)
 
-        # Pixmap (büyük görselleri otomatik küçült)
-        MAX_DIM = 32000  # QPixmap/texture güvenli sınır
+        # Pixmap (large images scaled down automatically)
+        MAX_DIM = 32000  # safe QPixmap / texture limit
 
-        # --- MESAFE HALKALARI (RANGE RINGS) ---
+        # --- RANGE RINGS ---
         self.ring_group = QtWidgets.QGraphicsItemGroup()
         self.ring_group.setZValue(13)
         self.scene.addItem(self.ring_group)
@@ -731,7 +720,7 @@ class MapPanel(QtWidgets.QWidget):
         self.ring_step_m = 5.0
         self.ring_count = 3
 
-        # --- SANAL ÇİT (GEOFENCE) ---
+        # --- GEOFENCE ---
         self._fence_mode = False
         self._fence_points_latlon = []
         self.fence_polygon = QtWidgets.QGraphicsPolygonItem()
@@ -744,7 +733,7 @@ class MapPanel(QtWidgets.QWidget):
         self.fence_polygon.setZValue(14)
         self.scene.addItem(self.fence_polygon)
 
-        # --- HAYALET İZ (GHOST TRAIL) ---
+        # --- GHOST TRAIL ---
         self.ghost_pen = QtGui.QPen(QtGui.QColor(200, 200, 200, 120))
         self.ghost_pen.setWidthF(1.5)
         self.ghost_pen.setStyle(Qt.DashLine)
@@ -752,7 +741,7 @@ class MapPanel(QtWidgets.QWidget):
         self.ghost_item = self.scene.addPath(self.ghost_path, self.ghost_pen)
         self.ghost_item.setZValue(11)
 
-        # --- AKILLI CETVEL (RULER) ---
+        # --- SMART RULER ---
         self._ruler_active = False
         self._ruler_start_lat = None
         self._ruler_start_lon = None
@@ -782,7 +771,7 @@ class MapPanel(QtWidgets.QWidget):
         self.scene.addItem(self.ruler_bg);
         self.scene.addItem(self.ruler_text)
 
-        # --- PARKUR (COURSE) YÖNETİMİ ---
+        # --- COURSE MANAGEMENT ---
         self._course_mode = None
         self._temp_corners = []
         self._temp_corner_items = []
@@ -800,7 +789,7 @@ class MapPanel(QtWidgets.QWidget):
             self.scene.addItem(grp);
             grp.setZValue(5)
 
-        # --- GÖRÜNTÜ YÜKLEME ---
+        # --- IMAGE LOADING ---
         if not os.path.exists(self.image_path):
             pm = QtGui.QPixmap(800, 600);
             pm.fill(QtGui.QColor("#555"))
@@ -811,12 +800,12 @@ class MapPanel(QtWidgets.QWidget):
             self.scene.addItem(self.image_item)
             self._img_W, self._img_H = self.image_item.width, self.image_item.height
 
-        # Overlay grubu
+        # Overlay group
         self.overlay_group = QtWidgets.QGraphicsItemGroup();
         self.overlay_group.setZValue(10)
         self.scene.addItem(self.overlay_group)
 
-        # Mevcut konum işaretçisi (kırmızı)
+        # Current position marker (red)
         r = CURR_RADIUS_PX
         self.curr_marker = QtWidgets.QGraphicsEllipseItem(-r, -r, 2 * r, 2 * r)
         self.curr_marker.setBrush(QtGui.QBrush(QtGui.QColor("#ff1744")))
@@ -828,12 +817,12 @@ class MapPanel(QtWidgets.QWidget):
 
         self.path_pen = QtGui.QPen(QtGui.QColor("#ff5252"));
         self.path_pen.setWidthF(PATH_WIDTH_PX)
-        self.path_pen.setCosmetic(True)  # <--- KRİTİK: Zoom yapınca incelmesin!
+        self.path_pen.setCosmetic(True)  # <--- IMPORTANT: must not get thinner when zooming!
         self.path_path = QtGui.QPainterPath()
         self.path_item = self.scene.addPath(self.path_path, self.path_pen);
         self.path_item.setZValue(12)
 
-        # IDA 2 (Marine): its own marker and track, in its panel's colour. The 2026 code
+        # USV 2 (Marine): its own marker and track, in its panel's colour. The 2026 code
         # moved them (update_current_position) but never made them, so boat 2 was not drawn.
         self.curr_marker_2 = QtWidgets.QGraphicsEllipseItem(-r, -r, 2 * r, 2 * r)
         self.curr_marker_2.setBrush(QtGui.QBrush(QtGui.QColor("#40c4ff")))
@@ -849,10 +838,10 @@ class MapPanel(QtWidgets.QWidget):
         self.path_item_2 = self.scene.addPath(self.path_path_2, self.path_pen_2)
         self.path_item_2.setZValue(12)
 
-        # İz geçmişini tutacak listeler (Maks 500m için)
+        # Lists holding the track history (up to 500 m)
         self.trail_points_1 = []
         self.trail_points_2 = []
-        # --- YUMUŞATMA (SMOOTHING) VE İNTERPOLASYON DEĞİŞKENLERİ ---
+        # --- SMOOTHING AND INTERPOLATION STATE ---
         self._target_lat_1 = None
         self._target_lon_1 = None
         self._visual_lat_1 = None
@@ -863,7 +852,7 @@ class MapPanel(QtWidgets.QWidget):
         self._visual_lat_2 = None
         self._visual_lon_2 = None
 
-        # Saniyede ~30 kare güncelleyecek animasyon zamanlayıcısı
+        # Animation timer updating ~30 frames a second
         self.anim_timer = QtCore.QTimer(self)
         self.anim_timer.timeout.connect(self._animate_markers)
         self.anim_timer.start(33)  # ~30 FPS (1000ms / 30)
@@ -894,21 +883,21 @@ class MapPanel(QtWidgets.QWidget):
         self.scene.addItem(self._targ_line);
         self._targ_line.setVisible(False)
 
-        # Waypoint katmanı
+        # Waypoint layer
         self.wp_group = QtWidgets.QGraphicsItemGroup();
         self.wp_group.setZValue(15);
         self.scene.addItem(self.wp_group)
 
-        # Yerleşim
+        # Layout
         lay = QtWidgets.QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.addWidget(self.view)
 
-        # Sinyaller
+        # Signals
         self.view.clicked.connect(self._on_map_click)
         self.view.moved.connect(self._on_mouse_move)
 
-        # Etiketler
+        # Labels
         self.click_labels_root = QtWidgets.QGraphicsItemGroup();
         self.click_labels_root.setZValue(500);
         self.scene.addItem(self.click_labels_root)
@@ -930,12 +919,12 @@ class MapPanel(QtWidgets.QWidget):
         self.scene.addItem(self.crosshair);
         self.crosshair.setVisible(True)
 
-        # --- YENİ EKLENTİ BURADA BAŞLIYOR (ESKİ _btn_box SİLİNDİ) ---
-        # Butonları "Overlay" olarak ekleyen fonksiyonu çağırıyoruz
+        # --- NEW OVERLAY STARTS HERE (the old _btn_box was removed) ---
+        # Call the function that adds the buttons as an overlay
         self._setup_overlay_controls()
         self._label_offset = QtCore.QPointF(8, -8)
 
-        # Başlangıç
+        # Start
         self.view.setSceneRect(QtCore.QRectF(0, 0, self._img_W, self._img_H))
         self.center_image()
         self.set_zoom(0.2)
@@ -947,9 +936,9 @@ class MapPanel(QtWidgets.QWidget):
         self.cached_pts_2 = []
 
     def _setup_overlay_controls(self):
-        """Askeri tema HUD butonlarını oluşturur (Sol: Zoom+Büyüteç, Sağ: Pan+Pusula)."""
+        """Build the military-theme HUD buttons (left: zoom + magnifier, right: pan + compass)."""
 
-        # Ortak Stil
+        # Shared style
         hud_style = """
             QPushButton {
                 background-color: rgba(20, 20, 20, 200);
@@ -979,7 +968,7 @@ class MapPanel(QtWidgets.QWidget):
             }
         """
 
-        # --- 1. ZOOM PANELİ (SOL ÜST İÇİN) ---
+        # --- 1. ZOOM PANEL (TOP LEFT) ---
         self.zoom_widget = QtWidgets.QWidget(self)
         self.zoom_widget.setStyleSheet(hud_style)
 
@@ -1006,7 +995,7 @@ class MapPanel(QtWidgets.QWidget):
         v_zoom.addWidget(lbl_magnifier)
         v_zoom.addWidget(self.btn_out)
 
-        # --- 2. PAN PANELİ (SAĞ ÜST İÇİN) ---
+        # --- 2. PAN PANEL (TOP RIGHT) ---
         self.pan_widget = QtWidgets.QWidget(self)
         self.pan_widget.setStyleSheet(hud_style)
 
@@ -1043,60 +1032,60 @@ class MapPanel(QtWidgets.QWidget):
         g_pan.addWidget(btn_d, 2, 1)
 
     def _pan_map(self, dx, dy):
-        """Haritayı butonlarla kaydırma fonksiyonu."""
+        """Pan the map with the buttons."""
         h_bar = self.view.horizontalScrollBar()
         v_bar = self.view.verticalScrollBar()
         h_bar.setValue(h_bar.value() + dx)
         v_bar.setValue(v_bar.value() + dy)
 
     def resizeEvent(self, e: QtGui.QResizeEvent) -> None:
-        """Pencere boyutu değişince butonları köşelere yapıştır."""
+        """Pin the buttons to the corners when the window is resized."""
         super().resizeEvent(e)
 
-        margin = 15  # Kenar boşluğu
+        margin = 15  # Margin
 
-        # 1. ZOOM PANELİ -> SOL ÜST KÖŞE
-        # Önce boyutunu güncelle
+        # 1. ZOOM PANEL -> TOP LEFT CORNER
+        # Update its size first
         self.zoom_widget.adjustSize()
-        # Sola yasla (X = margin)
+        # Align left (X = margin)
         self.zoom_widget.move(margin, margin)
 
-        # 2. PAN PANELİ -> SAĞ ÜST KÖŞE
-        # Önce boyutunu güncelle
+        # 2. PAN PANEL -> TOP RIGHT CORNER
+        # Update its size first
         self.pan_widget.adjustSize()
 
-        # SAĞA YASLAMA MATEMATİĞİ:
-        # X = (Pencere Genişliği) - (Panel Genişliği) - (Boşluk)
+        # RIGHT ALIGNMENT:
+        # X = (window width) - (panel width) - (margin)
         pan_width = self.pan_widget.width()
         pan_x = self.width() - pan_width - margin
 
         self.pan_widget.move(pan_x, margin)
     def snapshot_ghost_trail(self):
-        """Mevcut kırmızı izi dondurup gri hayalet ize çevirir ve canlı yolu temizler."""
+        """Freeze the red track into a grey ghost track and clear the live one."""
         self.ghost_path.addPath(self.path_path)
         self.ghost_item.setPath(self.ghost_path)
 
-        # Çizgiyi sıfırla
+        # Reset the line
         self.path_path = QtGui.QPainterPath()
         self.path_item.setPath(self.path_path)
 
-        # Canlı iz hafızasını temizle, sadece son konumu bırak ki yeni iz oradan başlasın
+        # Clear the live track, keep only the last position so the new track starts there
         if self.trail_points_1:
             self.trail_points_1 = [self.trail_points_1[-1]]
 
     def change_map(self, image_path: str, north: float, south: float, west: float, east: float):
-        """Harita görselini ve koordinat sınırlarını dinamik olarak değiştirir."""
+        """Change the map image and its coordinate bounds at run time."""
         self.image_path = image_path
         self.north, self.south, self.west, self.east = north, south, west, east
 
-        # 1. Eski harita görselini sahneden kaldır
+        # 1. Remove the old map image from the scene
         if hasattr(self, 'image_item') and self.image_item:
             self.scene.removeItem(self.image_item)
             self.image_item = None
 
-        # 2. Yeni görseli yükle (HugeImageItem veya QPixmap)
+        # 2. Load the new image (HugeImageItem or QPixmap)
         if not os.path.exists(self.image_path):
-            # Dosya yoksa gri placeholder
+            # No file: a grey placeholder
             pm = QtGui.QPixmap(800, 600)
             pm.fill(QtGui.QColor("#333"))
             painter = QtGui.QPainter(pm)
@@ -1106,66 +1095,66 @@ class MapPanel(QtWidgets.QWidget):
             self._img_W, self._img_H = pm.width(), pm.height()
             self.image_item = self.scene.addPixmap(pm)
         else:
-            # Varsa HugeImageItem kullan
+            # There is one: use HugeImageItem
             self.image_item = HugeImageItem(self.image_path, tile_size=2048, cache_limit=128)
             self.scene.addItem(self.image_item)
             self._img_W, self._img_H = self.image_item.width, self.image_item.height
 
-        # 3. Görseli en arkaya (Z=0) gönder
+        # 3. Send the image to the back (Z=0)
         self.image_item.setZValue(0)
 
-        # 4. Sahne boyutunu güncelle ve ortala
+        # 4. Update the scene size and centre it
         self.view.setSceneRect(QtCore.QRectF(0, 0, self._img_W, self._img_H))
         self.center_image()
 
-        # 5. Varsa eski çizimleri (Waypoint, Rota) temizle veya yeni koordinata göre güncelle
-        # (Genelde harita değişince eski waypointler anlamsız kalır, o yüzden waypointleri siliyoruz)
+        # 5. Clear the old drawings (waypoints, route) or move them to the new coordinates
+        # (old waypoints mean nothing on a new map, so they are deleted)
         self.path_path = QtGui.QPainterPath()
         self.path_item.setPath(self.path_path)
         self.path_path_2 = QtGui.QPainterPath()
         self.path_item_2.setPath(self.path_path_2)
-        # Waypointleri de temizlemek istersen:
+        # To clear the waypoints as well:
         for item in self.wp_group.childItems(): self.scene.removeItem(item)
 
     def update_range_rings(self):
-        """Mevcut konum etrafına mesafe halkalarını çizer."""
-        # Önce eskileri temizle
+        """Draw range rings round the current position."""
+        # Clear the old ones first
         for item in self.ring_group.childItems():
             self.scene.removeItem(item)
 
         if not self.rings_enabled:
             return
 
-        # Teknenin konumu yoksa çizemeyiz
+        # No boat position: nothing to draw
         if self._last_lat is None or self._last_lon is None:
             return
 
-        # --- MATEMATİK: 1 Metre kaç piksel eder? ---
-        # WebMercator projeksiyonunda ölçek enleme göre değişir.
-        # Basitçe: Teknenin olduğu yerden 'step' metre doğuya gidince piksel ne kadar değişiyor?
+        # --- MATHS: how many pixels is 1 metre? ---
+        # In WebMercator the scale changes with latitude.
+        # Simply: how many pixels does going 'step' metres east of the boat move?
 
         lat = self._last_lat
         lon = self._last_lon
 
-        # Merkez (Tekne) pikseli
+        # Centre (boat) pixel
         center_pt = self._scene_pos_from_latlon(lat, lon)
         if center_pt is None: return
 
-        # Referans nokta: 'step' metre doğusu
-        # (offset_latlon fonksiyonunu daha önce eklemiştik, onu kullanıyoruz)
+        # Reference point: 'step' metres east
+        # (uses offset_latlon, added earlier)
         _, lon_east = self._offset_latlon(lat, lon, 0, self.ring_step_m)
         east_pt = self._scene_pos_from_latlon(lat, lon_east)
 
         if east_pt is None: return
 
-        # Yarıçap (piksel cinsinden 'step' metre)
-        # Sadece X farkına bakmak yeterli (daire olduğu için)
+        # Radius ('step' metres in pixels)
+        # The X difference is enough (a circle)
         radius_px_base = abs(east_pt.x() - center_pt.x())
 
-        # --- ÇİZİM ---
-        pen = QtGui.QPen(QtGui.QColor("#00e676"))  # Radar Yeşili
+        # --- DRAWING ---
+        pen = QtGui.QPen(QtGui.QColor("#00e676"))  # Radar green
         pen.setWidth(1)
-        pen.setStyle(Qt.DashLine)  # Kesikli çizgi radar hissi verir
+        pen.setStyle(Qt.DashLine)  # A dashed line looks like a radar
 
         font = QtGui.QFont("Arial", 8)
         font.setBold(True)
@@ -1174,8 +1163,8 @@ class MapPanel(QtWidgets.QWidget):
             r_px = radius_px_base * i
             dist_label = int(self.ring_step_m * i)
 
-            # Halka (Ellipse)
-            # x, y, w, h -> Sol üst köşe ve boyut ister
+            # Ring (ellipse)
+            # x, y, w, h -> top-left corner and size
             ellipse = QtWidgets.QGraphicsEllipseItem(
                 center_pt.x() - r_px,
                 center_pt.y() - r_px,
@@ -1185,11 +1174,11 @@ class MapPanel(QtWidgets.QWidget):
             ellipse.setPen(pen)
             self.ring_group.addToGroup(ellipse)
 
-            # Etiket (Örn: "10m") - Halkanın tam üstüne koyalım
+            # Label (e.g. "10m") - right above the ring
             txt = QtWidgets.QGraphicsTextItem(f"{dist_label}m")
             txt.setFont(font)
             txt.setDefaultTextColor(QtGui.QColor("#00e676"))
-            # Yazıyı ortala
+            # Centre the text
             br = txt.boundingRect()
             txt.setPos(center_pt.x() - br.width() / 2, center_pt.y() - r_px - br.height())
             self.ring_group.addToGroup(txt)
@@ -1200,63 +1189,63 @@ class MapPanel(QtWidgets.QWidget):
         self.ghost_item.setPath(self.ghost_path)
 
     def start_defining_course(self, course_name):
-        """Köşe belirleme modunu açar."""
+        """Turn on the corner picking mode."""
         self._course_mode = course_name
         self._temp_corners = []
-        # Varsa eskileri temizle
+        # Clear the old ones if any
         self.clear_course_visuals(course_name)
-        # Mouse imlecini değiştir
+        # Change the mouse cursor
         self.view.setDragMode(QtWidgets.QGraphicsView.NoDrag)
         self.view.setCursor(Qt.CrossCursor)
 
     def _latlon_interp(self, p1, p2, ratio):
-        """İki lat/lon arasında orantısal nokta bulur (Lineer interpolasyon)."""
+        """Return the point a fraction of the way between two lat/lons (linear interpolation)."""
         lat = p1[0] + (p2[0] - p1[0]) * ratio
         lon = p1[1] + (p2[1] - p1[1]) * ratio
         return (lat, lon)
 
     def render_course_grid(self, name):
-        """Verilen isimdeki kursun ızgarasını çizer (Daha Saydam Versiyon)."""
+        """Draw the grid of the named course (more transparent version)."""
         data = self.courses[name]
         corners = data["corners"]
         rows = data["rows"]
         cols = data["cols"]
-        base_color = data["color"]  # Bu saf renk (Örn: Cyan)
+        base_color = data["color"]  # The pure colour (e.g. cyan)
         grp = self.course_groups[name]
 
-        # Önce grubu temizle
+        # Clear the group first
         for item in grp.childItems():
             self.scene.removeItem(item)
 
         if len(corners) != 4:
             return
 
-        # --- RENK AYARLARI (SAYDAMLAŞTIRMA) ---
-        # 1. Çizgi Rengi (Yarı Saydam)
+        # --- COLOURS (TRANSPARENCY) ---
+        # 1. Line colour (half transparent)
         line_color = QtGui.QColor(base_color)
-        line_color.setAlpha(40)  # 0-255 arası (120 = %50 Görünürlük) ____120
+        line_color.setAlpha(40)  # 0-255 (120 = 50% visible) ____120
 
-        # 2. Dolgu Rengi (Çok Saydam)
+        # 2. Fill colour (very transparent)
         fill_color = QtGui.QColor(base_color)
-        fill_color.setAlpha(5)  # Neredeyse yok gibi ____ 25
+        fill_color.setAlpha(5)  # Almost invisible ____ 25
 
-        # 3. Köşe Noktası Rengi (Biraz daha belirgin kalsın)
+        # 3. Corner point colour (a bit stronger)
         corner_color = QtGui.QColor(base_color)
         corner_color.setAlpha(40) #_______180
 
         # -------------------------------------
 
-        # 1. Köşeleri çiz (Daha kibar noktalar)
+        # 1. Draw the corners (smaller dots)
         for i, (lat, lon) in enumerate(corners):
             p = self._scene_pos_from_latlon(lat, lon)
             if p:
-                r = 3  # Yarıçapı biraz küçülttük (4->3)
+                r = 3  # Radius a little smaller (4->3)
                 el = QtWidgets.QGraphicsEllipseItem(p.x() - r, p.y() - r, 2 * r, 2 * r)
                 el.setBrush(QtGui.QBrush(corner_color))
-                el.setPen(Qt.NoPen)  # Kenar çizgisi yok
+                el.setPen(Qt.NoPen)  # No outline
                 grp.addToGroup(el)
 
-                # Etiket (1,2,3,4) - Hafif saydam
+                # Label (1,2,3,4) - slightly transparent
                 txt = QtWidgets.QGraphicsTextItem(f"{name}{i + 1}")
                 txt.setDefaultTextColor(line_color)
                 f = txt.font();
@@ -1265,28 +1254,28 @@ class MapPanel(QtWidgets.QWidget):
                 txt.setPos(p + QtCore.QPointF(4, -12))
                 grp.addToGroup(txt)
 
-        # 2. Dış Çerçeveyi Çiz (Polygon)
+        # 2. Draw the outer frame (polygon)
         pts_scene = [self._scene_pos_from_latlon(c[0], c[1]) for c in corners]
         if all(pts_scene):
             poly = QtWidgets.QGraphicsPolygonItem(QtGui.QPolygonF(pts_scene))
 
-            # Çerçeve Çizgisi
+            # Frame line
             pen = QtGui.QPen(line_color)
             pen.setWidth(2)
             poly.setPen(pen)
 
-            # İç Dolgu
+            # Inner fill
             poly.setBrush(QtGui.QBrush(fill_color))
             grp.addToGroup(poly)
 
-        # 3. Izgara (Grid) Çizimi (Bilinear)
+        # 3. Grid drawing (bilinear)
         c0, c1, c2, c3 = corners[0], corners[1], corners[2], corners[3]
 
         grid_pen = QtGui.QPen(line_color)
-        grid_pen.setStyle(Qt.DotLine)  # Noktalı çizgi
+        grid_pen.setStyle(Qt.DotLine)  # Dotted line
         grid_pen.setWidth(1)
 
-        # Dikey Çizgiler (Sütunlar)
+        # Vertical lines (columns)
         if cols > 0:
             for i in range(1, cols + 1):
                 ratio = i / (cols + 1)
@@ -1301,7 +1290,7 @@ class MapPanel(QtWidgets.QWidget):
                     l.setPen(grid_pen)
                     grp.addToGroup(l)
 
-        # Yatay Çizgiler (Satırlar)
+        # Horizontal lines (rows)
         if rows > 0:
             for i in range(1, rows + 1):
                 ratio = i / (rows + 1)
@@ -1317,19 +1306,19 @@ class MapPanel(QtWidgets.QWidget):
                     grp.addToGroup(l)
 
     def clear_course_visuals(self, name):
-        # Önce kalıcı ızgarayı sil
+        # Delete the permanent grid first
         grp = self.course_groups.get(name)
         if grp:
             for item in grp.childItems():
                 self.scene.removeItem(item)
 
-        # --- DEĞİŞİKLİK: Eğer çizim yarım kaldıysa o beyaz noktaları da sil ---
+        # --- CHANGE: if drawing was left half done, delete those white dots too ---
         if self._course_mode == name:
             self._clear_temp_visuals()
-            self._temp_corners = []  # Mantıksal listeyi de sıfırla
+            self._temp_corners = []  # Reset the logical list too
 
     def _clear_temp_visuals(self):
-        """Geçici beyaz noktaları sahneden siler."""
+        """Remove the temporary white dots from the scene."""
         for item in self._temp_corner_items:
             try:
                 self.scene.removeItem(item)
@@ -1338,19 +1327,19 @@ class MapPanel(QtWidgets.QWidget):
         self._temp_corner_items = []
 
     def start_fence_drawing(self):
-        """Çizim modunu başlatır ve eski çiti temizler."""
+        """Start drawing mode and clear the old fence."""
         self._fence_mode = True
         self._fence_points_latlon = []
-        self.fence_polygon.setPolygon(QtGui.QPolygonF())  # Görseli temizle
-        self.view.setDragMode(QtWidgets.QGraphicsView.NoDrag)  # Harita kaymasın, rahat çizilsin
+        self.fence_polygon.setPolygon(QtGui.QPolygonF())  # Clear the drawing
+        self.view.setDragMode(QtWidgets.QGraphicsView.NoDrag)  # Keep the map still while drawing
 
     def finish_fence_drawing(self):
-        """Çizimi bitirir."""
+        """Finish drawing."""
         self._fence_mode = False
-        self.view.setDragMode(QtWidgets.QGraphicsView.ScrollHandDrag)  # Tekrar kaydırma modu
+        self.view.setDragMode(QtWidgets.QGraphicsView.ScrollHandDrag)  # Back to scroll mode
 
     def clear_fence(self):
-        """Çiti tamamen siler."""
+        """Delete the fence entirely."""
         self._fence_points_latlon = []
         self.fence_polygon.setPolygon(QtGui.QPolygonF())
 
@@ -1358,7 +1347,7 @@ class MapPanel(QtWidgets.QWidget):
         return self._fence_points_latlon
 
     def _on_context_menu(self, pos: QtCore.QPoint):
-        """Haritaya sağ tıklandığında menü açar."""
+        """Open the menu on a right click on the map."""
         scene_pos = self.view.mapToScene(pos)
         lat, lon = self._latlon_from_scene(scene_pos.x(), scene_pos.y())
 
@@ -1372,19 +1361,19 @@ class MapPanel(QtWidgets.QWidget):
         header.setEnabled(False)
         menu.addSeparator()
 
-        # --- IDA 1 MENÜSÜ ---
+        # --- USV 1 MENU ---
         menu_ida1 = menu.addMenu("🔴 For USV 1...")
 
-        # IDA 1 Yeni Ekle
+        # USV 1: add new
         action_add1 = menu_ida1.addAction("➕ Add to the end of the list")
         action_add1.triggered.connect(lambda: self.gps_selected.emit(1, lat, lon, -1))
 
         menu_ida1.addSeparator()
 
-        # IDA 1 Mevcut Noktaları Değiştir (Ekranda görünen noktalar kadar seçenek çıkar)
+        # USV 1: change existing points (one entry per point on screen)
         for i in range(len(self.cached_pts_1)):
             action_update = menu_ida1.addAction(f"✏️ Change point {i + 1}")
-            # i değerini lambda içine hapsetmek için m=i kullanıyoruz (Python closure trick)
+            # m=i captures i inside the lambda (Python closure trick)
             action_update.triggered.connect(lambda checked=False, m=i: self.gps_selected.emit(1, lat, lon, m))
 
         menu.exec(self.view.mapToGlobal(pos))
@@ -1405,45 +1394,45 @@ class MapPanel(QtWidgets.QWidget):
         lat = math.degrees(2.0 * math.atan(math.exp(y_merc / self._R)) - math.pi / 2.0)
         return lat, lon
 
-    # MapPanel sınıfının içine ekle:
+    # Add inside the MapPanel class:
     def start_smart_ruler(self):
-        """Shift'e basıldığı an fare konumunu başlangıç noktası yapar."""
-        if self._ruler_active: return  # Zaten açıksa tekrar başlatma
+        """Take the mouse position as the start point when Shift is pressed."""
+        if self._ruler_active: return  # Already on: do not start again
 
-        # Farenin ekran üzerindeki (Global) konumunu al
+        # The mouse's position on the screen (global)
         global_pos = QtGui.QCursor.pos()
-        # Bunu harita üzerindeki (View) konuma çevir
+        # Turn it into the view's position
         view_pos = self.view.mapFromGlobal(global_pos)
 
-        # Eğer fare harita sınırları içinde değilse başlatma
+        # Mouse outside the map: do not start
         if not self.view.rect().contains(view_pos):
             return
 
-        # Scene (Sahne) koordinatına çevir
+        # Turn it into scene coordinates
         scene_pos = self.view.mapToScene(view_pos)
 
-        # Değişkenleri ayarla
+        # Set the state
         self._ruler_active = True
         self._ruler_start_scene = scene_pos
         self._ruler_start_lat, self._ruler_start_lon = self._latlon_from_scene(scene_pos.x(), scene_pos.y())
 
-        # Görselleri görünür yap
+        # Make the drawings visible
         self.ruler_line.setVisible(True)
         self.ruler_text.setVisible(True)
         self.ruler_bg.setVisible(True)
 
-        # İlk çizgi güncellemesi (Nokta şeklinde başlasın)
+        # First line update (starts as a point)
         self.ruler_line.setLine(scene_pos.x(), scene_pos.y(), scene_pos.x(), scene_pos.y())
 
     def stop_smart_ruler(self):
-        """Cetveli kapatır ve gizler."""
+        """Close and hide the ruler."""
         self._ruler_active = False
         self.ruler_line.setVisible(False)
         self.ruler_text.setVisible(False)
         self.ruler_bg.setVisible(False)
 
     def toggle_smart_ruler(self):
-        """Cetvel açıksa kapatır, kapalıysa başlatır."""
+        """Close the ruler if open, start it if closed."""
         if self._ruler_active:
             self.stop_smart_ruler()
         else:
@@ -1451,28 +1440,28 @@ class MapPanel(QtWidgets.QWidget):
 
     @QtCore.Slot(QtCore.QPointF)
     def _on_mouse_move(self, scene_pt: QtCore.QPointF):
-        # kırmızı + imleci takip etsin
+        # the red + follows the cursor
         self.crosshair.setPos(scene_pt)
 
-        # --- CETVEL GÜNCELLEMESİ ---
+        # --- RULER UPDATE ---
         if self._ruler_active and self._ruler_start_lat is not None:
-            # 1. Çizgiyi güncelle
+            # 1. Update the line
             line = QtCore.QLineF(self._ruler_start_scene, scene_pt)
             self.ruler_line.setLine(line)
 
-            # 2. Mesafeyi hesapla
+            # 2. Work out the distance
             curr_lat, curr_lon = self._latlon_from_scene(scene_pt.x(), scene_pt.y())
             dist_m = haversine_distance(self._ruler_start_lat, self._ruler_start_lon, curr_lat, curr_lon)
             bearing_deg = calculate_bearing(self._ruler_start_lat, self._ruler_start_lon, curr_lat, curr_lon)
 
-            # 3. Metni güncelle
+            # 3. Update the text
             txt = f"{dist_m:.2f} m\n{bearing_deg:.1f}°"
             self.ruler_text.setPlainText(txt)
 
-            # 4. Metni imlecin biraz yanına koy
+            # 4. Put the text a little beside the cursor
             self.ruler_text.setPos(scene_pt + QtCore.QPointF(15, 15))
 
-            # 5. Arka plan kutusunu metne göre ayarla
+            # 5. Fit the background box to the text
             br = self.ruler_text.boundingRect()
             self.ruler_bg.setRect(br)
             self.ruler_bg.setPos(self.ruler_text.pos())
@@ -1495,14 +1484,14 @@ class MapPanel(QtWidgets.QWidget):
             bg_rect = it.get("bg_rect")
             if not grp or not line:
                 continue
-            # etiketi yeniden konumlandır
+            # place the label again
             grp.setPos(scene_pt + ofs_scene)
-            # çizgi başlangıcını sahnede yeniden hesapla
+            # work out the line start in the scene again
             start_scene = grp.pos() + QtCore.QPointF(bg_rect.left() / scale, bg_rect.top() / scale)
             line.setLine(QtCore.QLineF(start_scene, scene_pt))
 
     def _add_click_label(self, scene_pt: QtCore.QPointF, lat: float, lon: float):
-        # --- METİN ---
+        # --- TEXT ---
         txt = QtWidgets.QGraphicsTextItem(f"{lat:.6f}, {lon:.6f}")
         f = txt.font()
         f.setPointSizeF(8.5)
@@ -1511,7 +1500,7 @@ class MapPanel(QtWidgets.QWidget):
         txt.setDefaultTextColor(QtGui.QColor("#ffffff"))
         txt.setAcceptedMouseButtons(Qt.NoButton)
 
-        # --- ARKA PLAN ---
+        # --- BACKGROUND ---
         br = txt.boundingRect()
         bg_rect = QtCore.QRectF(-4, -2, br.width() + 8, br.height() + 4)
 
@@ -1526,7 +1515,7 @@ class MapPanel(QtWidgets.QWidget):
                 else:
                     super().mousePressEvent(e)
 
-        # --- GRUP (sabit piksel boyutlu etiket) ---
+        # --- GROUP (label of fixed pixel size) ---
         grp = QtWidgets.QGraphicsItemGroup()
         grp.setOpacity(0.30)
         grp.setZValue(600)
@@ -1539,21 +1528,21 @@ class MapPanel(QtWidgets.QWidget):
         grp.addToGroup(bg)
         grp.addToGroup(txt)
 
-        # --- POZİSYON: ofseti ölçekle normalize et ---
+        # --- POSITION: normalise the offset by the scale ---
         scale = max(1e-9, self.view.transform().m11())
         ofs_scene = QtCore.QPointF(self._label_offset.x() / scale, self._label_offset.y() / scale)
         grp.setPos(scene_pt + ofs_scene)
         self.scene.addItem(grp)
 
-        # --- KIRMIZI ÇİZGİ: sol ÜST köşeden piksele ---
+        # --- RED LINE: from the top LEFT corner to the pixel ---
         start_scene = grp.pos() + QtCore.QPointF(bg_rect.left() / scale, bg_rect.top() / scale)
         line = self.scene.addLine(QtCore.QLineF(start_scene, scene_pt),
                                   QtGui.QPen(QtGui.QColor("#ff1744"), KIRMIZI_CIZGI_KALINLIK))
         line.setZValue(599)
 
-        # --- KAPATMA ---
+        # --- CLOSING ---
         def _close():
-            # sahneden sil
+            # remove from the scene
             try:
                 self.scene.removeItem(line)
             except Exception:
@@ -1562,18 +1551,18 @@ class MapPanel(QtWidgets.QWidget):
                 self.scene.removeItem(grp)
             except Exception:
                 pass
-            # listeden düş
+            # drop from the list
             self._click_labels[:] = [it for it in self._click_labels if it.get("grp") is not grp]
 
-        bg._closer = _close  # etikete tıklayınca hemen kapanır
+        bg._closer = _close  # closes at once when the label is clicked
 
-        # --- 10 sn sonra otomatik kaldır ---
+        # --- removed by itself after 10 s ---
         timer = QtCore.QTimer(self)
         timer.setSingleShot(True)
         timer.timeout.connect(_close)
         timer.start(10_000)  # ms
 
-        # listede sakla (zoom’da relayout için)
+        # keep it in the list (to lay it out again on zoom)
         self._click_labels.append({
             "grp": grp,
             "bg_rect": QtCore.QRectF(bg_rect),
@@ -1585,65 +1574,65 @@ class MapPanel(QtWidgets.QWidget):
     @QtCore.Slot(QtCore.QPointF, QtCore.QPoint)
     def _on_map_click(self, scene_pt: QtCore.QPointF, global_pos: QtCore.QPoint):
 
-        # 1. CETVELİ KAPATMA (Sol tıklandığında)
+        # 1. CLOSE THE RULER (on a left click)
         if self._ruler_active:
-            self.stop_smart_ruler()  # <-- Kodu kısalttık
+            self.stop_smart_ruler()  # <-- shortened
             return
 
-        # 2. --- GEOFENCE ÇİZİMİ ---
+        # 2. --- GEOFENCE DRAWING ---
         if self._fence_mode:
-            # Koordinatı al
+            # Take the coordinate
             lat, lon = self._latlon_from_scene(scene_pt.x(), scene_pt.y())
             self._fence_points_latlon.append((lat, lon))
 
-            # Görseli güncelle (LatLon listesini ScenePoint listesine çevirip çiz)
+            # Update the drawing (lat/lon list to scene points, then draw)
             poly_points = []
             for (flat, flon) in self._fence_points_latlon:
                 p = self._scene_pos_from_latlon(flat, flon)
                 if p: poly_points.append(p)
 
             self.fence_polygon.setPolygon(QtGui.QPolygonF(poly_points))
-            return  # Başka işlem yapma
+            return  # Do nothing else
 
-        # 3. --- PARKUR KÖŞE BELİRLEME ---
+        # 3. --- COURSE CORNERS ---
         if self._course_mode:
             lat, lon = self._latlon_from_scene(scene_pt.x(), scene_pt.y())
             self._temp_corners.append((lat, lon))
 
-            # Geçici nokta koy (Görsel geri bildirim)
+            # Put a temporary dot (visual feedback)
             r = 3
             dot = QtWidgets.QGraphicsEllipseItem(scene_pt.x() - r, scene_pt.y() - r, 2 * r, 2 * r)
             dot.setBrush(Qt.white)
-            dot.setPen(QtGui.QPen(Qt.black))  # Siyah kenarlık ekledim daha net görünsün
+            dot.setPen(QtGui.QPen(Qt.black))  # Black outline added so it shows better
             self.scene.addItem(dot)
 
-            # --- DEĞİŞİKLİK BURADA: Noktayı listeye kaydet ---
+            # --- CHANGE HERE: save the point in the list ---
             self._temp_corner_items.append(dot)
 
-            # 4 Köşe tamamlandı mı?
+            # All 4 corners done?
             if len(self._temp_corners) == 4:
-                # Kaydet
+                # Save
                 nm = self._course_mode
                 self.courses[nm]["corners"] = list(self._temp_corners)
 
-                # Moddan çık
+                # Leave the mode
                 self._course_mode = None
                 self.view.setDragMode(
-                    QtWidgets.QGraphicsView.NoDrag)  # Qt'nin kendi sürüklemesini kapat (Bizimki çalışsın)
-                self.view.setCursor(Qt.BlankCursor)  # İmleci tekrar gizle (Sadece Crosshair kalsın)
+                    QtWidgets.QGraphicsView.NoDrag)  # Turn off Qt's own dragging (ours works instead)
+                self.view.setCursor(Qt.BlankCursor)  # Hide the cursor again (only the crosshair stays)
 
-                # --- DEĞİŞİKLİK BURADA: Geçici beyaz noktaları temizle ---
+                # --- CHANGE HERE: clear the temporary white dots ---
                 self._clear_temp_visuals()
 
-                # Izgarayı Çiz
+                # Draw the grid
                 self.render_course_grid(nm)
 
             return
 
 
     def _debug_corners(self):
-        """Harita BBOX köşelerine yeşil çarpı koyarak hizalamayı test eder."""
-        # Eski debug objelerini temizle
+        """Test the alignment by putting green crosses on the map's BBOX corners."""
+        # Clear the old debug items
         try:
             for it in getattr(self, "_debug_items", []):
                 self.scene.removeItem(it)
@@ -1660,7 +1649,7 @@ class MapPanel(QtWidgets.QWidget):
             l2.setPen(pen)
             l1.setZValue(30)
             l2.setZValue(30)
-            # Zoom’dan bağımsız olsun istiyorsan:
+            # To keep it independent of the zoom:
             if globals().get("KEEP_PIXEL_SIZE", True):
                 l1.setFlag(QtWidgets.QGraphicsItem.ItemIgnoresTransformations, True)
                 l2.setFlag(QtWidgets.QGraphicsItem.ItemIgnoresTransformations, True)
@@ -1668,7 +1657,7 @@ class MapPanel(QtWidgets.QWidget):
             self.scene.addItem(l2)
             self._debug_items.extend([l1, l2])
 
-        # NW, NE, SW, SE köşelerine çarpı
+        # A cross at the NW, NE, SW, SE corners
         for (lat, lon) in [
             (self.north, self.west), (self.north, self.east),
             (self.south, self.west), (self.south, self.east)
@@ -1697,7 +1686,7 @@ class MapPanel(QtWidgets.QWidget):
         self.view.setSceneRect(QtCore.QRectF(0, 0, self._img_W, self._img_H))
         self.view.centerOn(self._img_W / 2.0, self._img_H / 2.0)
 
-    # ---- Lat/Lon -> Scene koordinat dönüşümü ----
+    # ---- Lat/lon -> scene coordinates ----
     def _lon_to_x(self, lon_deg: float) -> float:
         return self._R * math.radians(lon_deg)
 
@@ -1707,10 +1696,10 @@ class MapPanel(QtWidgets.QWidget):
         return self._R * math.log(math.tan(math.pi/4.0 + lat_rad/2.0))
 
     def _scene_pos_from_latlon(self, lat: float, lon: float) -> QtCore.QPointF | None:
-        # Dışarıda kalanı çizme
+        # Do not draw what is outside
         if not (self.south <= lat <= self.north and self.west <= lon <= self.east):
-            # Yine de harita dışında olsa bile piksele dönüştürmek isteyebilirsin.
-            # Burada clamp'leyelim ki kenarda görünsün.
+            # You may still want a pixel for a point outside the map.
+            # Clamp it here so it shows at the edge.
             lat = min(max(lat, self.south), self.north)
             lon = min(max(lon, self.west), self.east)
 
@@ -1722,12 +1711,12 @@ class MapPanel(QtWidgets.QWidget):
         x = self._lon_to_x(lon)
         y = self._lat_to_y(lat)
 
-        # Pixmap boyutu
+        # Pixmap size
         W = float(self._img_W)
         H = float(self._img_H)
 
-        # WebMercator yukarı pozitif; QGraphics'te y aşağı pozitif.
-        # Bu nedenle y'yi ters çeviriyoruz.
+        # WebMercator is positive up; QGraphics y is positive down.
+        # So y is flipped.
         px = (x - x_left) / (x_right - x_left) * W
         py = (y_top - y)   / (y_top - y_bot)  * H
 
@@ -1735,7 +1724,7 @@ class MapPanel(QtWidgets.QWidget):
 
     # ---- Geo helpers ----
     def _offset_latlon(self, lat_deg: float, lon_deg: float, north_m: float, east_m: float) -> tuple[float, float]:
-        """Küçük ofset yaklaşıklığı. north_m: +Kuzey, east_m: +Doğu (metre)."""
+        """Small-offset approximation. north_m: +north, east_m: +east (metres)."""
         R = 6378137.0
         d_lat = (north_m / R) * (180.0 / math.pi)
         d_lon = (east_m / (R * math.cos(math.radians(lat_deg)))) * (180.0 / math.pi)
@@ -1743,7 +1732,7 @@ class MapPanel(QtWidgets.QWidget):
 
     def _end_latlon_from_heading(self, lat: float, lon: float, heading_deg: float, length_m: float) -> tuple[
         float, float]:
-        """0° = True North, saat yönü (+). length_m kadar ilerleyince uç lat/lon."""
+        """0 deg = true north, clockwise (+). The lat/lon after going length_m."""
         theta = math.radians(heading_deg if heading_deg is not None else 0.0)
         north_m = length_m * math.cos(theta)
         east_m = length_m * math.sin(theta)
@@ -1758,7 +1747,7 @@ class MapPanel(QtWidgets.QWidget):
             self._targ_line.setVisible(False)
             return
 
-        # --- Real heading (3 m + ok) ---
+        # --- Real heading (3 m + arrow) ---
         if self._real_hdg_deg is not None:
             lat2, lon2 = self._end_latlon_from_heading(lat, lon, self._real_hdg_deg, 3.0)
             p1 = self._scene_pos_from_latlon(lat, lon)
@@ -1766,7 +1755,7 @@ class MapPanel(QtWidgets.QWidget):
             self._real_line.setLine(p1.x(), p1.y(), p2.x(), p2.y())
             self._real_line.setVisible(True)
 
-            # Ok başı: uca yakın V şekli (±25°)
+            # Arrow head: a V near the tip (+/-25 deg)
             arrow_len = 0.8  # m
             left_dir = (self._real_hdg_deg + 180 - 25) % 360
             right_dir = (self._real_hdg_deg + 180 + 25) % 360
@@ -1785,7 +1774,7 @@ class MapPanel(QtWidgets.QWidget):
             self._real_line.setVisible(False)
             self._real_arrow.setVisible(False)
 
-        # --- Target heading (5 m, ok yok) ---
+        # --- Target heading (5 m, no arrow) ---
         if self._targ_hdg_deg is not None:
             lat3, lon3 = self._end_latlon_from_heading(lat, lon, self._targ_hdg_deg, 5.0)
             p1 = self._scene_pos_from_latlon(lat, lon)
@@ -1811,32 +1800,32 @@ class MapPanel(QtWidgets.QWidget):
         self._update_heading_items()
 
     def _prune_and_redraw_trail(self, boat_id):
-        """İzi 500 metre ile sınırlar ve haritayı yeniden çizer."""
+        """Limit the track to 500 m and draw the map again."""
         trail = self.trail_points_1 if boat_id == 1 else self.trail_points_2
         if len(trail) < 2:
             return
 
-        max_dist_m = 400.0  # MAKSİMUM İZ UZUNLUĞU (METRE)
+        max_dist_m = 400.0  # LONGEST TRACK (METRES)
         total_dist = 0.0
         new_trail = [trail[-1]]
 
-        # Sondan başa doğru (en yeni noktadan en eskiye) mesafeleri topla
+        # Add up the distances from the end back (newest point to oldest)
         for i in range(len(trail) - 2, -1, -1):
             d = haversine_distance(trail[i][0], trail[i][1], trail[i + 1][0], trail[i + 1][1])
             total_dist += d
             new_trail.append(trail[i])
-            # Eğer toplam uzunluk 500 metreyi geçerse daha eski noktaları alma!
+            # Once the total passes 500 m, older points are not taken!
             if total_dist >= max_dist_m:
                 break
 
-        new_trail.reverse()  # Listeyi tekrar kronolojik sıraya çevir
+        new_trail.reverse()  # Put the list back in time order
 
         if boat_id == 1:
             self.trail_points_1 = new_trail
         else:
             self.trail_points_2 = new_trail
 
-        # QPainterPath'i yeni ve kırpılmış noktalarla baştan çiz
+        # Draw the QPainterPath again with the new, trimmed points
         painter_path = QtGui.QPainterPath()
         first = True
         for lat, lon in new_trail:
@@ -1848,7 +1837,7 @@ class MapPanel(QtWidgets.QWidget):
                 else:
                     painter_path.lineTo(p)
 
-        # Çizgiyi haritaya uygula
+        # Put the line on the map
         if boat_id == 1:
             self.path_path = painter_path
             self.path_item.setPath(self.path_path)
@@ -1857,23 +1846,23 @@ class MapPanel(QtWidgets.QWidget):
             self.path_item_2.setPath(self.path_path_2)
 
     def update_current_position(self, lat: float, lon: float, boat_id=1, draw_tail=True):
-        # 1. EMA Filtresi uygula (Low-Pass Filter) - Zikzakları engeller
-        alpha = 0.3  # Yumuşatma faktörü (0 ile 1 arası, 1 = filtresiz, düşük değer = yumuşak ama gecikmeli)
-        dist_threshold_m = 50.0  # 50 metreden büyük atlamalarda filtreyi sıfırla (Işınlanma/ilk açılış)
+        # 1. EMA filter (low-pass) - stops the zigzags
+        alpha = 0.3  # Smoothing factor (0 to 1, 1 = no filter, low = smooth but late)
+        dist_threshold_m = 50.0  # Jumps over 50 m reset the filter (teleport / first fix)
 
         if boat_id == 1:
             if getattr(self, '_target_lat_1', None) is None:
-                # İlk konum geldi
+                # First position
                 self._target_lat_1, self._target_lon_1 = lat, lon
                 self._visual_lat_1, self._visual_lon_1 = lat, lon
             else:
                 dist = haversine_distance(self._target_lat_1, self._target_lon_1, lat, lon)
                 if dist > dist_threshold_m:
-                    # Büyük atlama, direkt zıpla
+                    # Big jump: go straight there
                     self._target_lat_1, self._target_lon_1 = lat, lon
                     self._visual_lat_1, self._visual_lon_1 = lat, lon
                 else:
-                    # EMA yumuşatma
+                    # EMA smoothing
                     self._target_lat_1 = (alpha * lat) + ((1.0 - alpha) * self._target_lat_1)
                     self._target_lon_1 = (alpha * lon) + ((1.0 - alpha) * self._target_lon_1)
 
@@ -1895,16 +1884,16 @@ class MapPanel(QtWidgets.QWidget):
                     self._target_lon_2 = (alpha * lon) + ((1.0 - alpha) * self._target_lon_2)
 
     def _animate_markers(self):
-        """Timer ile saniyede 30 kez çağrılır. Görsel marker'ı hedef EMA koordinatına yumuşakça kaydırır (Tweening)."""
-        interp_factor = 0.2  # Her animasyon karesinde hedefe %20 yaklaş
+        """Called 30 times a second by a timer. Slides the marker smoothly to the EMA target position (tweening)."""
+        interp_factor = 0.2  # Each animation frame goes 20% of the way to the target
 
-        # Performans için sayaçları tanımla (eğer yoksa)
+        # Counters for performance (if not there yet)
         if not hasattr(self, 'prune_counter_1'): self.prune_counter_1 = 0
         if not hasattr(self, 'prune_counter_2'): self.prune_counter_2 = 0
 
-        # --- IDA 1 ---
+        # --- USV 1 ---
         if getattr(self, '_visual_lat_1', None) is not None and getattr(self, '_target_lat_1', None) is not None:
-            # İnterpolasyon
+            # Interpolation
             self._visual_lat_1 += (self._target_lat_1 - self._visual_lat_1) * interp_factor
             self._visual_lon_1 += (self._target_lon_1 - self._visual_lon_1) * interp_factor
 
@@ -1913,8 +1902,8 @@ class MapPanel(QtWidgets.QWidget):
                 self.curr_marker.setPos(p)
                 self.curr_marker.setVisible(True)
 
-                # İz (Trail) Çizimi - Artık yumuşatılmış görsel koordinatlarla çiziliyor
-                draw_tail = True  # İstenirse dışarıdan parametre alınabilir
+                # Track (trail) drawing - now with the smoothed display coordinates
+                draw_tail = True  # Could be a parameter from outside
                 if draw_tail:
                     if not self.trail_points_1 or self.trail_points_1[-1] != (self._visual_lat_1, self._visual_lon_1):
                         self.trail_points_1.append((self._visual_lat_1, self._visual_lon_1))
@@ -1930,7 +1919,7 @@ class MapPanel(QtWidgets.QWidget):
                             self._prune_and_redraw_trail(1)
                             self.prune_counter_1 = 0
 
-        # --- IDA 2 ---
+        # --- USV 2 ---
         if getattr(self, '_visual_lat_2', None) is not None and getattr(self, '_target_lat_2', None) is not None and hasattr(self, 'curr_marker_2'):
             self._visual_lat_2 += (self._target_lat_2 - self._visual_lat_2) * interp_factor
             self._visual_lon_2 += (self._target_lon_2 - self._visual_lon_2) * interp_factor
@@ -1957,24 +1946,24 @@ class MapPanel(QtWidgets.QWidget):
                             self.prune_counter_2 = 0
 
     def clear_ghost_trail_by_id(self, boat_id):
-        """İlgili tekneye ait canlı izi (ve varsa hayalet izi) tamamen sıfırlar."""
+        """Clear the boat's live track (and its ghost track, if any) entirely."""
         if boat_id == 1:
-            # Hayalet izi sil
+            # Clear the ghost track
             self.ghost_path = QtGui.QPainterPath()
             self.ghost_item.setPath(self.ghost_path)
 
-            # Canlı İzi (Kırmızı) Sil
+            # Clear the live track (red)
             self.trail_points_1 = []
             self.path_path = QtGui.QPainterPath()
             self.path_item.setPath(self.path_path)
         elif boat_id == 2:
-            # 2. IDA'nın Canlı İzini (Mavi) Sil
+            # Clear USV 2's live track (blue)
             self.trail_points_2 = []
             self.path_path_2 = QtGui.QPainterPath()
             self.path_item_2.setPath(self.path_path_2)
 
     def update_mission_waypoints(self, boat_id, local_points, remote_points=[], tags=None):
-        # 1. Gelen veriyi hafızaya al
+        # 1. Keep the data that came in
         if boat_id == 1:
             self.cached_pts_1 = local_points
         else:
@@ -1982,7 +1971,7 @@ class MapPanel(QtWidgets.QWidget):
 
         other_list = self.cached_pts_2 if boat_id == 1 else self.cached_pts_1
 
-        # Grupları hazırla
+        # Prepare the groups
         if not hasattr(self, 'mission_grp_1'):
             self.mission_grp_1 = QtWidgets.QGraphicsItemGroup()
             self.scene.addItem(self.mission_grp_1)
@@ -1994,25 +1983,25 @@ class MapPanel(QtWidgets.QWidget):
 
         grp = self.mission_grp_1 if boat_id == 1 else self.mission_grp_2
 
-        # Grubu temizle (Eski çizimleri sil)
+        # Clear the group (delete old drawings)
         for child in grp.childItems():
             self.scene.removeItem(child)
 
-        # Renkler
+        # Colours
         if boat_id == 1:
-            def_color = QtGui.QColor("#ff1744")  # Kırmızı
-            text_color = QtGui.QColor("#ff8a80")  # Açık Kırmızı (Yazı)
-            y_offset_factor = -1  # YUKARIYA YAZ
+            def_color = QtGui.QColor("#ff1744")  # Red
+            text_color = QtGui.QColor("#ff8a80")  # Light red (text)
+            y_offset_factor = -1  # WRITE ABOVE
         else:
-            def_color = QtGui.QColor("#2979ff")  # Mavi
-            text_color = QtGui.QColor("#80d8ff")  # Açık Mavi (Yazı)
-            y_offset_factor = 1  # AŞAĞIYA YAZ
+            def_color = QtGui.QColor("#2979ff")  # Blue
+            text_color = QtGui.QColor("#80d8ff")  # Light blue (text)
+            y_offset_factor = 1  # WRITE BELOW
 
         for i, (lat, lon) in enumerate(local_points):
             p = self._scene_pos_from_latlon(lat, lon)
             if not p: continue
 
-            # --- Durum Kontrolü (Teyitli/Ortak) ---
+            # --- State check (confirmed / shared) ---
             is_verified = False
             for (r_lat, r_lon) in remote_points:
                 if abs(lat - r_lat) < 0.000001 and abs(lon - r_lon) < 0.000001:
@@ -2026,78 +2015,78 @@ class MapPanel(QtWidgets.QWidget):
                         is_shared = True
                         break
 
-            # Nokta Rengi
+            # Point colour
             if is_verified:
-                color = QtGui.QColor("#00e676")  # Yeşil (Teyitli)
+                color = QtGui.QColor("#00e676")  # Green (confirmed)
             elif is_shared:
-                color = QtGui.QColor("#ff9100")  # Turuncu (Çakışma)
+                color = QtGui.QColor("#ff9100")  # Orange (clash)
             else:
                 color = def_color
 
-            # --- 1. Nokta Çizimi (Dot) ---
+            # --- 1. Draw the dot ---
             r = 1.5
             dot = QtWidgets.QGraphicsEllipseItem(p.x() - r, p.y() - r, 2 * r, 2 * r)
             dot.setBrush(QtGui.QBrush(color))
             dot.setPen(QtGui.QPen(QtGui.QColor("white"), 1))
             grp.addToGroup(dot)
 
-            # --- 2. Etiket (Text) Hazırlığı ---
+            # --- 2. Prepare the label ---
             label_text = str(i + 1)
-            # Görev ismini kısalt (TASK1_START -> T1_START) yer kazanmak için
+            # Shorten the task name (TASK1_START -> T1_START) to save room
             if tags and i < len(tags):
                 short_tag = tags[i].replace("TASK", "T").replace("_", " ")
                 label_text += f" {short_tag}"
 
             txt = QtWidgets.QGraphicsSimpleTextItem(label_text)
             f = txt.font()
-            f.setPixelSize(4)  # Okunaklı boyut
+            f.setPixelSize(4)  # Readable size
             f.setBold(True)
             txt.setFont(f)
             txt.setBrush(QtGui.QBrush(text_color))
 
-            # --- 3. Pozisyon Ayarlama (ÇAKIŞMA ÖNLEME) ---
+            # --- 3. Position (AVOIDING CLASHES) ---
             br = txt.boundingRect()
 
-            # X Ekseni: Yazıyı noktanın biraz sağına al
+            # X: put the text a little right of the point
             txt_x = p.x() + 6
 
-            # Y Ekseni: ID'ye göre yukarı veya aşağı al
+            # Y: up or down by ID
             if boat_id == 1:
-                # IDA 1: Noktanın YUKARISINA (Height kadar yukarı + boşluk)
+                # USV 1: ABOVE the point (its height up + a gap)
                 txt_y = p.y() - br.height() - 4
             else:
-                # IDA 2: Noktanın AŞAĞISINA (Direkt aşağı + boşluk)
+                # USV 2: BELOW the point (straight down + a gap)
                 txt_y = p.y() + 4
 
             txt.setPos(txt_x, txt_y)
 
-            # --- 4. Arka Plan Kutucuğu (Okunabilirlik İçin) ---
-            # Yazının arkasına yarı saydam siyah kutu koyuyoruz
+            # --- 4. Background box (for readability) ---
+            # A half-transparent black box behind the text
             bg_rect = QtWidgets.QGraphicsRectItem(
                 txt_x - 2, txt_y - 1,
                 br.width() + 4, br.height() + 2
             )
-            bg_rect.setBrush(QtGui.QBrush(QtGui.QColor(0, 0, 0, 30)))  # %60 Siyah
+            bg_rect.setBrush(QtGui.QBrush(QtGui.QColor(0, 0, 0, 30)))  # 60% black
             bg_rect.setPen(Qt.NoPen)
 
-            grp.addToGroup(bg_rect)  # Önce kutuyu ekle (altta kalsın)
-            grp.addToGroup(txt)  # Sonra yazıyı ekle (üstte olsun)
+            grp.addToGroup(bg_rect)  # Add the box first (it stays below)
+            grp.addToGroup(txt)  # Then the text (on top)
 
-            # İsteğe bağlı: Kutudan noktaya ince bir çizgi (Leader Line)
+            # Optional: a thin line from the box to the point (leader line)
             line = QtWidgets.QGraphicsLineItem(p.x(), p.y(), txt_x, txt_y + br.height() / 2)
             line.setPen(QtGui.QPen(QtGui.QColor(255, 255, 255, 100), 1))
             grp.addToGroup(line)
 
     def set_waypoints(self, gps_dict: dict):
-        """gps_dict beklenen biçim: {"GPS1":{"lat":..,"lon":..}, ...}"""
+        """gps_dict expected format: {"GPS1":{"lat":..,"lon":..}, ...}"""
         if not isinstance(gps_dict, dict):
             return
 
-        # Eski öğeleri temizle
+        # Clear the old items
         try:
             for item in list(self.wp_group.childItems()):
                 self.scene.removeItem(item)
-            # Grubu yeniden yarat (bazı Qt sürümlerinde childItems temizlenince grup 'tuhaf' davranabiliyor)
+            # Make the group again (in some Qt versions a group misbehaves once its childItems are cleared)
             self.scene.removeItem(self.wp_group)
         except Exception:
             pass
@@ -2106,12 +2095,12 @@ class MapPanel(QtWidgets.QWidget):
         self.wp_group.setZValue(15)
         self.scene.addItem(self.wp_group)
 
-        # Boyut/sabitler (yoksa varsayılanları kullan)
+        # Sizes / constants (defaults if missing)
         r_px = globals().get("WP_RADIUS_PX", 4.0)
         font_pt = globals().get("WP_FONT_PT", 8.5)
         keep_px = globals().get("KEEP_PIXEL_SIZE", True)
 
-        # GPS1..GPS5 sırayla çiz
+        # Draw GPS1..GPS5 in order
         for i in range(1, 6):
             key = f"GPS{i}"
             entry = gps_dict.get(key)
@@ -2129,7 +2118,7 @@ class MapPanel(QtWidgets.QWidget):
             if p is None:
                 continue
 
-            # --- Daire marker ---
+            # --- Circle marker ---
             circ = QtWidgets.QGraphicsEllipseItem(-r_px, -r_px, 2 * r_px, 2 * r_px)
             circ.setBrush(QtGui.QBrush(QtGui.QColor("#1e88e5")))
             circ.setPen(QtGui.QPen(QtGui.QColor("#ffffff"), 1.0))
@@ -2139,19 +2128,19 @@ class MapPanel(QtWidgets.QWidget):
                 circ.setFlag(QtWidgets.QGraphicsItem.ItemIgnoresTransformations, True)
             self.wp_group.addToGroup(circ)
 
-            # --- Etiket ---
+            # --- Label ---
             label = QtWidgets.QGraphicsTextItem(key)
-            # Yazı tipi ve stil
+            # Font and style
             f = label.font()
             f.setPointSizeF(font_pt)
             f.setBold(True)
             label.setFont(f)
 
-            # Renk: turkuaz
+            # Colour: turquoise
             label.setDefaultTextColor(QtGui.QColor("#90EE90")) #000000 #30d5c8
 
-            # Metni DAİRENİN MERKEZİNE yerleştir
-            br = label.boundingRect()  # font set edildikten sonra ölç
+            # Put the text at the CENTRE OF THE CIRCLE
+            br = label.boundingRect()  # measure after the font is set
             label.setPos(p - QtCore.QPointF(br.width() / 2.0, br.height() / 2.0))
 
             label.setZValue(17)
@@ -2185,19 +2174,19 @@ class MainWindow(QtWidgets.QMainWindow):
         ]
 
 
-        # Stil Dosyası (GÜÇLENDİRİLMİŞ & PARLAK BEYAZ)
+        # Style sheet (STRONGER, BRIGHT WHITE)
         self.setStyleSheet("""
                     QMainWindow {
                         background-color: #2b2b2b;
                         color: #e0e0e0;
                     }
 
-                    /* --- GÜÇLENDİRİLMİŞ BUTONLAR --- */
-                    /* Daha spesifik seçici kullanarak stilin uygulanmasını garantiye alıyoruz */
+                    /* --- STRONGER BUTTONS --- */
+                    /* A more specific selector makes sure the style applies */
                     QWidget QPushButton {
                         background-color: #37474f;       /* Koyu Zemin */
-                        color: #eceff1;                  /* Açık Gri/Beyaz Yazı */
-                        border: 2px solid #546e7a;       /* DAHA KALIN (2px) BELİRGİN ÇERÇEVE */
+                        color: #eceff1;                  /* Light grey/white text */
+                        border: 2px solid #546e7a;       /* THICKER (2px) CLEAR BORDER */
                         border-radius: 4px;
                         padding: 4px;
                         font-weight: bold;
@@ -2206,32 +2195,32 @@ class MainWindow(QtWidgets.QMainWindow):
                     /* Hover Efekti - PARLASIN */
                     QWidget QPushButton:hover {
                         background-color: #455a64;
-                        border: 2px solid #81d4fa;       /* Çerçeve Parlak Açık Mavi */
-                        color: #ffffff;                  /* Yazı Tam Beyaz */
+                        border: 2px solid #81d4fa;       /* Bright light blue border */
+                        color: #ffffff;                  /* Pure white text */
                     }
-                    /* Pressed Efekti - GÖMÜLSÜN */
+                    /* Pressed effect - sinks in */
                     QWidget QPushButton:pressed {
                         background-color: #263238;
                         border: 2px solid #263238;
-                        padding-top: 6px;                /* Tıklama hissi için kaydır */
+                        padding-top: 6px;                /* Shift for a click feel */
                         padding-left: 6px;
                     }
-                    /* Seçili (Checked) Efekti */
+                    /* Checked effect */
                     QWidget QPushButton:checked {
                         background-color: #00897b;
                         border: 2px solid #00e676;
                         color: white;
                     }
 
-                    /* --- GÖREV TABLOSU (PARLAK BEYAZ) --- */
+                    /* --- TASK TABLE (BRIGHT WHITE) --- */
                     QTableWidget {
                         background-color: #323639;       /* Koyu Zemin */
-                        color: #ffffff;                  /* PARLAK BEYAZ ve KALIN YAZI */
+                        color: #ffffff;                  /* BRIGHT WHITE, BOLD TEXT */
                         font-weight: bold;
-                        gridline-color: #546e7a;         /* Izgara Çizgileri */
-                        border: none;                    /* Dış çerçeve yok (Modern çerçeveye uyum) */
+                        gridline-color: #546e7a;         /* Grid lines */
+                        border: none;                    /* No outer border (matches the modern frame) */
                     }
-                    /* Tablo Başlıkları */
+                    /* Table headers */
                     QHeaderView::section {
                         background-color: #37474f;
                         color: #eceff1;
@@ -2239,15 +2228,15 @@ class MainWindow(QtWidgets.QMainWindow):
                         border: 1px solid #546e7a;
                         font-weight: bold;
                     }
-                    /* Tablo Seçili Satır */
+                    /* Table selected row */
                     QTableWidget::item:selected {
-                        background-color: #00e676;       /* Seçili satır parlak yeşil olsun */
-                        color: #000000;                  /* Üzerindeki yazı siyah olsun ki okunsun */
+                        background-color: #00e676;       /* Selected row bright green */
+                        color: #000000;                  /* Black text on it so it reads */
                     }
 
-                    /* --- DİĞER BİLEŞENLER --- */
+                    /* --- OTHER WIDGETS --- */
                     QGroupBox {
-                        border: 2px solid #444;          /* Çerçeveyi belirginleştir */
+                        border: 2px solid #444;          /* Make the border clear */
                         border-radius: 6px;
                         margin-top: 12px;
                         background-color: #323639;
@@ -2258,7 +2247,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         left: 10px;
                         padding: 0 5px;
                         color: #4fc3f7;
-                        background-color: #323639;       /* Başlık arka planı */
+                        background-color: #323639;       /* Title background */
                     }
                     QCheckBox {
                         spacing: 8px;
@@ -2266,7 +2255,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         font-weight: bold;
                     }
                     QCheckBox::indicator {
-                        width: 16px;                     /* Kutucuğu biraz büyüt */
+                        width: 16px;                     /* A slightly bigger box */
                         height: 16px;
                         border: 2px solid #546e7a;
                         background: #263238;
@@ -2278,7 +2267,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     }
                     QLineEdit, QSpinBox, QComboBox {
                         background-color: #263238;
-                        color: #ffffff;                  /* Girdiler de Parlak Beyaz olsun */
+                        color: #ffffff;                  /* Inputs bright white too */
                         border: 2px solid #546e7a;
                         padding: 4px;
                         border-radius: 3px;
@@ -2300,34 +2289,34 @@ class MainWindow(QtWidgets.QMainWindow):
                         font-weight: bold;
                     }
                 """)
-        # Arka plan resmi yolu (background.jpg veya background.png dosyanın adı neyse onu yaz)
+        # Background image path (whatever the file is called: background.jpg or .png)
         bg_path = res_path("background.png").replace("\\", "/")
 
-        # --- ANA YAPI KURULUMU ---
+        # --- MAIN LAYOUT ---
         central = QtWidgets.QWidget(self)
         self.setCentralWidget(central)
 
-        # Ana Yerleşim (Layout)
+        # Main layout
         root = QtWidgets.QVBoxLayout(central)
-        root.setContentsMargins(0, 0, 0, 0)  # Kenar boşluğu yok, tam ekran
+        root.setContentsMargins(0, 0, 0, 0)  # No margins, full screen
         root.setSpacing(0)
 
-        # Halat Kalınlığı (Burada tanımlıyoruz ki aşağıda hata vermesin)
+        # Rope thickness (defined here so the code below does not fail)
         ROPE_SIZE = 12
         self._rope_thk = ROPE_SIZE
 
-        # İçerik Çerçevesi (Tüm arayüz bunun içinde olacak)
+        # Content frame (the whole UI lives inside it)
         self.content = QtWidgets.QFrame(central)
         root.addWidget(self.content)
 
-        # İçerik Layout'u (3 Sütunlu Splitter buraya gelecek)
+        # Content layout (the 3-column splitter goes here)
         content_lay = QtWidgets.QHBoxLayout(self.content)
-        # İçerik halatın altında kalmasın diye kenarlardan halat kalınlığı kadar boşluk bırakıyoruz
+        # Leave a margin of one rope thickness on each side so the content is not hidden under the rope
         content_lay.setContentsMargins(ROPE_SIZE, ROPE_SIZE, ROPE_SIZE, ROPE_SIZE)
         content_lay.setSpacing(0)
 
-        # Halat Süsleri (Overlay olarak content üzerine ekleniyor)
-        # Resim yolunu kontrol et, yoksa gri çizer
+        # Rope decoration (added as an overlay on top of the content)
+        # Check the image path; draws grey if missing
         rope_path = res_path("halat.png").replace("\\", "/")
 
         self.rope_top = RopeStripe("top", rope_path, ROPE_SIZE, parent=self.content)
@@ -2335,27 +2324,27 @@ class MainWindow(QtWidgets.QMainWindow):
         self.rope_left = RopeStripe("left", rope_path, ROPE_SIZE, parent=self.content)
         self.rope_right = RopeStripe("right", rope_path, ROPE_SIZE, parent=self.content)
 
-        # Pencere boyutu değişince halatları yeniden hizalamak için filtre
+        # Filter to line the ropes up again when the window is resized
         self.content.installEventFilter(self)
 
-        # --- SPLITTER (SOL | ORTA | SAĞ) ---
+        # --- SPLITTER (LEFT | CENTRE | RIGHT) ---
         splitter = QtWidgets.QSplitter(Qt.Horizontal)
         content_lay.addWidget(splitter)
 
         # =========================================================
-        # SOL PANEL: IDA 1 (Azure), SAĞ PANEL: IDA 2 (Marine)  (_build_boat_panel)
+        # LEFT PANEL: USV 1 (Azure), RIGHT PANEL: USV 2 (Marine)  (_build_boat_panel)
         # =========================================================
         self.relay_lbls, self.link_lbls = {}, {}
         self.focus_group = QtWidgets.QButtonGroup(self)    # one boat on the keyboard
         splitter.addWidget(self._build_boat_panel(1, bg_path))
 
         # =========================================================
-        # ORTA PANEL: HARİTA & ORTAK
+        # CENTRE PANEL: MAP & SHARED
         # =========================================================
         center_widget = QtWidgets.QWidget()
         vc = QtWidgets.QVBoxLayout(center_widget)
 
-        # 1. Ortak Üst (Harita, Com, Connect)
+        # 1. Shared top (map, COM, connect)
         top_grp = QtWidgets.QGroupBox("System Settings")
         vc.addWidget(top_grp);
         top_lay = QtWidgets.QHBoxLayout(top_grp)
@@ -2375,7 +2364,7 @@ class MainWindow(QtWidgets.QMainWindow):
         top_lay.addWidget(QtWidgets.QLabel("Map:"));
         top_lay.addWidget(self.cmb_maps)
 
-        # Ubiquiti (UDP) and RFD: both at once (RoboBoat 2027). "Ağ" picks where the boats
+        # Ubiquiti (UDP) and RFD: both at once (RoboBoat 2027). "Network" picks where the boats
         # are: the field (their profile addresses) or this computer (simulation)
         self.chk_udp = QtWidgets.QCheckBox("Ubiquiti")
         self.chk_udp.setChecked(True)
@@ -2410,8 +2399,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.lbl_links.setStyleSheet("color:#90a4ae; font-weight:bold;")
         top_lay.addWidget(self.lbl_links)
 
-        # 2. Harita
-        # Varsayılan harita ayarı (Combobox'tan al)
+        # 2. Map
+        # Default map setting (taken from the combobox)
         current_map_key = self.cmb_maps.currentText()
         if current_map_key in self.MAP_PRESETS:
             first_map = self.MAP_PRESETS[current_map_key]
@@ -2424,7 +2413,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.map.gps_selected.connect(self._on_map_gps_selected)
         vc.addWidget(self.map)
 
-        # 3. Ortak Alt (Geofence, Jüri, Parkur, IHA)
+        # 3. Shared bottom (geofence, judges, course, UAV)
         bot_lay = QtWidgets.QHBoxLayout();
         vc.addLayout(bot_lay)
 
@@ -2443,7 +2432,7 @@ class MainWindow(QtWidgets.QMainWindow):
         gl.addWidget(self.chk_fence_active, 1, 0, 1, 2)
         bot_lay.addWidget(geo_box)
 
-        # Parkur Izgaraları (A-B-C)
+        # Course grids (A-B-C)
         self.course_ui = {}
         course_grp = QtWidgets.QGroupBox("Course");
         cl = QtWidgets.QVBoxLayout(course_grp)
@@ -2455,7 +2444,7 @@ class MainWindow(QtWidgets.QMainWindow):
             v_tab = QtWidgets.QVBoxLayout(w)
             v_tab.setContentsMargins(4, 4, 4, 4)
 
-            # Üst Satır
+            # Top row
             h_top = QtWidgets.QHBoxLayout()
             b_sel = QtWidgets.QPushButton("Select (4 corners)")
             b_sel.clicked.connect(lambda _, n=name: self._start_course_marking(n))
@@ -2470,7 +2459,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
             h_top.addWidget(b_sel)
 
-            # --- YENİ ETİKETLER (Siyah ve Okunaklı) ---
+            # --- NEW LABELS (black and readable) ---
             l_r = QtWidgets.QLabel("Rows:")
             l_r.setStyleSheet(
                 "color: black; font-weight: bold; background-color: #b0bec5; padding: 2px; border-radius: 3px;")
@@ -2486,7 +2475,7 @@ class MainWindow(QtWidgets.QMainWindow):
             h_top.addWidget(b_upd)
             v_tab.addLayout(h_top)
 
-            # Alt Satır (Kaydet/Yükle/Sil - Aynı kalıyor)
+            # Bottom row (save/load/delete - unchanged)
             h_bot = QtWidgets.QHBoxLayout()
             b_save = QtWidgets.QPushButton(f"💾 Save {name}");
             b_save.clicked.connect(lambda _, n=name: self._save_single_course(n))
@@ -2502,16 +2491,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
             self.tabs_course.addTab(w, f"Course {name}")
 
-            # --- ÖNEMLİ: Butonu da sözlüğe ekliyoruz ki rengini değiştirebilelim ---
+            # --- IMPORTANT: the button goes in the dict too, so its colour can be changed ---
             self.course_ui[name] = {"sp_row": sr, "sp_col": sc, "btn": b_sel}
         cl.addWidget(self.tabs_course)
         bot_lay.addWidget(course_grp)
 
-        # IHA (Drone) Menüsü
+        # UAV (drone) menu
         iha_box = QtWidgets.QGroupBox("UAV")
         il = QtWidgets.QVBoxLayout(iha_box)
 
-        # İHA Başlık ve LED
+        # UAV title and LED
         h_iha = QtWidgets.QHBoxLayout()
         lbl_iha = QtWidgets.QLabel("UAV STATUS")
         lbl_iha.setStyleSheet("""
@@ -2526,11 +2515,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.drone_led = QtWidgets.QLabel()
         self.drone_led.setFixedSize(16, 16)
-        self.drone_led.setStyleSheet("background-color:#b71c1c; border-radius:8px;") # Kırmızı = Bağlı Değil
+        self.drone_led.setStyleSheet("background-color:#b71c1c; border-radius:8px;") # Red = not connected
         h_iha.addWidget(self.drone_led, alignment=Qt.AlignRight)
         il.addLayout(h_iha)
 
-        # İHA Hedef Renk
+        # UAV target colour
         h_renk = QtWidgets.QHBoxLayout()
         h_renk.addWidget(QtWidgets.QLabel("Target colour:"))
         self.drone_color_lbl = QtWidgets.QLabel("Waiting")
@@ -2538,7 +2527,7 @@ class MainWindow(QtWidgets.QMainWindow):
         h_renk.addWidget(self.drone_color_lbl)
         il.addLayout(h_renk)
 
-        # TASK3 RENK - what the BOAT is actually hunting, straight from its telemetry.
+        # TASK3 COLOUR - what the BOAT is actually hunting, straight from its telemetry.
         #
         # The line above is what the DRONE sees; this one is what arrived at the other end.
         # They are not the same thing and the difference is the whole point: a colour can be
@@ -2551,7 +2540,7 @@ class MainWindow(QtWidgets.QMainWindow):
         h_t3.addWidget(self.task3_color_lbl)
         il.addLayout(h_t3)
 
-        # Boşluğu doldurmak için spacer
+        # Spacer to fill the gap
         il.addStretch(1)
 
         bot_lay.addWidget(iha_box)
@@ -2620,12 +2609,12 @@ class MainWindow(QtWidgets.QMainWindow):
         splitter.addWidget(center_widget)
         splitter.addWidget(self._build_boat_panel(2, bg_path))
 
-        # Splitter Oranları
-        splitter.setStretchFactor(0, 1)  # Sol: IDA 1
-        splitter.setStretchFactor(1, 4)  # Orta (Geniş)
-        splitter.setStretchFactor(2, 1)  # Sağ: IDA 2
+        # Splitter ratios
+        splitter.setStretchFactor(0, 1)  # Left: USV 1
+        splitter.setStretchFactor(1, 4)  # Centre (wide)
+        splitter.setStretchFactor(2, 1)  # Right: USV 2
 
-        # Workerlar
+        # Workers
         self.worker_1 = None
         # --- Reliable command channel (R1) ---
         # Why: telemetry became a broadcast and the drone heartbeats at 3 Hz, which made
@@ -2652,11 +2641,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.drone_hb_timer = QtCore.QTimer(self)
         self.drone_hb_timer.timeout.connect(self._on_drone_hb_timeout)
 
-        # Araçlardan gelen "teyit edilmiş" noktaları tutan hafıza
+        # Memory of the "confirmed" points the vehicles sent back
         self.verified_mission_1 = []
         self.verified_mission_2 = []
 
-        # En son halatları çiz (değişkenler artık tanımlı, hata vermez)
+        # Draw the ropes last (the variables now exist, no error)
         self._layout_rope_stripes()
 
     def _build_boat_panel(self, bid, bg_path):
@@ -2743,9 +2732,9 @@ class MainWindow(QtWidgets.QMainWindow):
         scroll.setFixedWidth(430)      # two panels now: 500 each left the map too narrow
         return scroll
 
-    # --- UI OLUŞTURUCU FONKSİYONLAR (Tekrarı Önlemek İçin) ---
+    # --- UI BUILDER FUNCTIONS (to avoid repetition) ---
     def _create_telemetry_grid(self, layout):
-        # 1. Ana Çerçeve (Konteyner)
+        # 1. Main frame (container)
         frame = QtWidgets.QFrame()
         frame.setStyleSheet("""
             QFrame {
@@ -2756,12 +2745,12 @@ class MainWindow(QtWidgets.QMainWindow):
         """)
         layout.addWidget(frame)
 
-        # Çerçevenin iç yerleşimi
+        # The frame's inner layout
         l_main = QtWidgets.QVBoxLayout(frame)
         l_main.setContentsMargins(0, 0, 0, 0)
         l_main.setSpacing(0)
 
-        # 2. Modern Başlık
+        # 2. Modern title
         lbl_header = QtWidgets.QLabel("TELEMETRY")
         lbl_header.setAlignment(QtCore.Qt.AlignCenter)
         lbl_header.setStyleSheet("""
@@ -2778,7 +2767,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """)
         l_main.addWidget(lbl_header)
 
-        # 3. Veri Izgarası
+        # 3. Data grid
         grid_widget = QtWidgets.QWidget()
         grid_widget.setStyleSheet("border: none; background: transparent;")
         l_main.addWidget(grid_widget)
@@ -2789,20 +2778,20 @@ class MainWindow(QtWidgets.QMainWindow):
 
         ui = {}
         keys = [
-            "ARKA_SOL_PWM", "ARKA_SAĞ_PWM", "ÖN_SOL_PWM", "ÖN_SAĞ_PWM",
-            "DÜMEN_PWM", "HIZ", "HDG", "HEDEF_HDG",
-            "ACI_FARKI", "KONTROL_HATA", "HEDEFE_MESAFE", "MEVCUT_GOREV", "MANUEL",
-            "ZAMAN", "FPS", "SENSOR_SAGLIK", "IDA_KONUM", "HEDEF_KONUM"
+            "REAR_L_PWM", "REAR_R_PWM", "FRONT_L_PWM", "FRONT_R_PWM",
+            "STEER_PWM", "SPEED", "HEADING", "TARGET_HDG",
+            "ANGLE_ERR", "CONTROL_ERR", "DIST_TO_GO", "TASK", "MANUAL",
+            "TIME", "FPS", "SENSORS", "POSITION", "TARGET"
         ]
 
         for i, k in enumerate(keys):
             row = i // 2
             col_base = (i % 2) * 2
 
-            # --- DEĞİŞİKLİK BURADA: BAŞLIKLAR ARTIK KALIN ---
-            lbl_title = QtWidgets.QLabel(TELEMETRY_LABELS.get(k, k))
+            # --- CHANGE HERE: THE TITLES ARE NOW BOLD ---
+            lbl_title = QtWidgets.QLabel(k)
             lbl_title.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-            # font-weight: bold ekledik ve rengi açtık (#cfd8dc)
+            # added font-weight: bold and a lighter colour (#cfd8dc)
             lbl_title.setStyleSheet("""
                 color: #cfd8dc;
                 font-size: 14px;
@@ -2812,9 +2801,9 @@ class MainWindow(QtWidgets.QMainWindow):
             """)
             g.addWidget(lbl_title, row, col_base)
 
-            # --- DEĞİŞİKLİK BURADA: DEĞERLER DAHA BELİRGİN ---
+            # --- CHANGE HERE: THE VALUES STAND OUT MORE ---
             lbl_val = QtWidgets.QLabel("-")
-            lbl_val.setAlignment(QtCore.Qt.AlignCenter)  # Yazıyı ortala
+            lbl_val.setAlignment(QtCore.Qt.AlignCenter)  # Centre the text
 
             lbl_val.setStyleSheet("""
                             color: #00e5ff;
@@ -2838,28 +2827,28 @@ class MainWindow(QtWidgets.QMainWindow):
         lbl_val.setStyleSheet("color:#ffd740; font-weight:bold; font-size:13px; border:none;"
                               " background-color: rgba(0, 0, 0, 40); border-radius: 3px;")
         g.addWidget(lbl_val, row, 1, 1, 3)
-        ui["SIRADAKI"] = lbl_val
+        ui["NEXT"] = lbl_val
 
         return ui
 
     def _create_mission_box(self, layout, bid):
         l = self._add_modern_frame(layout, f"MISSION PLAN (USV {bid})")
 
-        # Tablo
+        # Table
         table = QtWidgets.QTableWidget(0, 3)
-        # Sütun Genişliği
+        # Column width
         table.setColumnWidth(0, 45)
         table.setHorizontalHeaderLabels(["No", "Lat", "Lon"])
         table.horizontalHeader().setSectionResizeMode(2, QtWidgets.QHeaderView.Stretch)
 
-        # --- KOMPAKT AYARLAR (GÜNCELLENDİ) ---
-        # Satır Yüksekliği: 16 -> 18 (8 punto için nefes payı)
+        # --- COMPACT SETTINGS (UPDATED) ---
+        # Row height: 16 -> 18 (breathing room for 8 pt)
         table.verticalHeader().setDefaultSectionSize(18)
 
-        # Başlık Yüksekliği: 18 -> 20
+        # Header height: 18 -> 20
         table.horizontalHeader().setFixedHeight(20)
 
-        # Font: 7 -> 8 Punto
+        # Font: 7 -> 8 pt
         font = QtGui.QFont()
         font.setPointSize(8)
         font.setBold(True)
@@ -2868,10 +2857,10 @@ class MainWindow(QtWidgets.QMainWindow):
         table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         table.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
 
-        # Yüksekliği de satır artışına göre 110 -> 115 yaptık
+        # Height also raised with the rows: 110 -> 115
         table.setFixedHeight(115)
 
-        # --- STİL ---
+        # --- STYLE ---
         table.setStyleSheet("""
             QTableWidget {
                 border: none;
@@ -2888,7 +2877,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 height: 20px;
             }
             QTableWidget::item {
-                padding-top: -1px;      /* Yazıyı ortalamak için ince ayar */
+                padding-top: -1px;      /* Fine tune to centre the text */
                 padding-bottom: 0px;
                 border: none;
             }
@@ -2899,7 +2888,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """)
         l.addWidget(table)
 
-        # --- 1. SATIR (Butonlar) ---
+        # --- ROW 1 (buttons) ---
         row1 = QtWidgets.QHBoxLayout()
         btn_h = 22
 
@@ -2917,12 +2906,12 @@ class MainWindow(QtWidgets.QMainWindow):
         b_del_sel.setStyleSheet(self._get_btn_style("#ef6c00", "#ff9800", "#ffb74d"))
         b_del_sel.clicked.connect(lambda: self._delete_selected_row(bid))
 
-        # --- YENİ EKLENEN ÇOĞALTMA BUTONU ---
+        # --- NEW DUPLICATE BUTTON ---
         b_dup = QtWidgets.QPushButton("📋")
         b_dup.setToolTip("Duplicate the selected point (copy below)")
         b_dup.setFixedWidth(40)
         b_dup.setFixedHeight(btn_h)
-        b_dup.setStyleSheet(self._get_btn_style("#fbc02d", "#fff59d", "#ffee58"))  # Sarı Stil
+        b_dup.setStyleSheet(self._get_btn_style("#fbc02d", "#fff59d", "#ffee58"))  # Yellow style
         b_dup.clicked.connect(lambda: self._duplicate_selected_row(bid))
         # ------------------------------------
 
@@ -2941,16 +2930,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
         row1.addWidget(b_add);
         row1.addWidget(b_del_sel);
-        row1.addWidget(b_dup)  # <--- BUNU EKLE
+        row1.addWidget(b_dup)  # <--- ADD THIS
         row1.addWidget(b_clr);
         row1.addWidget(b_snd)
         l.addLayout(row1)
 
-        # --- 2. SATIR ---
+        # --- ROW 2 ---
         row2 = QtWidgets.QHBoxLayout()
         style_grey = self._get_btn_style("#455a64", "#90a4ae", "#78909c")
         style_blue = self._get_btn_style("#1565c0", "#448aff", "#2979ff")
-        # Morumsu stil (Görev butonu için)
+        # Purplish style (for the task button)
         style_purple = self._get_btn_style("#7b1fa2", "#e1bee7", "#ea80fc")
 
         btn_up = QtWidgets.QPushButton("▲");
@@ -2965,11 +2954,11 @@ class MainWindow(QtWidgets.QMainWindow):
         btn_down.setStyleSheet(style_grey);
         btn_down.clicked.connect(lambda: self._move_row(bid, 1))
 
-        # --- YENİ EKLENEN BUTON: GÖREV DEĞİŞTİR ---
+        # --- NEW BUTTON: CHANGE TASK ---
         btn_task = QtWidgets.QPushButton("📝 TASK")
         btn_task.setToolTip("Change the current task by hand")
         btn_task.setFixedHeight(btn_h)
-        btn_task.setStyleSheet(style_purple)  # Farklı renk olsun dikkat çeksin
+        btn_task.setStyleSheet(style_purple)  # A different colour so it catches the eye
         btn_task.clicked.connect(lambda: self._set_manual_task(bid))
         # ------------------------------------------
 
@@ -2997,8 +2986,8 @@ class MainWindow(QtWidgets.QMainWindow):
         return table
 
     def _set_manual_task(self, bid):
-        """Kullanıcıdan görev adı ister ve araca gönderir."""
-        # Input Dialog aç
+        """Ask the user for a task name and send it to the vehicle."""
+        # Open the input dialog
         text, ok = QtWidgets.QInputDialog.getText(
             self,
             f"USV {bid} task",
@@ -3011,18 +3000,18 @@ class MainWindow(QtWidgets.QMainWindow):
             task_name = text.strip()
             if not task_name: return
 
-            # Komutu hazırla ve gönder
+            # Build the command and send it
             self._send_reliable({
                 "target_id": bid,
                 "cmd": "set_task",
                 "task_name": task_name
             })
 
-    # MainWindow içindeki bu fonksiyonu değiştir:
+    # Replace this function in MainWindow:
     def _refresh_map_mission(self, bid, sync_other=True):
         """
-        bid: Hangi botun tablosu değişti?
-        sync_other: Diğer botu da güncelle (Sonsuz döngüyü engellemek için parametre).
+        bid: whose table changed
+        sync_other: update the other boat too (a parameter to stop an endless loop).
         """
         t = self.usv1_table if bid == 1 else self.usv2_table
         local_pts = []
@@ -3038,29 +3027,29 @@ class MainWindow(QtWidgets.QMainWindow):
 
         remote_pts = self.verified_mission_1 if bid == 1 else self.verified_mission_2
 
-        # Etiket seçimi
+        # Label choice
         if bid == 1:
             tags_to_send = self.MISSION_TAGS_1
         else:
             tags_to_send = self.MISSION_TAGS_2
 
-        # Haritayı güncelle
+        # Update the map
         self.map.update_mission_waypoints(bid, local_pts, remote_pts, tags=tags_to_send)
 
-        # --- SENKRONİZASYON ---
-        # Eğer bu güncelleme ana tetikleyiciyse (sync_other=True),
-        # diğer botun haritasını da güncelle ki "Turuncu" renkler eşleşsin.
+        # --- SYNCHRONISATION ---
+        # If this update is the main trigger (sync_other=True),
+        # update the other boat's map too so the "orange" colours match.
         if sync_other:
             other_id = 2 if bid == 1 else 1
             self._refresh_map_mission(other_id, sync_other=False)
 
     def keyPressEvent(self, e):
-        # Shift'e basıldığında Toggle yap
+        # Toggle when Shift is pressed
         if e.key() == Qt.Key_Shift:
-            if not e.isAutoRepeat():  # Basılı tutmayı engelle
-                self.map.toggle_smart_ruler()  # <-- start yerine toggle çağırdık
+            if not e.isAutoRepeat():  # Ignore key repeat while held
+                self.map.toggle_smart_ruler()  # <-- toggle called instead of start
 
-        # Hangi radyo butonu seçiliyse hedef o ID'dir
+        # The target ID is whichever radio button is checked
         target_id = 1
         if hasattr(self, 'radio_focus_2') and self.radio_focus_2.isChecked():
             target_id = 2
@@ -3070,16 +3059,16 @@ class MainWindow(QtWidgets.QMainWindow):
         elif e.key() == Qt.Key_Down:
             self._send_manual_pwm(target_id, 1300, 1300)
         elif e.key() == Qt.Key_Left:
-            self._send_manual_pwm(target_id, 1300, 1600)  # Sol için: Sol motor geri, sağ ileri
+            self._send_manual_pwm(target_id, 1300, 1600)  # Left: left motor back, right forward
         elif e.key() == Qt.Key_Right:
-            self._send_manual_pwm(target_id, 1600, 1300)  # Sağ için: Sol ileri, sağ geri
+            self._send_manual_pwm(target_id, 1600, 1300)  # Right: left forward, right back
         elif e.key() == Qt.Key_Space:
             self._send_manual_pwm(target_id, 1500, 1500)  # STOP
         else:
             super().keyPressEvent(e)
 
     def _confirm_estop(self, bid):
-        """Acil kapatma için onay kutusu çıkarır."""
+        """Show a confirmation box for the emergency shutdown."""
         msg = QtWidgets.QMessageBox()
         msg.setIcon(QtWidgets.QMessageBox.Critical)
         msg.setWindowTitle("EMERGENCY")
@@ -3094,11 +3083,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _add_modern_frame(self, parent_layout, title):
         """
-        Modern çerçeve ve İÇİNDEKİ BUTONLARIN stilini tanımlar.
+        Build a modern frame and set the style of the BUTTONS INSIDE it.
         """
-        # 1. Ana Çerçeve
+        # 1. Main frame
         frame = QtWidgets.QFrame()
-        # DİKKAT: QPushButton stilini buraya ekledik!
+        # NOTE: the QPushButton style is added here!
         frame.setStyleSheet("""
             QFrame {
                 background-color: rgba(30, 30, 30, 180);
@@ -3106,11 +3095,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 border-radius: 6px;
                 margin-top: 4px;
             }
-            /* --- ÇERÇEVE İÇİNDEKİ BUTONLAR --- */
+            /* --- BUTTONS INSIDE THE FRAME --- */
             QPushButton {
-                background-color: #455a64;       /* Koyu Gri Zemin */
-                color: white;                    /* Beyaz Yazı */
-                border: 2px solid #90a4ae;       /* BELİRGİN ÇERÇEVE (Metalik) */
+                background-color: #455a64;       /* Dark grey background */
+                color: white;                    /* White text */
+                border: 2px solid #90a4ae;       /* CLEAR BORDER (metallic) */
                 border-radius: 4px;
                 padding: 4px;
                 min-width: 24px;
@@ -3119,7 +3108,7 @@ class MainWindow(QtWidgets.QMainWindow):
             }
             QPushButton:hover {
                 background-color: #546e7a;
-                border: 2px solid #00e5ff;       /* Üstüne gelince NEON MAVİ */
+                border: 2px solid #00e5ff;       /* NEON BLUE on hover */
                 color: #ffffff;
             }
             QPushButton:pressed {
@@ -3132,7 +3121,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 background-color: #00897b;
                 border: 2px solid #00e676;
             }
-            /* Etiketler */
+            /* Labels */
             QLabel {
                 border: none;
                 background: transparent;
@@ -3141,15 +3130,15 @@ class MainWindow(QtWidgets.QMainWindow):
         """)
         parent_layout.addWidget(frame)
 
-        # Ana Düzen
+        # Main layout
         l_main = QtWidgets.QVBoxLayout(frame)
         l_main.setContentsMargins(0, 0, 0, 0)
         l_main.setSpacing(0)
 
-        # 2. Modern Başlık
+        # 2. Modern title
         lbl_header = QtWidgets.QLabel(title)
         lbl_header.setAlignment(QtCore.Qt.AlignCenter)
-        # Başlık stili (Override edilmemesi için spesifik yazdık)
+        # Title style (written specifically so it is not overridden)
         lbl_header.setStyleSheet("""
             background-color: #37474f;
             color: #eceff1;
@@ -3164,15 +3153,15 @@ class MainWindow(QtWidgets.QMainWindow):
         """)
         l_main.addWidget(lbl_header)
 
-        # 3. İçerik Alanı
+        # 3. Content area
         content_widget = QtWidgets.QWidget()
-        # İçerik alanı şeffaf olsun ki butonlar frame'in rengini almasın
+        # Content area transparent so the buttons do not take the frame's colour
         content_widget.setStyleSheet("background: transparent; border: none;")
         l_main.addWidget(content_widget)
 
         content_layout = QtWidgets.QVBoxLayout(content_widget)
         content_layout.setContentsMargins(4, 4, 4, 4)
-        content_layout.setSpacing(4)  # Butonlar arası boşluğu biraz açtık
+        content_layout.setSpacing(4)  # A little more space between the buttons
 
         return content_layout
 
@@ -3183,9 +3172,9 @@ class MainWindow(QtWidgets.QMainWindow):
         g.setSpacing(6)
         container_layout.addLayout(g)
 
-        # 1. Klavye Odağı
+        # 1. Keyboard focus
         rb_focus = QtWidgets.QRadioButton("⌨️ Keyboard focus")
-        rb_focus.setToolTip("Drive this boat with the keyboard (arrow keys)")  # <--- EKLENDİ
+        rb_focus.setToolTip("Drive this boat with the keyboard (arrow keys)")  # <--- ADDED
         rb_focus.setStyleSheet(
             "QRadioButton { color: #00e676; font-weight: bold; background: transparent; border: none; }")
         self.focus_group.addButton(rb_focus, bid)
@@ -3196,42 +3185,42 @@ class MainWindow(QtWidgets.QMainWindow):
             self.radio_focus_2 = rb_focus
         g.addWidget(rb_focus, 0, 0, 1, 2)
 
-        # 2. Mod Butonları
-        # OTONOM (Turkuaz)
+        # 2. Mode buttons
+        # AUTO (turquoise)
         b_auto = QtWidgets.QPushButton("🤖 AUTO")
-        b_auto.setToolTip("Switch to autonomous mode (the mission starts)")  # <--- EKLENDİ
+        b_auto.setToolTip("Switch to autonomous mode (the mission starts)")  # <--- ADDED
         b_auto.setStyleSheet(self._get_btn_style("#006064", "#00bcd4", "#18ffff"))
         b_auto.clicked.connect(lambda: self._send_cmd(bid, "set_manual", False))
 
-        # MANUEL (Mor)
+        # MANUAL (purple)
         b_man = QtWidgets.QPushButton("🎮 MANUAL")
-        b_man.setToolTip("Switch to manual mode (remote control)")  # <--- EKLENDİ
+        b_man.setToolTip("Switch to manual mode (remote control)")  # <--- ADDED
         b_man.setStyleSheet(self._get_btn_style("#4a148c", "#ab47bc", "#e040fb"))
         b_man.clicked.connect(lambda: self._send_cmd(bid, "set_manual", True))
 
         g.addWidget(b_auto, 1, 0);
         g.addWidget(b_man, 1, 1)
 
-        # 3. İz Kontrolleri (Buz Mavisi)
+        # 3. Track controls (ice blue)
         style_ice = self._get_btn_style("#37474f", "#4fc3f7", "#81d4fa")
 
         b_fz = QtWidgets.QPushButton("❄️");
-        b_fz.setToolTip("Freeze the ghost track (keeps the line for analysis)")  # <--- EKLENDİ
+        b_fz.setToolTip("Freeze the ghost track (keeps the line for analysis)")  # <--- ADDED
         b_fz.setStyleSheet(style_ice)
         b_fz.clicked.connect(lambda: self.map.snapshot_ghost_trail() if bid == 1 else None)
 
         b_cl = QtWidgets.QPushButton("🧼");
-        b_cl.setToolTip("Clear the track on the screen")  # <--- EKLENDİ
+        b_cl.setToolTip("Clear the track on the screen")  # <--- ADDED
         b_cl.setStyleSheet(style_ice)
         b_cl.clicked.connect(lambda: self.map.clear_ghost_trail_by_id(bid))
 
         g.addWidget(b_fz, 2, 0);
         g.addWidget(b_cl, 2, 1)
 
-        # 4. Röle (motor gücü) - kumandadaki anahtarla AYNI röleyi çevirir.
-        # ArduPilot'ta RC yardımcı fonksiyonu kenar tetiklemeli, MAVLink DO_SET_RELAY de
-        # aynı duruma yazar; son yazan kazanır. Kumanda yolu bundan etkilenmez ve
-        # Jetson'dan bağımsız olduğu için asıl acil durdurma olarak kalır.
+        # 4. Relay (motor power) - flips the SAME relay as the switch on the RC transmitter.
+        # ArduPilot's RC auxiliary function is edge triggered and MAVLink DO_SET_RELAY
+        # writes the same state; the last writer wins. The RC path is unaffected and,
+        # being independent of the Jetson, stays the real emergency stop.
         b_relay_on = QtWidgets.QPushButton("⚡ RELAY ON")
         b_relay_on.setToolTip("Powers the motors (the same relay as the switch on the transmitter)")
         b_relay_on.setStyleSheet(self._get_btn_style("#1b5e20", "#00e676", "#00c853"))
@@ -3245,30 +3234,30 @@ class MainWindow(QtWidgets.QMainWindow):
         g.addWidget(b_relay_on, 3, 0)
         g.addWidget(b_relay_off, 3, 1)
 
-        # Rölenin GERÇEK durumu (aracın RELAY_STATUS mesajından). Kumandadan
-        # değiştirildiğinde de doğru kalsın diye "son gönderdiğimiz komut" gösterilmiyor.
+        # The relay's REAL state (from the vehicle's RELAY_STATUS). "The last command we sent"
+        # is not shown, so it stays right when the relay is flipped from the transmitter too.
         relay_lbl = QtWidgets.QLabel("RELAY: unknown")
         relay_lbl.setAlignment(QtCore.Qt.AlignCenter)
         relay_lbl.setStyleSheet("color:#90a4ae; font-weight:bold;")
         g.addWidget(relay_lbl, 4, 0, 1, 2)
         self.relay_lbls[bid] = relay_lbl
 
-        # 5. Acil Kapatma (KOYU KIRMIZI)
+        # 5. Emergency shutdown (DARK RED)
         b_estop = QtWidgets.QPushButton("🛑 EMERGENCY STOP")
-        b_estop.setToolTip("WARNING: cuts the motors' power at once!")  # <--- EKLENDİ
+        b_estop.setToolTip("WARNING: cuts the motors' power at once!")  # <--- ADDED
         b_estop.setStyleSheet(self._get_btn_style("#b71c1c", "#ff1744", "#d50000"))
         b_estop.clicked.connect(lambda: self._confirm_estop(bid))
         g.addWidget(b_estop, 5, 0, 1, 2)
 
-        # Bağlantı kalitesi - teknenin sıra numaralarından canlı ölçüm. Yeşil: sağlıklı,
-        # turuncu: aksıyor, kırmızı: kötü. "Akıcı değil" hissinin yerini rakam alsın diye.
+        # Link quality - measured live from the boat's sequence numbers. Green: healthy,
+        # orange: stuttering, red: bad. A number in place of a "not smooth" feeling.
         link_lbl = QtWidgets.QLabel("LINK: no data")
         link_lbl.setAlignment(QtCore.Qt.AlignCenter)
         link_lbl.setStyleSheet("color:#90a4ae; font-weight:bold;")
         g.addWidget(link_lbl, 6, 0, 1, 2)
         self.link_lbls[bid] = link_lbl
 
-        # 5. Bilgi
+        # 5. Info
         info_text = "[↑]Ahead  [↓]Astern  [←][→]Turn  [SPACE]Stop"
         lbl_info = QtWidgets.QLabel(info_text)
         lbl_info.setAlignment(QtCore.Qt.AlignCenter)
@@ -3278,7 +3267,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _get_btn_style(self, bg_color, border_color, hover_color):
         """
-        Verilen renklere göre Modern HUD butonu stili döndürür.
+        Return a modern HUD button style in the given colours.
         """
         return f"""
             QPushButton {{
@@ -3304,14 +3293,14 @@ class MainWindow(QtWidgets.QMainWindow):
             }}
         """
 
-    # --- MANTIK FONKSİYONLARI ---
+    # --- LOGIC FUNCTIONS ---
     @QtCore.Slot(dict)
     def on_packet(self, d: dict):
-        bid = int(d.get("id", 1))  # <--- ÇÖZÜM: Kesinlikle tam sayıya (1 veya 2) çevir!
+        bid = int(d.get("id", 1))  # <--- FIX: always turn it into an integer (1 or 2)!
 
-        # Drone (İHA) Telemetrisi Kontrolü
+        # Drone (UAV) telemetry check
         if bid == 3:
-            # Drone LED efekti
+            # Drone LED effect
             self.drone_led.setStyleSheet("background-color:#00e676; border-radius:8px;")
             QtCore.QTimer.singleShot(100, lambda: self.drone_led.setStyleSheet("background-color:#1b5e20; border-radius:8px;"))
             # 4000 ms, not 2500. The drone heartbeats at 3 Hz and the boat is polled at
@@ -3324,11 +3313,11 @@ class MainWindow(QtWidgets.QMainWindow):
             drone_color = d.get("drone_color", "BELIRSIZ")
             self.drone_color_lbl.setText(drone_color)
 
-            # İngilizceye çevir ve komut yolla.
-            # Sadece renk DEĞİŞTİĞİNDE gönder: drone her karede paket yolluyordu ve
-            # bu, aynı telsiz hattında tekneye saniyede onlarca gereksiz komut demekti.
-            # BELIRSIZ haritada yok, yani iletilmez - drone anlık kararsızlaşınca teknenin
-            # elindeki renk silinmez.
+            # Translate to English and send the command.
+            # Send ONLY when the colour CHANGES: the drone sent a packet every frame, and
+            # on the same radio link that meant dozens of needless commands a second to the boat.
+            # UNCERTAIN is not in the map, so it is not sent - when the drone wavers for a moment
+            # the colour the boat holds is not wiped.
             if drone_color in COLOR_TR_TO_EN and drone_color != getattr(self, "_last_drone_color", None):
                 self._last_drone_color = drone_color
                 self._want_color_en = COLOR_TR_TO_EN[drone_color]
@@ -3341,10 +3330,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
         task_str = d.get("task", "")
 
-        # --- Link istatistiği: varış zamanı + sıra numarası ---
-        # 'q' üst üste artan bir sayaçtır; aradaki atlama = kaybolan paket sayısı. Bu ayrım
-        # önemli: "kayıp" ile "geç geldi" farklı hastalıklardır ve şimdiye kadar ikisini
-        # ayıracak hiçbir ölçüm yoktu.
+        # --- Link statistics: arrival time + sequence number ---
+        # 'q' is a counter that rises by one each packet; a jump = packets lost. The split
+        # matters: "lost" and "late" are different illnesses, and until now nothing
+        # measured them apart.
         if bid in BOATS:
             st = self._lk_by.get(bid)
             if st is None:
@@ -3360,10 +3349,10 @@ class MainWindow(QtWidgets.QMainWindow):
                     q = int(q)
                     if st["last_q"] is not None:
                         delta = (q - st["last_q"]) % 100000
-                        if 0 < delta < 500:          # makul aralık: sayaç sıçraması değil
+                        if 0 < delta < 500:          # a sane range: not a counter jump
                             st["got"] += 1
                             st["lost"] += delta - 1
-                        else:                         # tekne yeniden başladı: sayaçları koru
+                        else:                         # the boat restarted: keep the counters
                             st["got"] += 1
                     else:
                         st["got"] += 1
@@ -3383,103 +3372,103 @@ class MainWindow(QtWidgets.QMainWindow):
         ui = getattr(self, f"usv{bid}_ui", None)
         if ui is None:
             return                    # a boat this GCS has no panel for
-        # Eğer pakette görev listesi varsa hafızaya al ve haritayı güncelle
+        # If the packet carries a task list, keep it and update the map
 
-        # Anahtar ismini kendi protokolüne göre değiştirebilirsin: "mission_list", "points" vs.
-        # Gelen veri: "GÖREV_NOKTALARI": {"GPS1": {"lat":..., "lon":...}, ...}
-        if "GÖREV_NOKTALARI" in d:
+        # The key name can follow your own protocol: "mission_list", "points" etc.
+        # Incoming data: "waypoints": {"GPS1": {"lat":..., "lon":...}, ...}
+        if "waypoints" in d:
             incoming_list = []
             try:
-                points_dict = d["GÖREV_NOKTALARI"]
+                points_dict = d["waypoints"]
 
-                # GPS1'den GPS12'ye kadar sırayla veriyi çek
+                # Take the data from GPS1 to GPS12 in order
                 for i in range(1, 13):
                     key = f"GPS{i}"
                     if key in points_dict:
                         pt = points_dict[key]
 
-                        # Veri dict formatında mı ve koordinat var mı?
+                        # Is it a dict and does it have coordinates?
                         if isinstance(pt, dict) and "lat" in pt and "lon" in pt:
                             lat = float(pt["lat"])
                             lon = float(pt["lon"])
 
-                            # Sadece koordinatı olan (0,0 olmayan) noktaları listeye al
+                            # Only points with coordinates (not 0,0) go in the list
                             if lat != 0.0 or lon != 0.0:
                                 incoming_list.append((lat, lon))
 
-                # Hafızayı güncelle
+                # Update the memory
                 if bid == 1:
                     self.verified_mission_1 = incoming_list
                 else:
                     self.verified_mission_2 = incoming_list
 
-                # Haritayı yeniden çiz (Yeşil noktalar görünsün)
+                # Draw the map again (so the green points show)
                 self._refresh_map_mission(bid)
 
             except Exception as e:
                 print(f"Mission list parse error: {e}")
 
-        # --- YARDIMCI GÜNCELLEME FONKSİYONU ---
+        # --- HELPER UPDATE FUNCTION ---
         def s(k, v="-"):
-            # Alan pakette HİÇ yoksa dokunma: son değer ekranda kalsın. Waypoint artık
-            # kendi mini paketinde geliyor ve o pakette panel alanları yok - eski davranış
-            # 10 saniyede bir bütün paneli "-" yapıp titretirdi. "-" yalnızca alan gelip
-            # değeri None olduğunda yazılır.
+            # If the field is NOT in the packet at all, leave it: the last value stays on screen.
+            # Waypoints now come in their own mini packet without the panel fields - the old
+            # behaviour set the whole panel to "-" every 10 seconds and made it flicker. "-" is
+            # written only when the field arrives with the value None.
             if v not in d:
                 return
             raw_val = d.get(v, "-")
 
-            # Eğer veri yoksa veya None ise
+            # No data, or None
             if raw_val is None or raw_val == "-":
                 ui[k].setText("-")
                 return
 
             try:
-                # Sayısal veri mi diye kontrol et
+                # Check whether it is a number
                 val_float = float(raw_val)
 
-                # PWM gibi tam sayılar için (Örn: 1500.0 -> 1500)
+                # For integers such as PWM (e.g. 1500.0 -> 1500)
                 if val_float.is_integer():
                     txt = f"{int(val_float)}"
                 else:
-                    # HIZ, Heading gibi floatlar için (Örn: 2.5432 -> 2.54)
+                    # For floats such as SPEED, heading (e.g. 2.5432 -> 2.54)
                     txt = f"{val_float:.2f}"
 
-                # Yine de çok uzun bir şey oluşursa (güvenlik)
+                # If it still comes out very long (safety)
                 if len(txt) > 8:
                     txt = txt[:8]
 
                 ui[k].setText(txt)
 
             except (ValueError, TypeError):
-                # Sayı değilse (Metin ise, örn: Görev Adı)
+                # Not a number (text, e.g. a task name)
                 txt = str(raw_val)
-                # Görev ismi çok uzunsa sonunu kısalt (TASK_... -> TASK..)
+                # Shorten a very long task name (TASK_... -> TASK..)
                 if len(txt) > 12:
                     txt = txt[:10] + ".."
                 ui[k].setText(txt)
 
-        s("ARKA_SOL_PWM", "pwm_L")
-        s("ARKA_SAĞ_PWM", "pwm_R")
-        s("ÖN_SOL_PWM", "pwm_FL")
-        s("ÖN_SAĞ_PWM", "pwm_FR")
-        s("DÜMEN_PWM", "pwm_STEER")
-        s("HIZ", "spd")
-        s("HDG", "hdg")
-        s("HEDEF_HDG", "trg_hdg")
-        s("ACI_FARKI", "err_ang")
-        s("KONTROL_HATA", "ctrl_err")
-        s("HEDEFE_MESAFE", "dist")
-        s("MEVCUT_GOREV", "task")
+        s("REAR_L_PWM", "pwm_L")
+        s("REAR_R_PWM", "pwm_R")
+        s("FRONT_L_PWM", "pwm_FL")
+        s("FRONT_R_PWM", "pwm_FR")
+        s("STEER_PWM", "pwm_STEER")
+        s("SPEED", "spd")
+        s("HEADING", "hdg")
+        s("TARGET_HDG", "trg_hdg")
+        s("ANGLE_ERR", "err_ang")
+        s("CONTROL_ERR", "ctrl_err")
+        s("DIST_TO_GO", "dist")
+        s("TASK", "task")
         if "task_queue" in d:
-            ui["SIRADAKI"].setText(" → ".join(t for t in str(d["task_queue"]).split(">") if t)
+            ui["NEXT"].setText(" → ".join(t for t in str(d["task_queue"]).split(">") if t)
                                    or "-")
-        s("MANUEL", "mod")
-        s("ZAMAN", "t_ms")
+        s("MANUAL", "mod")
+        s("TIME", "t_ms")
         s("FPS", "FPS")
-        s("SENSOR_SAGLIK", "hlth")
+        s("SENSORS", "hlth")
 
-        # Role durumu: -1 = arac RELAY_STATUS bildirmiyor -> "bilinmiyor" de, tahmin etme.
+        # Relay state: -1 = the vehicle does not report RELAY_STATUS -> say "unknown", do not guess.
         # R1 ack intake. If the boat remembers a LARGER sequence than anything this
         # session has sent (it survived a GCS restart), jump past it - otherwise our
         # fresh, smaller numbers would appear already-acknowledged.
@@ -3494,7 +3483,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if bid in BOATS:                      # for the task allocation
             st = self._boat_state.setdefault(bid, {})
             st["t"] = time.monotonic()
-            for key in ("task", "mod", "task_queue", "MEVCUT_KONUM"):
+            for key in ("task", "mod", "task_queue", "position"):
                 if key in d:
                     st[key] = d[key]
 
@@ -3514,7 +3503,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 relay_lbl.setText("RELAY: unknown")
                 relay_lbl.setStyleSheet("color:#90a4ae; font-weight:bold;")
 
-        # --- TASK3 hedef rengi: teknenin GERÇEKTEN elinde tuttuğu renk ---
+        # --- TASK3 target colour: the colour the boat REALLY holds ---
         #
         # 'tsrc' says where it came from: "cfg" = config.py's TASK3_KAMIKAZE_COLOR because
         # DRONE_ACTIVE is off, "drone" = the boat is waiting for / using the drone's colour.
@@ -3544,52 +3533,52 @@ class MainWindow(QtWidgets.QMainWindow):
                     self._send_target_color()
                     self.on_status(f"Boat colour differs ({tcol or 'none'}) -> {want} sent again")
 
-        pos = d.get("MEVCUT_KONUM", {})
+        pos = d.get("position", {})
         lat = pos.get("lat", 0.0)
         lon = pos.get("lon", 0.0)
         if lat and lon:
-            ui["IDA_KONUM"].setText(f"{lat:.5f},\n{lon:.5f}")
+            ui["POSITION"].setText(f"{lat:.5f},\n{lon:.5f}")
 
-        t_pos = d.get("HEDEF_KONUM", {})
+        t_pos = d.get("target", {})
         t_lat = t_pos.get("lat", 0.0)
         t_lon = t_pos.get("lon", 0.0)
         if t_lat and t_lon:
-            ui["HEDEF_KONUM"].setText(f"{t_lat:.5f},\n{t_lon:.5f}")
+            ui["TARGET"].setText(f"{t_lat:.5f},\n{t_lon:.5f}")
 
         if lat and lon:
 
-            # Yazı boyutunu biraz küçültelim ki sığsın
+            # Make the text a little smaller so it fits
             self.map.update_current_position(lat, lon, boat_id=bid)
             # Log
             logbox = self.usv1_log if bid == 1 else self.usv2_log
-            # logbox.appendPlainText(f"DATA: {lat},{lon}") # İstersen aç
+            # logbox.appendPlainText(f"DATA: {lat},{lon}") # uncomment if you want it
 
-        # 3. GEOFENCE KORUMA MANTIĞI (Her iki tekne için)
-        # Sadece "AKTİF" işaretliyse ve tekne OTONOM moddaysa çalışır.
-        is_manual = bool(d.get("mod", True))  # Varsayılan True (Güvenlik)
+        # 3. GEOFENCE PROTECTION LOGIC (for both boats)
+        # Works only when "ACTIVE" is ticked and the boat is in AUTONOMOUS mode.
+        is_manual = bool(d.get("mod", True))  # Default True (safety)
 
         if self.chk_fence_active.isChecked() and not is_manual:
-            pos = d.get("MEVCUT_KONUM")
+            pos = d.get("position")
             if isinstance(pos, dict):
                 cur_lat = pos.get("lat")
                 cur_lon = pos.get("lon")
                 fence_pts = self.map.get_fence_points()
 
-                # Çit en az 3 noktadan oluşmalı
+                # A fence needs at least 3 points
                 if cur_lat and cur_lon and len(fence_pts) >= 3:
-                    # Nokta poligonun içinde DEĞİLSE (Dışındaysa)
+                    # If the point is NOT inside the polygon (outside)
                     if not is_point_in_polygon(cur_lat, cur_lon, fence_pts):
                         msg = f"⚠️ GEOFENCE BREACH! STOPPING USV {bid}!"
                         self._boat_log(bid, msg)
                         self.on_status(msg)
 
-                        # 1. Manuel moda al (Otonomdan çıkar)
+                        # 1. Switch to manual (out of autonomous)
                         self._send_cmd(bid, "set_manual", True)
 
-                        # 2. Motorları durdur (PWM 1500)
+                        # 2. Stop the motors (PWM 1500)
                         self._send_manual_pwm(bid, 1500, 1500)
 
-                        # 3. Sesli Uyarı (Opsiyonel)
+                        # 3. Audible warning (optional)
                         QtWidgets.QApplication.beep()
 
     def _mk_btn(self, t, b, l, r):
@@ -3654,47 +3643,47 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.worker_1: self.worker_1.queue_send({"target_id": bid, "cmd": "manual_control", "left": l, "right": r})
 
     def _duplicate_selected_row(self, bid):
-        """Seçili satırı kopyalar ve hemen altına yeni bir satır olarak ekler."""
+        """Copy the selected row and insert it as a new row just below."""
         t = self.usv1_table if bid == 1 else self.usv2_table
         current = t.currentRow()
 
-        # Eğer seçim yoksa uyar ve çık
+        # No selection: warn and leave
         if current < 0:
             self._boat_log(bid, "WARNING: no row selected to duplicate.")
             return
 
-        # Seçili satırın lat ve lon değerlerini al
+        # Take the selected row's lat and lon
         lat = t.item(current, 1).text()
         lon = t.item(current, 2).text()
 
-        # Bir alt satıra yeni bir satır aç
+        # Open a new row just below
         target_row = current + 1
         t.insertRow(target_row)
 
-        # Sinyalleri geçici durdur (harita gereksiz yere art arda tetiklenmesin)
+        # Pause the signals for now (so the map is not triggered again and again for nothing)
         t.blockSignals(True)
-        t.setItem(target_row, 0, QtWidgets.QTableWidgetItem(""))  # Label kısmı fonksiyonla dolacak
+        t.setItem(target_row, 0, QtWidgets.QTableWidgetItem(""))  # The label part is filled by the function
         t.setItem(target_row, 1, QtWidgets.QTableWidgetItem(lat))
         t.setItem(target_row, 2, QtWidgets.QTableWidgetItem(lon))
         t.blockSignals(False)
 
-        # Tablo numaralarını düzelt ve haritayı yeniden çiz
+        # Fix the table numbers and draw the map again
         self._update_table_labels(bid)
         self._refresh_map_mission(bid)
 
-        # Kullanıcı art arda kopyalayabilsin diye yeni satırı otomatik seçili yap
+        # Select the new row so the user can duplicate again and again
         t.selectRow(target_row)
 
     def _delete_selected_row(self, bid):
-        """Tablodan seçili olan satırları siler."""
+        """Delete the selected rows from the table."""
         t = self.usv1_table if bid == 1 else self.usv2_table
 
-        # Çoklu seçim ihtimaline karşı tüm seçili satırları al
-        # (Tersten siliyoruz ki indeksler kaymasın)
+        # Take all selected rows in case of multiple selection
+        # (Deleted from the end so the indices do not shift)
         rows = sorted(set(index.row() for index in t.selectedIndexes()), reverse=True)
 
         if not rows:
-            # Eğer seçim yoksa, o anki aktif hücrenin satırını silmeyi dene
+            # No selection: try deleting the current cell's row
             current = t.currentRow()
             if current >= 0:
                 rows = [current]
@@ -3702,11 +3691,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 self._boat_log(bid, "WARNING: no row selected to delete.")
                 return
 
-        # Silme İşlemi
+        # Delete
         for r in rows:
             t.removeRow(r)
 
-        # Numaraları ve Haritayı Güncelle
+        # Update the numbers and the map
         self._update_table_labels(bid)
         self._refresh_map_mission(bid)
 
@@ -3722,7 +3711,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._update_table_labels(bid)
 
     def _update_table_labels(self, bid):
-        """Tablonun 'No' sütununa numaraları ve etiketleri yazar."""
+        """Write the numbers and labels in the table's 'No' column."""
         t = self.usv1_table if bid == 1 else self.usv2_table
 
         if bid == 1:
@@ -3730,70 +3719,70 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             tags = self.MISSION_TAGS_2
 
-        # --- GÜNCELLEME BURADA ---
+        # --- UPDATE HERE ---
         font_small = QtGui.QFont()
-        font_small.setPointSize(8)  # Fontu 7'den 8'e çıkardık
+        font_small.setPointSize(8)  # Font raised from 7 to 8
         font_small.setBold(True)
 
         for i in range(t.rowCount()):
             label_text = str(i + 1)
             if i < len(tags):
-                # Görev adını kısalt: TASK1_START -> T1_S
+                # Shorten the task name: TASK1_START -> T1_S
                 short_tag = tags[i].replace("TASK", "T").replace("START", "S").replace("END", "E").replace("MID", "M")
                 label_text += f".{short_tag}"
 
             item = t.item(i, 0)
             if not item:
                 item = QtWidgets.QTableWidgetItem()
-                item.setFlags(Qt.ItemIsEnabled)  # Sadece okunabilir
+                item.setFlags(Qt.ItemIsEnabled)  # Read only
                 item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
                 t.setItem(i, 0, item)
 
             item.setFont(font_small)
             item.setText(label_text)
 
-            # Satır yüksekliğini de 18px yapalım
+            # Row height 18 px too
             t.setRowHeight(i, 18)
 
     def _move_row(self, bid, direction):
         """
-        Seçili satırı yukarı (-1) veya aşağı (+1) taşır.
+        Move the selected row up (-1) or down (+1).
         """
         table = self.usv1_table if bid == 1 else self.usv2_table
         current_row = table.currentRow()
 
-        # Seçim yoksa veya geçersizse çık
+        # No or invalid selection: leave
         if current_row < 0: return
 
-        # Hedef satır
+        # Target row
         target_row = current_row + direction
 
-        # Sınır kontrolü (Listenin dışına çıkma)
+        # Bounds check (do not leave the list)
         if target_row < 0 or target_row >= table.rowCount():
             return
 
-        # --- VERİ TAKASI (SWAP) ---
-        # Lat ve Lon değerlerini al
+        # --- DATA SWAP ---
+        # Take the lat and lon
         lat_curr = table.item(current_row, 1).text()
         lon_curr = table.item(current_row, 2).text()
 
         lat_target = table.item(target_row, 1).text()
         lon_target = table.item(target_row, 2).text()
 
-        # Yerlerini değiştirerek geri yaz
+        # Write them back swapped
         table.item(current_row, 1).setText(lat_target)
         table.item(current_row, 2).setText(lon_target)
 
         table.item(target_row, 1).setText(lat_curr)
         table.item(target_row, 2).setText(lon_curr)
 
-        # Seçimi de taşı ki art arda basabilsin
+        # Move the selection too, so the button can be pressed again and again
         table.selectRow(target_row)
 
-        # Haritayı güncelle (Çünkü sıra değişince etiketler de yer değiştirmeli)
+        # Update the map (the labels must move when the order changes)
         self._refresh_map_mission(bid)
 
-    # MainWindow sınıfının içinde bu fonksiyonu bul ve değiştir:
+    # Find and replace this function in the MainWindow class:
     def _send_mission(self, bid):
         t = self.usv1_table if bid == 1 else self.usv2_table
         cnt = t.rowCount()
@@ -3807,7 +3796,7 @@ class MainWindow(QtWidgets.QMainWindow):
         sent_count = 0
         for i in range(cnt):
             try:
-                # Hücrelerin boş olup olmadığını kontrol et
+                # Check whether the cells are empty
                 item_lat = t.item(i, 1)
                 item_lon = t.item(i, 2)
 
@@ -3860,9 +3849,9 @@ class MainWindow(QtWidgets.QMainWindow):
     @QtCore.Slot(int, float, float, int)
     def _on_map_gps_selected(self, idx, lat, lon, target_row):
         """
-        idx: 1 (IDA1), 2 (IDA2), 3 (Her İkisi)
-        target_row: -1 ise listenin sonuna yeni satır ekler.
-                    0, 1, 2 vb. ise o satırdaki mevcut GPS verisini günceller.
+        idx: 1 (IDA1), 2 (IDA2), 3 (both)
+        target_row: -1 adds a new row at the end of the list;
+                    0, 1, 2 etc. update the GPS data in that row.
         """
 
         targets = []
@@ -3877,7 +3866,7 @@ class MainWindow(QtWidgets.QMainWindow):
             t = self.usv1_table if target == 1 else self.usv2_table
 
             if target_row == -1:
-                # --- YENİ SATIR EKLEME MODU ---
+                # --- NEW ROW MODE ---
                 r = t.rowCount()
                 t.insertRow(r)
                 t.setItem(r, 0, QtWidgets.QTableWidgetItem(str(r + 1)))
@@ -3886,20 +3875,20 @@ class MainWindow(QtWidgets.QMainWindow):
                 self._boat_log(target, "New point added to the list from the map.")
 
             else:
-                # --- MEVCUT SATIRI GÜNCELLEME MODU ---
+                # --- UPDATE EXISTING ROW MODE ---
                 if target_row < t.rowCount():
-                    # Sinyal döngüsünü engellemek için geçici olarak kapat
+                    # Turn off for now to avoid a signal loop
                     t.blockSignals(True)
                     t.item(target_row, 1).setText(f"{lat:.7f}")
                     t.item(target_row, 2).setText(f"{lon:.7f}")
                     t.blockSignals(False)
                     self._boat_log(target, f"Point {target_row + 1} updated from the map.")
 
-            # Güncellemeler (Haritayı ve Tablo numaralarını yenile)
+            # Updates (refresh the map and the table numbers)
             self._refresh_map_mission(target)
             self._update_table_labels(target)
 
-    # --- Diğer Yardımcı Fonksiyonlar (Eskilerden kalanlar) ---
+    # --- Other helper functions (left from older versions) ---
     def _toggle_fence_draw(self, c):
         if c:
             self.btn_fence_draw.setText("Finish"); self.map.start_fence_drawing()
@@ -3922,7 +3911,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _toggle(self):
         if not self._connected:
-            # --- BAĞLANMA İŞLEMİ ---
+            # --- CONNECTING ---
             port1 = self.cmb_port_1.currentText().strip() if self.chk_rfd.isChecked() else ""
             baud = int(self.cmb_baud.currentText())
             csv_path = "telemetry_log.csv" if self.chk_csv.isChecked() else None
@@ -3972,7 +3961,7 @@ class MainWindow(QtWidgets.QMainWindow):
                            + (f", RFD {port1} @ {baud}" if port1 else ""))
 
         else:
-            # --- KOPARMA İŞLEMİ ---
+            # --- DISCONNECTING ---
             if self.worker_1:
                 try:
                     self.worker_1.packet.disconnect()
@@ -4092,8 +4081,8 @@ class MainWindow(QtWidgets.QMainWindow):
         name = self.cmb_rc_task.currentText().split()[0]
         task = {"task": name, "urgent": True}
         if name == "rally":
-            pts = [st["MEVCUT_KONUM"] for st in self._boat_state.values()
-                   if st.get("MEVCUT_KONUM")]
+            pts = [st["position"] for st in self._boat_state.values()
+                   if st.get("position")]
             if not pts:
                 self.on_status("A rally point needs a boat's position first")
                 return
@@ -4108,7 +4097,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.on_status("RoboCommand is not connected")
             return
         tel = self._rc.bridge.telemetry.get(1, (0.0, {}))[1]
-        pos = tel.get("MEVCUT_KONUM") or {}
+        pos = tel.get("position") or {}
         self._rc.add_report(1, {"type": "gate", "gate": "entry", "lat": pos.get("lat", 0.0),
                                 "lon": pos.get("lon", 0.0)})
         self.on_status("RoboCommand: test report queued (entry gate, USV 1)")
@@ -4145,11 +4134,11 @@ class MainWindow(QtWidgets.QMainWindow):
             lbl.setText(f"LINK: {rate:.1f} Hz · loss {loss:.0f}% · gap {max_gap:.1f}s"
                         f" · {st.get('via', '')}")
             if rate >= 2.5 and loss < 10.0:
-                style = "color:#00e676; font-weight:bold;"       # sağlıklı
+                style = "color:#00e676; font-weight:bold;"       # healthy
             elif rate >= 1.5:
-                style = "color:#ffa726; font-weight:bold;"       # aksıyor
+                style = "color:#ffa726; font-weight:bold;"       # stuttering
             else:
-                style = "color:#ff5252; font-weight:bold;"       # kötü
+                style = "color:#ff5252; font-weight:bold;"       # bad
             lbl.setStyleSheet(style)
 
     def _on_map_changed(self):
@@ -4168,19 +4157,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.map.start_defining_course(n)
         self.on_status(f"Course {n}: selecting corners")
 
-        # Sekme indeksini bul (A=0, B=1, C=2)
+        # Find the tab index (A=0, B=1, C=2)
         idx = ["A", "B", "C"].index(n)
 
-        # O anki sekmeye otomatik geçiş yap (Kullanıcı başka yerdeyse bile)
+        # Switch to that tab (even if the user is elsewhere)
         self.tabs_course.setCurrentIndex(idx)
 
-        # --- DİNAMİK RENK DEĞİŞTİRME ---
-        # Sadece seçili olan sekme başlığı (QTabBar::tab:selected) SARI olsun.
-        # Diğerleri varsayılan (koyu) kalsın.
+        # --- DYNAMIC COLOUR CHANGE ---
+        # Only the selected tab title (QTabBar::tab:selected) is YELLOW.
+        # The others keep the default (dark).
 
-        # Renk Kodları:
-        # Seçili (Aktif): #ffeb3b (Sarı), Yazı: Siyah
-        # Normal: #455a64 (Gri), Yazı: Beyaz
+        # Colour codes:
+        # Selected (active): #ffeb3b (yellow), text: black
+        # Normal: #455a64 (grey), text: white
 
         self.tabs_course.setStyleSheet(f"""
             QTabBar::tab {{
@@ -4212,13 +4201,13 @@ class MainWindow(QtWidgets.QMainWindow):
                 json.dump(d, f)
 
     def _save_single_course(self, name):
-        """Sadece seçilen parkuru (A, B veya C) kaydeder."""
+        """Save only the selected course (A, B or C)."""
         data = self.map.courses.get(name)
         if not data or not data["corners"]:
             self.on_status(f"WARNING: no data for course {name}, not saved.")
             return
 
-        # Dosya adı önerisi: parkur_A.json
+        # Suggested file name: parkur_A.json
         path, _ = QtWidgets.QFileDialog.getSaveFileName(self, f"Save course {name}", f"parkur_{name}.json",
                                                         "JSON (*.json)")
         if path:
@@ -4236,23 +4225,23 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.on_status(f"Save error: {e}")
 
     def _load_single_course(self, name):
-        """Seçilen parkur verisini dosyadan yükler."""
+        """Load the selected course from a file."""
         path, _ = QtWidgets.QFileDialog.getOpenFileName(self, f"Load course {name}", "", "JSON (*.json)")
         if path:
             try:
                 with open(path, "r") as f:
                     d = json.load(f)
 
-                # Veriyi hafızaya al
+                # Keep the data
                 self.map.courses[name]["corners"] = d.get("corners", [])
 
-                # Spinboxları güncelle
+                # Update the spinboxes
                 r = d.get("rows", 4)
                 c = d.get("cols", 4)
                 self.course_ui[name]["sp_row"].setValue(r)
                 self.course_ui[name]["sp_col"].setValue(c)
 
-                # Haritayı güncelle (Köşeler ve Izgara)
+                # Update the map (corners and grid)
                 self.map.courses[name]["rows"] = r
                 self.map.courses[name]["cols"] = c
                 self.map.render_course_grid(name)
@@ -4262,11 +4251,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.on_status(f"Load error: {e}")
 
     def _clear_single_course(self, name):
-        """Sadece seçilen parkuru haritadan ve hafızadan siler."""
-        # 1. Hafızayı temizle
+        """Delete only the selected course from the map and memory."""
+        # 1. Clear the memory
         self.map.courses[name]["corners"] = []
 
-        # 2. Görseli temizle
+        # 2. Clear the drawing
         self.map.clear_course_visuals(name)
 
         self.on_status(f"Course {name} deleted.")

@@ -3,7 +3,7 @@ RoboBoat 2026 RoboCommand messages (msgs/roboboat2026/report.proto, RoboNation).
 
 Turns what the GCS knows into Report messages and back (the fake server reads them):
   heartbeat  from a boat's telemetry as the GCS shows it (gcs.py LinkWorker._expand):
-             MEVCUT_KONUM, spd, hdg, mod (1 = manual), relay (0 = motor power off ->
+             position, spd, hdg, mod (1 = manual), relay (0 = motor power off ->
              KILLED), task (the boat's phase)
   report     a dict: {type: gate, gate: entry|exit|speed_start|speed_end, lat, lon},
              {type: object, object: boat|light_beacon|buoy, color, lat, lon, id, task},
@@ -60,7 +60,7 @@ class Codec:
             hb.state = pb.STATE_MANUAL if int(_num(tel['mod'], 1)) else pb.STATE_AUTO
         else:
             hb.state = pb.STATE_UNKNOWN
-        pos = tel.get('MEVCUT_KONUM') or {}
+        pos = tel.get('position') or {}
         hb.position.latitude = _num(pos.get('lat'))
         hb.position.longitude = _num(pos.get('lon'))
         hb.spd_mps = _num(tel.get('spd'))
