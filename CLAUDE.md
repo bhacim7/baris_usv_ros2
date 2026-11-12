@@ -44,9 +44,10 @@ Docker içinde (Gazebo Harmonic + VRX), gerçek tekneler Jetson. Hedef: RoboBoat
 - Adım 6e (1/2) bitti: Gazebo'da iki tekne (`boats:=azure,marine`; `usv_azure`, `usv_marine`
   siyah). RTF tek tekne %68, iki tekne %34. Eski launch'lar açık kalırsa Gazebo titrer
   (daily-startup §14).
-- Adım 6e (2/2) yazıldı: paylaştırma (`usv_core/allocation.py`, GCS `_assign_task`, "Hakem
-  görevi (test)" düğmesi). Barış'ın denemesi ve commit'i bekleniyor. Bununla Adım 6 biter;
-  sıradaki Task 1 davranışı (ve simülasyonda varsayılanı yarışmaya çevirmek).
+- Adım 6e (2/2) bitti (`95fe6b5`): paylaştırma (`usv_core/allocation.py`). Adım 6 tamam.
+- GCS günlük düzeni yazıldı (sistem günlüğü ayrı, tekne günlükleri yalnız kendi satırları,
+  saat, tekrarlayan uyarı bir kez). Barış'ın denemesi ve commit'i bekleniyor.
+- Sıradaki: yol haritasını Barış'la gözden geçirmek, sonra görevler (Task 1).
 - Ana makinede (Claude) çekirdek testleri: `~/gcs-venv/bin/python` (numpy, pytest var; cv2
   yok, gerekirse sahte modülle).
 - GCS'yi Claude ana makinede `QT_QPA_PLATFORM=offscreen ~/gcs-venv/bin/python` ile pencere

@@ -40,6 +40,7 @@ Son güncelleme: 10 Kasım 2026.
       `telemetry_bridge.yaml`).
 - [ ] GCS bilgisayarı: Windows mu Ubuntu mu? (GCS ikisinde de çalışır; Windows'ta RFD
       pyserial ile.) Ana makinede bir kerelik `~/gcs-venv` kurulumu (`gcs/README.md`).
+- [ ] GCS bilgisayarında seri port izni (gerçek RFD takılınca, bir kerelik): `sudo usermod -aG dialout $USER`, sonra oturumu kapatıp aç. Yoksa GCS "RFD açılamadı: Permission denied" der.
 - [ ] RFD doluluğu: iki tekne + drone aynı kanalda 0,3 s telemetriyle ölçülecek (gerçek
       telsizlerle).
 

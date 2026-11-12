@@ -463,6 +463,7 @@ class LinkWorker(QThread):
         self._newest = gcs_link.NewestFilter()
         self._wp_accum = {}
         self._links = None
+        self._last_error = {}
 
     def _expand(self, d: dict) -> dict:
         """
@@ -535,7 +536,10 @@ class LinkWorker(QThread):
                 return gcs_link.SerialLink(self.rfd_port, self.baud)
             return PySerialLink(self.rfd_port, self.baud)
         except (OSError, serial.SerialException) as e:
-            self.status.emit(f"{kind.upper()} açılamadı: {e}")
+            text = f"{kind.upper()} açılamadı: {e} (her saniye yeniden deneniyor)"
+            if self._last_error.get(kind) != text:     # once, not every second
+                self._last_error[kind] = text
+                self.status.emit(text)
             return None
 
     def run(self):
@@ -2582,6 +2586,20 @@ class MainWindow(QtWidgets.QMainWindow):
         rl.addWidget(self.cmb_rc_task, 3, 0, 1, 2)
         rl.addWidget(btn_rc_task, 3, 2)
         bot_lay.addWidget(rc_box)
+
+        # System log: what is about neither boat alone (links, RoboCommand, the judges'
+        # tasks and who got them). Each boat's own lines go to its panel's log.
+        sys_box = QtWidgets.QGroupBox("SİSTEM GÜNLÜĞÜ")
+        sl = QtWidgets.QVBoxLayout(sys_box)
+        self.sys_log = QtWidgets.QPlainTextEdit()
+        self.sys_log.setReadOnly(True)
+        self.sys_log.setMaximumBlockCount(1000)
+        self.sys_log.setStyleSheet("QPlainTextEdit { background-color: black; color: #4fc3f7;"
+                                   " font-family: Consolas, monospace; font-size: 9pt;"
+                                   " border: none; }")
+        self.sys_log.setMinimumWidth(320)
+        sl.addWidget(self.sys_log)
+        bot_lay.addWidget(sys_box, 1)
         self._rc = None
         self._reports_seen = {}
         self._boat_state = {}             # number -> what the last telemetry said
@@ -3062,7 +3080,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if msg.exec() == QtWidgets.QMessageBox.Yes:
             self._send_cmd(bid, "emergency_stop", True)
-            self.on_status(f"⚠️ USV{bid} İÇİN ACİL DURDURMA GÖNDERİLDİ!")
+            self._boat_log(bid, "⚠️ ACİL DURDURMA GÖNDERİLDİ!")
 
     def _add_modern_frame(self, parent_layout, title):
         """
@@ -3552,6 +3570,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     # Nokta poligonun içinde DEĞİLSE (Dışındaysa)
                     if not is_point_in_polygon(cur_lat, cur_lon, fence_pts):
                         msg = f"⚠️ SINIR İHLALİ! USV{bid} DURDURULUYOR!"
+                        self._boat_log(bid, msg)
                         self.on_status(msg)
 
                         # 1. Manuel moda al (Otonomdan çıkar)
@@ -3589,17 +3608,17 @@ class MainWindow(QtWidgets.QMainWindow):
             sender.service(now)
             while sender.failed:
                 dead = sender.failed.pop(0)
-                self.on_status(f"⚠ KOMUT ULAŞMADI (IDA {bid}): {dead.get('cmd')} "
-                               f"({gcs_link.MAX_TRIES} deneme)")
+                self._boat_log(bid, f"⚠ KOMUT ULAŞMADI: {dead.get('cmd')} "
+                                    f"({gcs_link.MAX_TRIES} deneme)")
 
     def _send_cmd(self, bid, cmd, val):
         self._send_reliable({"target_id": bid, "cmd": cmd, "value": val})
-        self.on_status(f"TX[USV{bid}]: {cmd}->{val}")
+        self._boat_log(bid, f"TX: {cmd} -> {val}")
 
     def _send_relay(self, bid, state):
         """Motor gucu rolesini ac/kapat. Kumandadaki anahtarla ayni roleye gider."""
         self._send_reliable({"target_id": bid, "cmd": "set_relay", "value": int(state)})
-        self.on_status(f"TX[USV{bid}]: RÖLE -> {'AÇ' if state else 'KAPAT'}")
+        self._boat_log(bid, f"TX: RÖLE -> {'AÇ' if state else 'KAPAT'}")
 
     def _send_target_color(self):
         """
@@ -3631,7 +3650,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Eğer seçim yoksa uyar ve çık
         if current < 0:
-            self.on_status(f"UYARI: Çoğaltılacak satır seçili değil (USV{bid}).")
+            self._boat_log(bid, "UYARI: Çoğaltılacak satır seçili değil.")
             return
 
         # Seçili satırın lat ve lon değerlerini al
@@ -3670,7 +3689,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if current >= 0:
                 rows = [current]
             else:
-                self.on_status(f"UYARI: Silinecek satır seçili değil (USV{bid}).")
+                self._boat_log(bid, "UYARI: Silinecek satır seçili değil.")
                 return
 
         # Silme İşlemi
@@ -3770,10 +3789,10 @@ class MainWindow(QtWidgets.QMainWindow):
         cnt = t.rowCount()
 
         if cnt == 0:
-            self.on_status(f"UYARI: USV{bid} listesi boş, gönderilemedi.")
+            self._boat_log(bid, "UYARI: liste boş, gönderilemedi.")
             return
 
-        self.on_status(f"USV{bid}: {cnt} nokta hazırlanıyor...")
+        self._boat_log(bid, f"{cnt} nokta hazırlanıyor...")
 
         sent_count = 0
         for i in range(cnt):
@@ -3795,14 +3814,14 @@ class MainWindow(QtWidgets.QMainWindow):
                     })
                     sent_count += 1
                 else:
-                    self.on_status(f"HATA: Satır {i + 1} boş veya geçersiz!")
+                    self._boat_log(bid, f"HATA: Satır {i + 1} boş veya geçersiz!")
             except ValueError:
-                self.on_status(f"HATA: Satır {i + 1} sayısal değil!")
+                self._boat_log(bid, f"HATA: Satır {i + 1} sayısal değil!")
             except Exception as e:
-                self.on_status(f"HATA: {e}")
+                self._boat_log(bid, f"HATA: {e}")
 
         if sent_count > 0:
-            self.on_status(f"TX: USV{bid} için {sent_count} komut kuyruğa eklendi.")
+            self._boat_log(bid, f"TX: {sent_count} komut kuyruğa eklendi.")
 
     def _save_mission(self, bid):
         t = self.usv1_table if bid == 1 else self.usv2_table
@@ -3854,7 +3873,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 t.setItem(r, 0, QtWidgets.QTableWidgetItem(str(r + 1)))
                 t.setItem(r, 1, QtWidgets.QTableWidgetItem(f"{lat:.7f}"))
                 t.setItem(r, 2, QtWidgets.QTableWidgetItem(f"{lon:.7f}"))
-                self.on_status(f"Haritadan USV{target} listesine yeni nokta eklendi.")
+                self._boat_log(target, "Haritadan listeye yeni nokta eklendi.")
 
             else:
                 # --- MEVCUT SATIRI GÜNCELLEME MODU ---
@@ -3864,7 +3883,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     t.item(target_row, 1).setText(f"{lat:.7f}")
                     t.item(target_row, 2).setText(f"{lon:.7f}")
                     t.blockSignals(False)
-                    self.on_status(f"USV{target} - {target_row + 1}. Nokta haritadan güncellendi.")
+                    self._boat_log(target, f"{target_row + 1}. nokta haritadan güncellendi.")
 
             # Güncellemeler (Haritayı ve Tablo numaralarını yenile)
             self._refresh_map_mission(target)
@@ -3986,15 +4005,12 @@ class MainWindow(QtWidgets.QMainWindow):
         fields = " ".join(f"{k}={v}" for k, v in rep["fields"].items())
         where = (f" @ {rep['lat']:.6f},{rep['lon']:.6f}" if rep["lat"] is not None
                  and rep["lon"] is not None else "")
-        log = getattr(self, f"usv{bid}_log", self.usv1_log)
         text = f"RAPOR #{rep['id']} {rep['type']} {fields} ({rep['task']}){where}"
-        log.appendPlainText(text)
         if self._rc is not None:
             flat = {"type": rep["type"], "lat": rep["lat"], "lon": rep["lon"], **rep["fields"]}
-            if self._rc.add_report(bid, flat):
-                log.appendPlainText("  -> RoboCommand")
-            else:
-                log.appendPlainText("  (RoboCommand'ın bu yıl bunun için mesajı yok)")
+            text += (" -> RoboCommand" if self._rc.add_report(bid, flat)
+                     else " (RoboCommand'ın bu yıl bunun için mesajı yok)")
+        self._boat_log(bid, text)
 
     def _toggle_robocommand(self, on):
         """Connect to RoboCommand (it keeps retrying while the cable or server is away)."""
@@ -4059,10 +4075,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._send_reliable(payload)
         boat = self._profiles.get(number, {}).get("name", number)
         self.on_status(f"HAKEM GÖREVİ {name} -> IDA {number} ({boat})")
-        log = getattr(self, f"usv{number}_log", None)
-        if log is not None:
-            log.appendPlainText(f"HAKEM GÖREVİ: {name}"
-                                + (" (ACİL)" if task.get("urgent") else ""))
+        self._boat_log(number, f"HAKEM GÖREVİ: {name}" + (" (ACİL)" if task.get("urgent") else ""))
 
     def _robocommand_test_task(self):
         """Hand the allocation a task as if RoboCommand had sent it (simulation tests)."""
@@ -4260,9 +4273,25 @@ class MainWindow(QtWidgets.QMainWindow):
                         self.course_ui[k]["sp_col"].setValue(v["cols"])
                         self.map.render_course_grid(k)
 
+    @staticmethod
+    def _stamp():
+        return time.strftime("%H:%M:%S")
+
     @QtCore.Slot(str)
     def on_status(self, s):
-        self.usv1_log.appendPlainText(s)
+        """Write a line to the system log, with the time."""
+        if not hasattr(self, "sys_log"):          # while the window is being built
+            print(s)
+            return
+        self.sys_log.appendPlainText(f"{self._stamp()} {s}")
+
+    def _boat_log(self, bid, s):
+        """Write a line to one boat's log (its panel), with the time."""
+        log = getattr(self, f"usv{bid}_log", None)
+        if log is None:
+            self.on_status(f"IDA {bid}: {s}")
+        else:
+            log.appendPlainText(f"{self._stamp()} {s}")
 
     @QtCore.Slot(bool)
     def on_link(self, b):

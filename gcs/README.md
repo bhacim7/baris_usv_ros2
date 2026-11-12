@@ -11,6 +11,10 @@
   `ws/src/usv_core/usv_core/gcs_link.py`.
 - Teknelerin Ubiquiti adresleri ve portları tekne profillerinden okunur
   (`ws/src/usv_nodes/config/boats/*.yaml`); "Simülasyon" seçilirse 127.0.0.1.
+- Günlükler: alt çubukta **SİSTEM GÜNLÜĞÜ** (bağlantılar, RoboCommand, hakem görevlerinin
+  hangi tekneye gittiği); her teknenin panelinde yalnız o teknenin satırları (ona giden
+  komutlar, aldığı görevler, gönderdiği raporlar). Her satırın başında saat. Açılamayan bir
+  hat bir kez yazılır, her saniye değil.
 - İHA kutusu gizli (silinmedi; başka yarışmalarda gerekebilir).
 - Görseller `resources/` altında.
 
