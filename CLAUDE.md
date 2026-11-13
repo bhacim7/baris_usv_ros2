@@ -45,16 +45,17 @@ Docker içinde (Gazebo Harmonic + VRX), gerçek tekneler Jetson. Hedef: RoboBoat
   siyah). RTF tek tekne %68, iki tekne %34. Eski launch'lar açık kalırsa Gazebo titrer
   (daily-startup §14).
 - Adım 6e (2/2) bitti (`95fe6b5`): paylaştırma (`usv_core/allocation.py`). Adım 6 tamam.
-- GCS günlük düzeni bitti (`6370cf6`). GCS ekranı İngilizceye çevrildi (hakemler görüyor;
-  kod içi anahtarlar `ARKA_SOL_PWM` gibi Türkçe kaldı, ekranda `TELEMETRY_LABELS`). Barış'ın
-  denemesi ve commit'i bekleniyor.
-- Sıradaki: yol haritasını Barış'la gözden geçirmek, sonra görevler (Task 1).
+- GCS günlük düzeni bitti (`6370cf6`). GCS ekranı (`b17488d`) ve iç anahtarları, yorumları
+  (`54719b6`) İngilizce.
+- Yol haritası gözden geçirildi (14 Kasım): sıradaki Adım 9 Task 1 (Gazebo), sonra 10 marina
+  Core, 11 Task 5 Core, 12 Task 2 Core, 13 tam koşu. Gerçek tekne (Faz 7) Barış'ın sınavlarından
+  sonra; yetişmezse video eski kodla. Barış "geçelim" deyince Adım 9'un analiziyle başla.
 - Ana makinede (Claude) çekirdek testleri: `~/gcs-venv/bin/python` (numpy, pytest var; cv2
   yok, gerekirse sahte modülle).
 - GCS'yi Claude ana makinede `QT_QPA_PLATFORM=offscreen ~/gcs-venv/bin/python` ile pencere
   açmadan deneyebilir; GCS testleri `~/gcs-venv/bin/python -m pytest gcs/test`.
-- Sıra (Barış'la, 11 Kasım): 5d (RoboCommand) → Adım 6 (görev yöneticisi) → Task 1 davranışı
-  → marina Core → Task 5 → Task 2 Core; Adım 7-8 donanım hazır oldukça; Task 4 atıştan,
+- Sıra (Barış'la, 11 ve 14 Kasım): Task 1 davranışı → marina Core → Task 5 → Task 2 Core →
+  tam koşu; Adım 7-8 donanım hazır oldukça; Task 4 atıştan,
   Task 2 pinger seviyeleri hidrofondan sonra (docs/roboboat-2027.md §8 "Sıra").
 - Bilinen: raporda "yeşil 330°" uyarısı GPS/harita kaymasından (R3.5 ertelendi).
 

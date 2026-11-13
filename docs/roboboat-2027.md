@@ -328,15 +328,27 @@ RoboCommand (10.10.10.1:50000) ──Ethernet── GCS ──Ubiquiti (ana)─�
 
 ---
 
-## 8. Yol haritası (6 Kasım, Barış'la güncellendi)
+## 8. Yol haritası (6 Kasım, Barış'la; 14 Kasım'da görev davranışlarıyla güncellendi)
 
-**Zaman çizelgesi:** bugün 6 Kasım 2026 → teslimler Ocak 2027 → yarışma 18 Şubat 2027.
+**Zaman çizelgesi:** bugün 14 Kasım 2026 → teslimler (Proof of Readiness videosu) Ocak 2027 →
+yarışma 18 Şubat 2027.
 
-**Şimdilik yapılmayacaklar:**
-- Gerçek tekne (Faz 7). Mekanik olarak hazır sayılır.
-- Gazebo'da ikinci tekne.
-- Görev davranışları (Task 1 yan kısıtlı yol gibi).
-- Veri seti işleri.
+**Durum (14 Kasım):** Adım 1–6 bitti: altyapı tamam (iki tekne, parkur, 2027 unsurları,
+haberleşme, RoboCommand, görev yöneticisi, paylaştırma). Görev davranışlarının hiçbiri yazılmadı
+(görev yöneticisi "not written yet" deyip atlıyor); yalnız `rally`, `hold` ve eve dönüş var.
+
+**Karar (Barış, 14 Kasım):** sıradaki iş **görev davranışları, Gazebo'da** (Adım 9–12). Barış'ın
+sınav haftası: boş zamanlarda simülasyonda ilerlenir, gerçek tekne (Faz 7) biraz bekler.
+- Öncelik yine Faz 7'yi video için yetiştirmek. Tekne mekanik olarak hazır (14 Ekim videosundaki
+  gibi yüzüyor).
+- Yetişmezse yedek: video tekneyi süren eski kodla (2026 multiprocess) çekilir, ROS 2 sisteminden
+  küçük düzeltmelerle.
+- Faz 7'de yazılacaklar (o zaman ayrıca planlanır): `fc_bridge` (MAVLink, Orange Cube),
+  `perception` (ZED + YOLO), teknede açılış (`boat.launch.py`), iskele testleri, suda readiness
+  koşusu ve video.
+
+**Şimdilik yapılmayacaklar:** gerçek tekne (Faz 7), MQTT, pinger (hidrofon kararı yok), 3D
+LiDAR, su ya da top isteyen seviyeler (Task 3 Advanced/Disruptive, Task 4; Adım 7'den sonra).
 
 ### Adım 1. İki tekneye hazır kod (isim alanları)
 - 8 dosyadaki 57 mutlak konu ve servis adı göreli olur (`'/usv/fix'` → `'fix'`).
@@ -625,24 +637,59 @@ düğmesi: task4, toplanma (iki teknenin ortası + 20 m kuzey), task1. Bununla A
   USB kamera (Logitech Brio gibi) takılır (Barış).
 - Adım 7'den önce ya da onunla birlikte yapılır.
 
-### Sıra (Barış'la, 11 Kasım)
-Görev davranışları atış sistemini beklemez. Sıra: Adım 5 (haberleşme) → Adım 6 (görev
-yöneticisi) → **Task 1 davranışı** (yan kısıtlı yol, ENTRY/EXIT turları) → **marina, Core**
-(yeşil bölmeye yanaşma) → **Task 5** (RoboCommand'dan gelen noktada toplanma) → **Task 2,
-Core** (yeşil numaralı şamandıradan başla, doğru renkteki şamandıranın etrafında tur, çık;
-pinger yok). Üç rozet de ilk üçünü istiyor ve hiçbiri su ya da top gerektirmiyor. Adım 7
-(atış sistemi) ve Adım 8 (iki ZED) donanım hazır oldukça araya girer; su/top isteyen
-seviyeler (Task 3 Advanced, Task 4) onlardan sonra; Task 2'nin pinger seviyeleri hidrofon
-kararından sonra. Gerçek tekne (Faz 7, Ocak'taki Proof of Readiness videosu) ayrıca
-takvimlenecek.
+### Adım 9. Task 1: Safe Passage (Gazebo)
+Her adımın başında önce analiz ve plan, Barış kapsamı seçer; kod sonra.
+- Başlarken: simülasyonun varsayılanı `competition` başlangıcı ve `roboboat_2027` görevi olur
+  (readiness yalnız `mission:=readiness` ile; Adım 6'da böyle kararlaştırıldı).
+- Parkur modeli 2027: haritadaki beacon'lardan ENTRY (yanıp sönen mavi) ve EXIT (sabit mavi),
+  kırmızı, yeşil, sönük şamandıralar; görev alanının yeri (`competition` başlangıcının önünde).
+- Yan kısıtlı yol: yeşil teknenin soluna (port), kırmızı sağına (starboard), sönük = engel;
+  hiçbir şeye değmeden ENTRY'den EXIT'e. Elimizde: `roboboat_avoid` (engelden kaçan yol), A*,
+  `PathFollower`.
+- ENTRY etrafında saat yönünde, EXIT etrafında saat yönünün tersine tam tur (`Circle` var).
+- Raporlar: ENTRY, EXIT ve şamandıraların türü ve rengi (`TaskReport` → GCS → RoboCommand).
+- Seviyeler: Core (`layout: primer` ve rastgele `layout:=<n>`), sonra Advanced (EXIT yer
+  değiştirir → yeniden planla), Disruptive (renkler değişir; tek kareye bakıp karar verme).
+- Ölçüm: birkaç düzen ve seed, temas 0, her şamandıra doğru tarafta, süre.
+
+### Adım 10. Task 3 marina, Core (Gazebo)
+- Marinayı bul; bölme göstergelerinden boş (yeşil) bölmeyi seç.
+- Dar bölmeye yanaşma: bölmenin ekseninde yavaş giriş, içeride durma (bölme 1,5 m, tekne
+  0,78 m: her yanda ~0,35 m pay), sonra geri çıkış.
+- Rapor: yanaşma (hangi bölme).
+- Advanced (yangın: kırmızı pencereye su) ve Disruptive (ışık dizisi, top) Adım 7'den sonra.
+
+### Adım 11. Task 5: Dynamic Response, Core (Gazebo)
+- Sürüş tarafı yazılı (`rally`, yerinde durma; 6c). Kalan: Task 1 ya da marina sürerken gelen
+  toplanma isteğinde araya girip sonra devam etmenin uçtan uca denenmesi (GCS "Judges' task
+  (test)" ile), varış raporu, yerinde durmanın Gazebo'da ölçülmesi (2 m / 4 m bandı tahmin).
+- Advanced/Disruptive (iki tekne birlikte rozet) 2027 protokolü ve rozet seviyeleri belli olunca.
+
+### Adım 12. Task 2: Emergency Response Sprint, Core (Gazebo)
+- Yeşil numaralı RoboBuoy'dan başla, doğru renkteki Polyform şamandıranın etrafında tur, çıkış
+  şamandırasına süratle git. "Doğru renk" nereden geliyor belli değil (el kitabı): şimdilik
+  parametre.
+- Hızlı sürüş ayarları (sürat puanı olası). Pinger seviyeleri hidrofon kararından sonra.
+
+### Adım 13. Tam koşu
+- Plan `task1 → marina → task5 → task2`, sonra eve dönüş; tek tekne, sonra iki tekne (planı GCS
+  paylaştırır). Koşu raporu: görev başına süre, temas, raporlar.
+
+### Sıra (Barış'la, 11 ve 14 Kasım)
+Adım 9 (Task 1) → Adım 10 (marina Core) → Adım 11 (Task 5 Core) → Adım 12 (Task 2 Core) →
+Adım 13 (tam koşu). Üç rozet de Task 1, 3 ve 5'i istiyor; bu sırada hiçbiri su ya da top
+gerektirmiyor. Faz 7 (gerçek tekne) Barış'ın sınavlarından sonra, video tarihine göre araya
+girer. Adım 7 (atış sistemi) ve Adım 8 (iki ZED) donanım hazır oldukça; su/top isteyen
+seviyeler onlardan sonra; Task 2'nin pinger seviyeleri hidrofon kararından sonra. El kitabı
+çıkınca bu plan §9'daki sorularla yeniden gözden geçirilir.
 
 ### Bekleyenler
-- Gazebo'da iki tekne ve taret.
-- İkinci kameranın haritaya katılması (taret açısı + tekne yönü).
+- Gerçek tekne (Faz 7; Proof of Readiness videosu Ocak'ta; yedek eski kod).
+- Gazebo'da taret; ikinci kameranın haritaya katılması (taret açısı + tekne yönü).
+- Teknenin kamerasının öbür tekneyi görmesi (iki tekne birbirini engel olarak görmeli).
 - 3D LiDAR (Azure), hidrofon.
-- Gerçek tekne (Faz 7; Proof of Readiness videosu Ocak'ta).
-- Görev davranışları.
 - 2027 el kitabı ve RoboCommand 2027.
+- 2027 veri seti ve YOLO modeli (Barış ve takım).
 
 ### Mission Readiness (takım işi, kod dışı)
 - 6 sayfalık TDR, site, "Engineering in Action", poster, mülakat, sistem değerlendirmesi.
